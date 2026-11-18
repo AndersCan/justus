@@ -1415,6 +1415,112 @@ export const realOnlyCases: DriveCase[] = [
     },
   },
   {
+    name: "R9 a copy that heard of a newer version it never got reads the newest version it has while nobody is connected, also after a restart; the owner coming back brings it",
+    async run(world, t) {
+      const { a, b, own, remote } = await pair(world, t);
+      await own.put("/members.json", bytes("ada,ben"));
+      await own.put("/device.json", bytes("boot-1"));
+      for (const [p, text] of [
+        ["/members.json", "ada,ben"],
+        ["/device.json", "boot-1"],
+      ]) {
+        await eventually(
+          async () => remote.readSmall(p, 100, { timeoutMs: 2_000 }),
+          (v) => v === text,
+          `b read ${p}`,
+        );
+      }
+      await paths(remote);
+      await own.put("/device.json", bytes("boot-2"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b heard of boot-2",
+      );
+      await a.disconnect();
+      await eventually(
+        async () => remote.stats().peers,
+        (n) => n === 0,
+        "b has no peer",
+        15_000,
+      );
+      const readBoth = async (drive: Drive) => {
+        t.eq(
+          await within(drive.readSmall("/device.json", 100), 2_000),
+          "boot-1",
+          "device.json at the version b last read",
+        );
+        t.eq(await within(drive.readSmall("/members.json", 100), 2_000), "ada,ben", "members.json");
+        t.eq((await within(paths(drive), 2_000)).sort(), ["/device.json", "/members.json"], "list");
+        t.eq(
+          await within(drive.download("/device.json", { timeoutMs: 500 }), 2_000),
+          "here",
+          "download",
+        );
+        const got = await within(drive.readBytes("/device.json"), 2_000);
+        t.eq(Buffer.from(got ?? []).toString("utf8"), "boot-1", "readBytes");
+        const chunks: Uint8Array[] = [];
+        await within(
+          new Promise<void>((resolve, reject) => {
+            const s = drive.createReadStream("/device.json");
+            s.on("data", (c: Uint8Array) => chunks.push(c));
+            s.on("end", () => resolve());
+            s.on("error", reject);
+          }),
+          2_000,
+        );
+        t.eq(Buffer.concat(chunks).toString("utf8"), "boot-1", "createReadStream");
+      };
+      await readBoth(remote);
+      const store = await b.restart();
+      const again = await openOk(store, own.key, 10_000, t);
+      t.eq(again.stats().length, own.version(), "still knows the newer version");
+      await readBoth(again);
+      let changed = false;
+      again.onChange(() => {
+        changed = true;
+      });
+      await a.connect();
+      await b.connect();
+      await eventually(
+        async () => again.readSmall("/device.json", 100, { timeoutMs: 500 }),
+        (v) => v === "boot-2",
+        "the owner coming back brings boot-2",
+      );
+      t.ok(changed, "onChange fired");
+    },
+  },
+  {
+    name: "R10 a copy that never read anything does not answer from its header while nobody is connected",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/members.json", bytes("ada,ben"));
+      await own.put("/device.json", bytes("boot-1"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b heard of both writes",
+      );
+      await a.disconnect();
+      await eventually(
+        async () => remote.stats().peers,
+        (n) => n === 0,
+        "b has no peer",
+        15_000,
+      );
+      const read = await remote.readSmall("/members.json", 100, { timeoutMs: 500 }).then(
+        (v) => `answered ${String(v)}`,
+        () => "waited",
+      );
+      t.eq(read, "waited", "a path this copy never read waits, not missing");
+      const listed = await within(paths(remote), 1_000).then(
+        (p) => `listed ${p.length}`,
+        () => "waited",
+      );
+      t.eq(listed, "waited", "list waits, not empty");
+    },
+  },
+  {
     name: "D45b download settles as timedOut when the file's entry cannot be fetched",
     async run(world, t) {
       const { a, own, remote } = await pair(world, t);

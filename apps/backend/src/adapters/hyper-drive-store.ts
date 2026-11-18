@@ -13,7 +13,7 @@ import Hypercore from "hypercore";
 import crypto from "hypercore-crypto";
 import Hyperdrive from "hyperdrive";
 
-type Entry = { raw: any; drive: Drive; refs: number };
+type Entry = { raw: any; drive: Drive; refs: number; closeReads(): Promise<void> };
 
 export type HyperDriveStore = DriveStore & {
   /** Replicates every core over a connection. Not on the port: only the composition root hands it to the network. */
@@ -58,7 +58,13 @@ function readOnlyCopy(): never {
   throw new Error("read-only copy");
 }
 
-function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
+/** The most versions behind the newest that a read looks for one whose last block is here. */
+const MAX_BEHIND_WALK = 64;
+
+function wrap(
+  raw: any,
+  wrapOpts: { readOnly?: boolean } = {},
+): { drive: Drive; closeReads(): Promise<void> } {
   const readOnly = wrapOpts.readOnly === true;
   /** The live download of the file index that `keepOnly` runs, and the block it starts from. */
   let liveIndex: { from: number; range: { destroy(): void } } | undefined;
@@ -95,6 +101,55 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     }
   }
 
+  /** The checkout that reads go through while the copy is behind, and the version it is at. */
+  let behind: { v: number; ready: Promise<any> } | undefined;
+  let lastRead: any = raw;
+  /**
+   * What reads go through. A copy of another device's drive can know a length whose last block never
+   * arrived: with nobody connected every read at that length waits for a peer. Then it reads the newest
+   * version whose last block is here, the one this device last read; `onChange` fires when a peer returns.
+   */
+  async function readFrom(): Promise<any> {
+    lastRead = raw;
+    if (readOnly || raw.core.writable) return raw;
+    const length: number = raw.core.length;
+    if (length === 0 || (raw.core.peers?.length ?? 0) > 0) return raw;
+    if (await raw.core.has(length - 1)) return raw;
+    let version = 0;
+    for (let block = length - 1; block > 1 && block > length - 1 - MAX_BEHIND_WALK; block--) {
+      if (await raw.core.has(block - 1)) {
+        version = block;
+        break;
+      }
+    }
+    if (version === 0) return raw;
+    if (!behind || behind.v !== version) {
+      const old = behind;
+      const checkout = raw.checkout(version);
+      behind = { v: version, ready: checkout.ready().then(() => checkout) };
+      behind.ready.catch(() => {});
+      if (old)
+        await old.ready.then(
+          (c) => c.close(),
+          () => {},
+        );
+    }
+    const checkout = await behind.ready;
+    lastRead = checkout;
+    return checkout;
+  }
+
+  async function closeReads(): Promise<void> {
+    const old = behind;
+    behind = undefined;
+    lastRead = raw;
+    if (old)
+      await old.ready.then(
+        (c) => c.close(),
+        () => {},
+      );
+  }
+
   /** True when `path` is the only file and the last write put it; then every block between the header and that write is cleared. The header is already local: `getBlobs` read it. */
   async function clearOlderVersions(path: string): Promise<boolean> {
     const len: number = raw.core.length;
@@ -120,11 +175,12 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     opts: { timeoutMs: number } | undefined,
   ): Promise<string | undefined> {
     const readOpts = opts ? { timeout: opts.timeoutMs } : undefined;
-    const node = await raw.entry(path, readOpts);
+    const from = await readFrom();
+    const node = await from.entry(path, readOpts);
     const size = node?.value?.blob?.byteLength;
     if (typeof size === "number" && size > maxBytes) return undefined;
     /** A blob nobody can serve inside the timeout reads as missing, like an absent path. */
-    const bytes = await raw.get(path, readOpts).catch((e: unknown) => {
+    const bytes = await from.get(path, readOpts).catch((e: unknown) => {
       if (opts && (e as { code?: string })?.code === "REQUEST_TIMEOUT") return undefined;
       throw e;
     });
@@ -135,9 +191,10 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
 
   async function downloadNow(path: string, timeoutMs: number): Promise<DownloadResult> {
     try {
-      const node = await raw.entry(path, { timeout: timeoutMs });
+      const from = await readFrom();
+      const node = await from.entry(path, { timeout: timeoutMs });
       if (!node) return "missing";
-      await raw.get(path, { timeout: timeoutMs });
+      await from.get(path, { timeout: timeoutMs });
       return "here";
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === "REQUEST_TIMEOUT") return "timedOut";
@@ -180,12 +237,13 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
         .catch(() => {});
     });
   }
-  return {
+  const drive: Drive = {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
     readSmall: (path, maxBytes, opts) => whileReading(() => readSmallNow(path, maxBytes, opts)),
     download: (path, opts) => whileReading(() => downloadNow(path, opts.timeoutMs)),
-    readBytes: (path) => whileReading(async () => (await raw.get(path)) ?? undefined),
+    readBytes: (path) =>
+      whileReading(async () => (await (await readFrom()).get(path)) ?? undefined),
     async put(path, bytes, opts) {
       if (readOnly) readOnlyCopy();
       await raw.put(path, Buffer.from(bytes), opts?.metadata ? { metadata: opts.metadata } : {});
@@ -247,21 +305,27 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
       }
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
-      for await (const e of raw.list(dir)) {
+      const from = await readFrom();
+      for await (const e of from.list(dir)) {
         yield toDriveEntry(e);
       }
     },
     createReadStream(path) {
-      return raw.createReadStream(path);
+      return lastRead.createReadStream(path);
     },
     /** Hyperdrive emits no "update": its index core emits "append" (and "truncate" when a writer forks). */
     onChange(cb) {
       if (readOnly) return () => {};
+      const onPeer = () => {
+        if (lastRead !== raw) cb();
+      };
       raw.core.on("append", cb);
       raw.core.on("truncate", cb);
+      raw.core.on("peer-add", onPeer);
       return () => {
         raw.core.removeListener("append", cb);
         raw.core.removeListener("truncate", cb);
+        raw.core.removeListener("peer-add", onPeer);
       };
     },
     version() {
@@ -274,6 +338,7 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
       await raw.update();
     },
   };
+  return { drive, closeReads };
 }
 
 export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): HyperDriveStore {
@@ -283,6 +348,7 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
 
   async function closeEntry(entry: Entry): Promise<void> {
     byKey.delete(entry.drive.key);
+    await entry.closeReads().catch(() => {});
     await entry.raw.close().catch((e: unknown) => {
       log("error", { where: "drive.close", drive: short(entry.drive.key), err: errText(e) });
     });
@@ -369,13 +435,14 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
       await release(live);
       return [e instanceof Error ? e : new Error(String(e)), null];
     }
-    const copy = wrap(checkout, { readOnly: true });
+    const copy = wrap(checkout, { readOnly: true }).drive;
     copies.set(copy, { raw: checkout, live });
     return [null, copy];
   }
 
   function track(raw: any): Entry {
-    return { raw, drive: wrap(raw), refs: 0 };
+    const { drive, closeReads } = wrap(raw);
+    return { raw, drive, refs: 0, closeReads };
   }
 
   /** The x25519 pair for sealed messages, derived from the identity key pair. */
