@@ -1350,6 +1350,19 @@ export const scenarios: Scenario[] = [
         (gone) => gone.length === 0,
         "the Member forgets the album",
       );
+      const whoLeftOf = async (p: typeof adminBack) =>
+        (await p.store.folders()).folders.find((f) => f.shareKey === shareKey)?.whoLeft;
+      t.eq(await whoLeftOf(adminBack), ["Desktop"], "the Admin's phone names who left");
+      await adminBack.stop();
+      const adminAgain = await net.peer("Phone", adminDir);
+      t.eq(await whoLeftOf(adminAgain), ["Desktop"], "who left survives a restart");
+      const folderId = (await adminAgain.store.folders()).folders.find(
+        (f) => f.shareKey === shareKey,
+      )!.id;
+      t.noErr(await adminAgain.store.dismissWhoLeft(folderId), "dismissWhoLeft");
+      await adminAgain.stop();
+      const adminThird = await net.peer("Phone", adminDir);
+      t.eq(await whoLeftOf(adminThird), undefined, "a dismissed line stays gone after a restart");
     },
   },
   {

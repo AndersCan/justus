@@ -2080,7 +2080,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (identity !== undefined) setAnswer(rt, identity, undefined);
     }
     if (leaver !== undefined) {
-      rt.record.whoLeft = [...(rt.record.whoLeft ?? []), peerName(leaver, leaver)];
+      const whoLeft = [...(rt.record.whoLeft ?? []), peerName(leaver, leaver)];
+      for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
+        if (target) target.whoLeft = whoLeft;
+      }
       saveState();
     }
     await refreshMembersFor(rt);
@@ -6428,7 +6431,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       const rt = runtimes.get(folderId);
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
-      delete rt.record.whoLeft;
+      for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+        if (target) delete target.whoLeft;
+      }
       saveState();
       return ok({ ok: true });
     },
