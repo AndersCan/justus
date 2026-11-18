@@ -377,6 +377,8 @@ type FolderRecord = {
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
+  /** Creator: names of people who left on their own, oldest first, until the Admin dismisses the line. */
+  whoLeft?: string[];
   /** Absent: shown. `archived`: hidden on this phone, still synced. The other
    * two mark work that a restart must finish. */
   lifecycle?: "archived" | "leaving" | "deleting";
@@ -510,6 +512,8 @@ export interface PhotoStore {
   deleteAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Member or Viewer: takes the album off this phone. A Member's own drive keeps telling the Admin until the Admin's list drops it. */
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Clears the line naming who left an album (Admin). */
+  dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes a declined ask off this phone; the link can be asked through again. */
@@ -1058,6 +1062,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       else if (f.notice.kind === "moved") {
         out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
       }
+    }
+    if (Array.isArray(f.whoLeft)) {
+      const names = f.whoLeft.flatMap((n) => {
+        const name = typeof n === "string" ? peerName(n, "") : "";
+        return name === "" ? [] : [name];
+      });
+      if (names.length > 0) out.whoLeft = names;
     }
     return out;
   }
@@ -2032,6 +2043,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** Admin: a person whose drive says they left is taken off whichever list holds them and noted as left. */
   async function markLeftNow(rt: FolderRuntime, key: string, drive: Drive) {
+    const leaver = (await albumPeople(rt)).find((p) => p.key === key)?.name;
     const registry = await readRegistryIn(rt.folderDrive);
     if (registry.members[key]) {
       const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
@@ -2066,6 +2078,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await noteFormer(rt, markLeft(snapshot), identity);
       rt.viewers = next.viewers;
       if (identity !== undefined) setAnswer(rt, identity, undefined);
+    }
+    if (leaver !== undefined) {
+      rt.record.whoLeft = [...(rt.record.whoLeft ?? []), peerName(leaver, leaver)];
+      saveState();
     }
     await refreshMembersFor(rt);
     deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: key });
@@ -6408,6 +6424,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return changeLifecycle(rt, "leave");
     },
 
+    async dismissWhoLeft(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
+      delete rt.record.whoLeft;
+      saveState();
+      return ok({ ok: true });
+    },
+
     async dismissAlbumNotice(folderId) {
       await readyPromise;
       const found = state.gone.find(
@@ -6586,6 +6611,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     restoreAlbum: refuse,
     deleteAlbum: refuse,
     leaveAlbum: refuse,
+    dismissWhoLeft: refuse,
     dismissAlbumNotice: refuse,
     dismissDeclinedAsk: refuse,
     cancelAsk: refuse,

@@ -75,6 +75,7 @@ export type AlbumSummarySource = {
     invitedRoles?: Record<string, "reader" | "member">;
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
+    whoLeft?: string[];
   };
   selfDrive: { key: string };
   memberDrives: ReadonlyMap<string, unknown>;
@@ -121,6 +122,7 @@ export function albumSummary(
     members: memberCount,
     addedAt: record.createdAt,
     ...(record.notice ? { notice: record.notice } : {}),
+    ...(role === "creator" && record.whoLeft?.length ? { whoLeft: record.whoLeft } : {}),
     ...(waitingFor.length > 0 ? { waitingFor } : {}),
     ...(invitedFriends.length > 0 ? { invitedFriends } : {}),
     ...(record.invite

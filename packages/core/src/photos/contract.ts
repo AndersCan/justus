@@ -163,6 +163,7 @@ export const folderSummarySchema = s.object({
   notice: s.optional(
     s.object({ kind: s.oneOf("newKey", "moved", "removed"), ownerName: s.optional(s.string) }),
   ),
+  whoLeft: s.optional(s.array(s.string)),
   waitingFor: s.optional(s.array(s.string)),
   invitedFriends: s.optional(
     s.array(s.object({ identity: s.string, role: s.oneOf("reader", "member") })),
@@ -299,6 +300,7 @@ export const photoResultSchemas = {
   "photos.deleteAlbum": s.object({ ok: s.boolean }),
   "photos.leaveAlbum": s.object({ ok: s.boolean }),
   "photos.dismissAlbumNotice": s.object({ ok: s.boolean }),
+  "photos.dismissWhoLeft": s.object({ ok: s.boolean }),
   "photos.dismissDeclinedAsk": s.object({ ok: s.boolean }),
   "photos.cancelAsk": s.object({ ok: s.boolean }),
   "photos.linkTurnedOff": s.object({ turnedOff: s.boolean }),

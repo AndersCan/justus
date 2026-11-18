@@ -1182,6 +1182,11 @@ export const scenarios: Scenario[] = [
         "the Viewer off the Admin's list",
       );
       await eventually(
+        () => admin.store.folders(),
+        (f) => f.folders.find((x) => x.id === folderId)?.whoLeft?.length === 1,
+        "the Admin's album names the Viewer who left",
+      );
+      await eventually(
         async () => (joiner.store.debugState() as { gone: unknown[] }).gone,
         (gone) => gone.length === 0,
         "the Viewer's phone has nothing left to wait for",
@@ -1219,6 +1224,19 @@ export const scenarios: Scenario[] = [
         () => admin.store.status(),
         (st: SyncStatus) => !st.members.some((m: Member) => m.key === joinerDrive),
         "the Member off the Admin's people list",
+      );
+      const leftLine = await eventually(
+        () => admin.store.folders(),
+        (f) => f.folders.find((x) => x.id === folderId)?.whoLeft !== undefined,
+        "the Admin's album names who left",
+      );
+      t.eq(leftLine.folders.find((x) => x.id === folderId)?.whoLeft?.length, 1, "one name left");
+      t.eq((await joiner.store.folders()).folders.length, 0, "the leaver has no line");
+      t.noErr(await admin.store.dismissWhoLeft(folderId), "dismissWhoLeft");
+      t.eq(
+        (await admin.store.folders()).folders.find((x) => x.id === folderId)?.whoLeft,
+        undefined,
+        "the line is gone after Dismiss",
       );
       await eventually(
         () => admin.store.list({ all: true }),

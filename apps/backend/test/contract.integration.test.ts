@@ -237,6 +237,7 @@ describe("backend -> web contract, from real backend output", () => {
     // The Admin turns the links off and the album carries a new code.
     await a("photos.saveInviteLink", { folderId: folder.id, expiresAt: Date.now() + 3_600_000 });
     await a("photos.turnOffInvite", { folderId: folder.id });
+    await a("photos.dismissWhoLeft", { folderId: folder.id });
 
     // The Admin archives the album and brings it back, then deletes it for everyone.
     await a("photos.archiveAlbum", { folderId: folder.id });
