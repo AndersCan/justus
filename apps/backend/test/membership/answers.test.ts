@@ -12,6 +12,8 @@ import {
 import {
   answersOwed,
   deletedAlbumAnswers,
+  handedOverFirst,
+  handedOverOwed,
   receivedOwed,
   arrivingAnswer,
   deliverOwed,
@@ -360,7 +362,7 @@ describe("answers: a turned-off link", () => {
     const ask = { code: RETIRED, owner: OWNER, status: "waiting", askedAt: 7 };
     const arrive = (who: string | undefined, value: unknown, list = [ask]) =>
       arrivingAnswer(
-        { provenIdentity: async () => who },
+        { provenIdentity: async () => who, verify: () => true },
         {
           conn: 1,
           value,
@@ -561,14 +563,17 @@ describe("answers: an answer arriving", () => {
     (...list: Ask[]) =>
     () =>
       list;
-  const proven = (identity: string | undefined) => ({ provenIdentity: async () => identity });
+  const proven = (identity: string | undefined) => ({
+    provenIdentity: async () => identity,
+    verify: () => true,
+  });
   const waiting: Ask = { code: CODE, owner: OWNER, status: "waiting", askedAt: 2 };
   const accepted = { code: CODE, answer: "accepted", shareKey: SHARE };
 
   it("arriving answer: a refused connection is ignored before parsing", async () => {
     let proofs = 0;
     const result = await arrivingAnswer(
-      { provenIdentity: async () => (proofs++, OWNER) },
+      { provenIdentity: async () => (proofs++, OWNER), verify: () => true },
       { conn: 1, value: accepted, refused: true, asks: asks(waiting) },
     );
     expect(result).toEqual({ kind: "ignored", reason: "version" });
@@ -642,6 +647,7 @@ describe("answers: an answer arriving", () => {
           ask.status = "declined";
           return OWNER;
         },
+        verify: () => true,
       },
       { conn: 1, value: accepted, refused: false, asks: asks(ask) },
     );
@@ -809,7 +815,7 @@ describe("answers: the names a waiting ask is told", () => {
     };
     const arrive = (proven: string | undefined, v: unknown, list: unknown[]) =>
       arrivingAnswer(
-        { provenIdentity: async () => proven },
+        { provenIdentity: async () => proven, verify: () => true },
         { conn: 1, value: v, refused: false, asks: () => list as (typeof waiting)[] },
       );
 
@@ -839,19 +845,109 @@ describe("answers: the names a waiting ask is told", () => {
   });
 });
 
-describe("answers: a handedOver answer before its wiring", () => {
-  it("a handedOver answer from the ask's owner is not taken as accepted", async () => {
-    const OWNER = hex("a");
-    const link = { from: OWNER, to: hex("b"), publicKey: hex("c"), signature: "d".repeat(128) };
-    const result = await arrivingAnswer(
-      { provenIdentity: async () => OWNER },
+describe("answers: a handedOver answer", () => {
+  const ADA = hex("a");
+  const BEN = hex("b");
+  const link = { from: ADA, to: BEN, publicKey: hex("c"), signature: "d".repeat(128) };
+  const ask = { code: CODE, owner: ADA, status: "waiting", askedAt: 2 };
+  const arrive = (
+    sender: string | undefined,
+    chain: unknown[],
+    options: { verify?: boolean; asks?: (typeof ask)[] } = {},
+  ) =>
+    arrivingAnswer(
+      { provenIdentity: async () => sender, verify: () => options.verify ?? true },
       {
         conn: 1,
-        value: { code: CODE, answer: "handedOver", chain: [link] },
+        value: { code: CODE, answer: "handedOver", chain },
         refused: false,
-        asks: () => [{ code: CODE, owner: OWNER, status: "waiting", askedAt: 2 }],
+        asks: () => options.asks ?? [ask],
       },
     );
-    expect(result.kind).not.toBe("accepted");
+
+  it("a valid chain from the ask's owner to a proven other sender re-points the ask", async () => {
+    expect(await arrive(BEN, [link])).toEqual({ kind: "handedOver", code: CODE, owner: BEN });
+  });
+
+  it("a chain that does not verify, the wrong sender, or the owner itself is ignored", async () => {
+    const unverified = { kind: "ignored", reason: "unverified" };
+    expect(await arrive(BEN, [link], { verify: false })).toEqual(unverified);
+    expect(await arrive(hex("f"), [link])).toEqual(unverified);
+    expect(await arrive(undefined, [link])).toEqual(unverified);
+    expect(await arrive(ADA, [{ ...link, to: ADA }])).toEqual(unverified);
+    expect(await arrive(BEN, [{ ...link, from: hex("9") }])).toEqual(unverified);
+  });
+
+  it("with no waiting ask it is ignored", async () => {
+    expect(await arrive(BEN, [link], { asks: [{ ...ask, status: "declined" }] })).toEqual({
+      kind: "ignored",
+      reason: "no-waiting-ask",
+    });
+  });
+});
+
+describe("answers: a new Admin owes handedOver first", () => {
+  const ADA = hex("a");
+  const BEN = hex("b");
+  const CY = hex("1");
+  const proof = { from: ADA, to: BEN, publicKey: hex("c"), signature: "d".repeat(128) };
+  const album: OwingAlbum = {
+    role: "creator",
+    name: "Summer",
+    shareKey: SHARE,
+    invite: { code: CODE },
+    retiredInvites: [RETIRED],
+    handoverChains: { [CODE]: [proof], [RETIRED]: [proof] },
+  };
+
+  it("owes handedOver for an ask that does not open here, and nothing else for that code", () => {
+    const asked = [{ code: CODE, requestedAt: 5, opens: false }];
+    expect(handedOverOwed([album], asked)).toEqual([
+      { code: CODE, answer: "handedOver", chain: [proof] },
+    ]);
+  });
+
+  it("owes nothing once the ask opens here, or for a code with no chain", () => {
+    expect(handedOverOwed([album], [{ code: CODE, requestedAt: 5, opens: true }])).toEqual([]);
+    expect(handedOverOwed([album], [{ code: hex("2"), requestedAt: 5 }])).toEqual([]);
+    expect(
+      handedOverOwed([{ ...album, handoverChains: undefined }], [{ code: CODE, requestedAt: 5 }]),
+    ).toEqual([]);
+    expect(
+      handedOverOwed([{ ...album, role: "member" }], [{ code: CODE, requestedAt: 5 }]),
+    ).toEqual([]);
+  });
+
+  it("holds back every other answer for a code that is owed a handedOver", () => {
+    const accepted: Answer = { code: CODE, answer: "accepted", shareKey: SHARE };
+    const other: Answer = { code: hex("2"), answer: "declined" };
+    const asked = [{ code: CODE, requestedAt: 5, opens: false }];
+    expect(handedOverFirst([album], asked, [accepted, other])).toEqual([
+      { code: CODE, answer: "handedOver", chain: [proof] },
+      other,
+    ]);
+    expect(handedOverFirst([album], [{ ...asked[0]!, opens: true }], [accepted])).toEqual([
+      accepted,
+    ]);
+  });
+
+  it("covers a retired code once, however many asks went through it", () => {
+    const asked = [
+      { code: RETIRED, requestedAt: 5 },
+      { code: RETIRED, requestedAt: 6 },
+    ];
+    expect(handedOverOwed([album], asked)).toHaveLength(1);
+  });
+
+  it("the received answer carries no owner name for a handed-over code", () => {
+    const [received] = receivedOwed([album], CY, [{ code: CODE, requestedAt: 5 }], "Ben");
+    expect(received).toMatchObject({ answer: "received", ownerName: "" });
+    const [plain] = receivedOwed(
+      [{ ...album, handoverChains: undefined }],
+      CY,
+      [{ code: CODE, requestedAt: 5 }],
+      "Ben",
+    );
+    expect(plain).toMatchObject({ ownerName: "Ben" });
   });
 });

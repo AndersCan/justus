@@ -154,6 +154,7 @@ import {
   answersOwed,
   deletedAlbumAnswers,
   receivedOwed,
+  handedOverFirst,
   arrivingAnswer,
   type AskedCode,
   deliverOwed,
@@ -320,6 +321,8 @@ type AskRecord = Omit<AskSummary, "status" | "albumName" | "ownerName"> & {
   replaces?: string;
   /** End time of the link this ask was made through, sealed to the Admin with the ask. */
   linkEnd?: number;
+  /** The Admin whose box key the filed ask was sealed to; absent means `owner`. */
+  sealedFor?: string;
 };
 
 type Answers = Record<string, "accepted" | "declined">;
@@ -1256,6 +1259,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
         ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
         ...(linkEnd === undefined ? {} : { linkEnd }),
+        ...(typeof a.sealedFor === "string" && isHexKey(a.sealedFor)
+          ? { sealedFor: a.sealedFor }
+          : {}),
       });
     }
     return out;
@@ -4693,11 +4699,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   /** Whether the outbox already holds this ask (the same ask time, so an
-   * earlier ask through the same code does not count). */
-  async function askIsFiled(ask: AskRecord): Promise<boolean> {
+   * earlier ask through the same code does not count). A sealed ask counts only
+   * when sealed to the owner it names now; any entry counts for a placeholder. */
+  async function askIsFiled(ask: AskRecord, kind: "sealed" | "placeholder"): Promise<boolean> {
     const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
     const entry = (text ? parseRequestsFile(text) : undefined)?.requests[`invite:${ask.code}`];
-    return entry?.requestedAt === ask.askedAt;
+    if (entry?.requestedAt !== ask.askedAt) return false;
+    if (kind === "placeholder") return true;
+    return entry.sealedKey !== undefined && (ask.sealedFor ?? ask.owner) === ask.owner;
   }
 
   /** Seals the ask drive's key to the Admin's phone and files it in the outbox.
@@ -4727,6 +4736,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           code: short(code),
           reason: text ? "no-box-key" : "unreachable",
         });
+        // A placeholder lets a phone that took the code over find the ask.
+        await outboxTurn("outbox", async () => {
+          const ask = waiting();
+          if (!ask || (await askIsFiled(ask, "placeholder"))) return;
+          const [fileErr] = await fileInviteAsk(ownDrive, {
+            code,
+            requesterName: state.name,
+            requestedAt: ask.askedAt,
+            log,
+          });
+          if (fileErr) log("error", { where: "ask.file", err: fileErr.message });
+          else log("ask.filed", { code: short(code), sealed: false });
+        });
         return;
       }
       const [sealErr, sealedKey] = deps.drives.sealFor(
@@ -4745,7 +4767,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await outboxTurn("outbox", async () => {
         // Read again in the turn: a Cancel may have landed while the Admin's drive was read.
         const ask = waiting();
-        if (!ask || (await askIsFiled(ask))) return;
+        if (!ask || (await askIsFiled(ask, "sealed"))) return;
         const [fileErr] = await fileInviteAsk(ownDrive, {
           sealedKey,
           code,
@@ -4754,7 +4776,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           log,
         });
         if (fileErr) log("error", { where: "ask.file", err: fileErr.message });
-        else log("ask.filed", { code: short(code), sealed: true });
+        else {
+          ask.sealedFor = owner;
+          saveState();
+          log("ask.filed", { code: short(code), sealed: true });
+        }
       });
     } catch (e) {
       log("error", { where: "ask.send", err: errMsg(e) });
@@ -4843,6 +4869,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** The codes `identity` asked through, read from its outbox; only when some
    * album here has turned a link off. */
+  /** Marks each ask whose sealed entry this phone can open (a new Admin only: others never ask). */
+  async function withOpens(text: string, asked: AskedCode[]): Promise<AskedCode[]> {
+    const taken = [...runtimes.values()].some((rt) => rt.record.handoverChains);
+    if (!taken) return asked;
+    const entries = Object.values(parseRequestsFile(text)?.requests ?? {}) as unknown[];
+    const out: AskedCode[] = [];
+    for (const a of asked) {
+      const raw = entries.find(
+        (e) => isTextJSON(e) && e.invite === a.code && e.requestedAt === a.requestedAt,
+      );
+      const sealed = isTextJSON(raw) && typeof raw.sealedKey === "string" ? raw.sealedKey : "";
+      const [openErr] = sealed === "" ? [new Error("plain")] : await deps.drives.openSealed(sealed);
+      out.push({ ...a, opens: !openErr });
+    }
+    return out;
+  }
+
   async function askedThrough(identity: string): Promise<AskedCode[]> {
     const mayOwe =
       [...runtimes.values()].some(
@@ -4857,7 +4900,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         readText(drive, DRIVE_PATH_REQUESTS, { timeout: 5_000 }),
         5_000,
       );
-      return text ? invitesAsked(text) : [];
+      if (!text) return [];
+      return await withOpens(text, invitesAsked(text));
     } catch (thrown: unknown) {
       log("error", { where: "answer.asked", err: errMsg(thrown) });
       return [];
@@ -4893,11 +4937,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               }
             : rt.record,
         );
-      return [
+      return handedOverFirst(albums, asked, [
         ...answersOwed(albums, identity, asked),
         ...receivedOwed(albums, identity, asked, state.name ?? ""),
         ...deletedAlbumAnswers(deleted, asked),
-      ];
+      ]);
     };
     const { retry } = await deliverOwed(
       {
@@ -4917,11 +4961,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** The ask's album now has a new Admin: the ask follows, and is sealed to it. */
+  function followNewAdmin(ask: AskRecord, owner: string) {
+    ask.owner = owner;
+    if (ask.names) ask.names = { album: ask.names.album, owner: "" };
+    log("answer.handedOver", { code: short(ask.code), owner: short(owner) });
+    saveState();
+    deps.onChanged({ cause: "ask", code: ask.code });
+    void sendAsk(ask);
+  }
+
   /** An answer arrived on connection `connId`. Only the owner named in the ask,
    * proven by {@link verifiedIdentity}, can settle it. */
   async function onAnswerMessage(connId: number, value: unknown): Promise<void> {
     const arrival = await arrivingAnswer(
-      { provenIdentity: verifiedIdentity },
+      { provenIdentity: verifiedIdentity, verify: (p) => deps.drives.verifyIdentity(p) },
       {
         conn: connId,
         value,
@@ -4936,6 +4990,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const ask = state.asks.find((a) => a.code === arrival.code);
     if (!ask) return;
+    if (arrival.kind === "handedOver") {
+      followNewAdmin(ask, arrival.owner);
+      return;
+    }
     if (arrival.kind === "received") {
       const names = { album: arrival.albumName, owner: arrival.ownerName };
       if (ask.names?.album === names.album && ask.names.owner === names.owner) return;

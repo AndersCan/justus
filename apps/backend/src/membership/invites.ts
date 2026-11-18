@@ -64,12 +64,13 @@ export function newInviteAsk(options: { code: string; owner: string; now: number
 
 /** Writes this phone's ask to its own outbox (the identity drive's
  * `/requests.json`) under `invite:<code>`: the code and the ask drive's key
- * sealed to the Admin's phone, never in plain text and never an album key.
+ * sealed to the Admin's phone, never in plain text and never an album key (a placeholder has no key).
  * Other entries stay. */
 export async function fileInviteAsk(
   identityDrive: Drive,
   options: {
-    sealedKey: string;
+    /** Absent: a placeholder that tells a phone that took the code over there is an ask. */
+    sealedKey?: string;
     code: string;
     requesterName: string;
     requestedAt: number;
@@ -81,7 +82,7 @@ export async function fileInviteAsk(
     const text = await readRecord(identityDrive, { path: DRIVE_PATH_REQUESTS, log });
     const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
     file.requests[`invite:${code}`] = {
-      sealedKey,
+      ...(sealedKey === undefined ? {} : { sealedKey }),
       requesterName,
       invite: code,
       requestedAt,

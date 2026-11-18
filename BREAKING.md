@@ -64,3 +64,6 @@ checks this.
 - **Peer protocol 2.** Phones on an older Justus no longer sync with this one; the
   newer phone shows "<name> needs to update Justus". Who: mixed-version groups.
   Do: everyone updates.
+- **Handed-over links.** A request made with a link whose Admin handed the album on is
+  answered by the new Admin only on this version. An older phone that asked keeps waiting
+  and asks again after it updates. Who: mixed-version groups. Do: everyone updates.
