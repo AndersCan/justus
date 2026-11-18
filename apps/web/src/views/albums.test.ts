@@ -1031,7 +1031,7 @@ describe("archived and deleted sections", () => {
       null,
       {
         folders: [album("a")],
-        archived: [album("z"), album("y", "member")],
+        archived: [album("z"), album("y", "member"), album("x")],
         deleted: [],
         activeFolderId: "a",
       },
@@ -1060,6 +1060,8 @@ describe("archived and deleted sections", () => {
     expect(host.querySelector("[aria-label='Restore Album z']")).not.toBeNull();
     const member = host.querySelector("a[href='/sharing/y']")?.closest("li");
     expect(member?.textContent).not.toContain(copy("albums.n_waiting", { waiting: 1 }));
+    const none = host.querySelector("a[href='/sharing/x']")?.closest("li");
+    expect(none?.textContent).not.toContain(copy("albums.n_waiting", { waiting: 0 }));
   });
 
   test("the summary counts requests waiting on archived albums", () => {
