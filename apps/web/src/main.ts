@@ -20,7 +20,7 @@ import {
   type AppPage,
 } from "./machines/router-machine";
 import { sharedPhotos } from "./machines/shared-photos-machine";
-import { sharedPhotosSheet } from "./views/share-to-album";
+import { albumSheet } from "./views/share-to-album";
 import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
@@ -238,7 +238,7 @@ render(
       </main>
       ${withAppNav((shows, page) => (shows ? bottomTabs(page) : null))}
     </div>
-    ${lightboxView()} ${joinSheet()} ${sharedPhotosSheet()}
+    ${lightboxView()} ${joinSheet()} ${albumSheet()}
   `,
   renderRoot!,
 );
