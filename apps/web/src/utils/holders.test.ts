@@ -76,10 +76,12 @@ describe("holdersLine", () => {
   it("only on your phone", () => {
     expect(holdersLine(h({}))).toEqual({ text: "Only on your phone", tappable: true });
   });
-  it("only yours until others open it", () => {
-    expect(holdersLine(h({ waiting: [m("Nils")] })).text).toBe(
-      "On its way to the people you let in",
-    );
+  it("names the friends a photo is on its way to, or counts them", () => {
+    const line = (...names: string[]) => holdersLine(h({ waiting: names.map(m) })).text;
+    expect(line("Ben")).toBe("On its way to Ben's phone");
+    expect(line("Ben", "Cy")).toBe("On its way to Ben's and Cy's phones");
+    expect(line("a", "b", "c", "d")).toBe("On its way to 4 phones");
+    expect(line("Ben", "ben")).toBe("On its way to 2 phones");
   });
   it("others haven't said wins over so far", () => {
     expect(holdersLine(h({ unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(

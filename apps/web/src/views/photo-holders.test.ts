@@ -49,7 +49,7 @@ describe("holdersRow", () => {
   it("wraps long text instead of cutting it", () => {
     const el = draw(holdersRow(photo(h({ waiting: [m("Nils")] }))));
     const text = el.querySelector(".justus-holders-text");
-    expect(text?.textContent).toContain("On its way to the people you let in");
+    expect(text?.textContent).toContain("On its way to Nils's phone");
     expect(text?.className).not.toContain("truncate");
   });
   it("is min-h-11 and not a button when it can't tell", () => {

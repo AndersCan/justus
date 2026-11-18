@@ -1,6 +1,6 @@
 /**
  * Two real bare instances, one story: Ada adds a photo, Ben joins, his phone has the preview, he opens it, Ben's phone is
- * taken off and back, Ada adds two more photos and Members says what Ben's phone holds, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
+ * taken off and back, Ada adds a photo while Ben's phone is off and its line names him, Ada adds two more photos and Members says what Ben's phone holds, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
  * photo" line is read on the phones that have one; a wrong line fails with the step, the phone,
  * and both texts.
  *
@@ -29,6 +29,8 @@ const QUIET_ALBUM = "Holders quiet";
 const FILE = "holders-ada.png";
 /** Photos Ada adds after Ben joined; Ben never opens them, so his phone has only their previews. */
 const MORE = ["holders-ada-2.png", "holders-ada-3.png"];
+/** Added while Ben's phone is off. */
+const LATER = "holders-ada-later.png";
 
 test.afterEach(() => resumeAll());
 
@@ -124,6 +126,22 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       "Ada",
       words("holders.on_and_your_phone", { names: "Ben's" }),
     );
+    await closePhoto(a);
+
+    // Ben's record reached Ada before he went off, so her new photo reads as on its way to him, not as unknown.
+    await a.setInputFiles("input[type=file]", {
+      name: LATER,
+      mimeType: "image/png",
+      buffer: pngOf(...runColour(65)),
+    });
+    await a.getByRole("button", { name: `View ${LATER}` }).click({ timeout: 20_000 });
+    await expect(
+      a.locator(".justus-holders-text"),
+      "Ben off, new photo · Ada's phone: holders line",
+    ).toHaveText(words("holders.on_its_way_to_names", { names: "Ben's", n: 1 }), {
+      timeout: 60_000,
+    });
+    await closePhoto(a);
 
     // Ada's phone remembers Ben was last seen 5 days ago, across a restart.
     const at = Date.now() - 5 * 24 * 3600 * 1000;
