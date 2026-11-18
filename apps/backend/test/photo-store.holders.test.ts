@@ -1330,6 +1330,19 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
     await s.close();
   }, 30_000);
 
+  it("stops listing Nils once his phone is back, though no screen of his lists the album", async () => {
+    const s = await album();
+    const photo = await s.annaPhoto();
+    await s.nils.server.getForTest(new URL((await s.nilsPhoto())!.url).pathname);
+    await until(async () => (await s.annaPhotoNamed("sunset.jpg")).holders!.others.length === 1);
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: false });
+    await s.anna.store.remove(photo.id);
+    expect((await nilsRow(s))?.stillToDrop).toEqual([photo.id]);
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: true });
+    await until(async () => (await nilsRow(s))?.stillToDrop === undefined);
+    await s.close();
+  }, 30_000);
+
   it("never lists the phone's own row, even while its own record still names the photo", async () => {
     const s = await album();
     const photo = await s.annaPhoto();

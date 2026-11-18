@@ -3035,7 +3035,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       } catch {
         // no spool dir yet
       }
-      await dropDeleted({
+      const { cleared } = await dropDeleted({
         others,
         selfKey,
         selfDrive: rt.selfDrive,
@@ -3050,6 +3050,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log: (event, fields) => log(event, { folder: short(rt.record.id), ...fields }),
         timeoutMs: 2_000,
       });
+      await forgetHeld(rt, cleared);
     } catch (e) {
       log("error", { where: "dropDeleted", folder: short(rt.record.id), err: errText(e) });
     }

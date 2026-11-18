@@ -351,6 +351,7 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
     [];
   const goneId = spoolIds(instances[1].storageDir, benFolder).find((id) => !keepIds.includes(id));
 
+  let albumB = "";
   const resumeBen = await pausePhone(instances[1]);
   try {
     // 90 s: Ada's phone drops a gone peer when its connection times out, 24-34 s.
@@ -390,6 +391,10 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
         timeout: 60_000,
       })
       .toEqual([goneId]);
+
+    albumB = new URL(b.url()).pathname;
+    // Justus in the background: no screen asks Ben's phone to list the album.
+    await b.goto("about:blank");
   } finally {
     resumeBen();
   }
@@ -405,10 +410,14 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
   // 60 s: Ada's phone re-reads Ben's record once his phone has dropped the photo.
   await expect
     .poll(stillToDropOnAda, {
-      message: "Ben back · Ada's phone: read that Ben's phone dropped it",
+      message: "Ben back, Justus in the background · Ada's phone: read that Ben's phone dropped it",
       timeout: 60_000,
     })
     .toEqual([]);
+
+  await b.goto(albumB);
+  // 60 s: Ben's app opens the album again.
+  await expect(viewB(KEEP)).toBeVisible({ timeout: 60_000 });
 
   // Both phones read the kept photo's holders line and the other's presence dot.
   for (const [page, name, other, names] of [
