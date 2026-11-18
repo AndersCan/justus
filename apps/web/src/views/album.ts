@@ -153,6 +153,24 @@ export async function handOverAlbum(status: Status, people: readonly Person[]) {
   if (ok) folders.handOver(id, name, chosen.key);
 }
 
+/** Restore redraws the page; the new More options button is not focusable at once, so retry for a few seconds. */
+let refocusMenuUntil = 0;
+const refocusWindowMs = 5000;
+const refocusEveryMs = 50;
+
+function tryRefocus(el: HTMLElement) {
+  if (Date.now() > refocusMenuUntil || !el.isConnected) return;
+  const active = document.activeElement;
+  if (active && active !== document.body) return;
+  el.focus();
+  if (document.activeElement !== el) setTimeout(() => tryRefocus(el), refocusEveryMs);
+}
+
+// One stable callback: lit calls it only when the button is created, not on every redraw.
+const refocusMenu = ref((el) => {
+  if (el instanceof HTMLElement) queueMicrotask(() => tryRefocus(el));
+});
+
 async function chooseAlbumAction(value: string, status: Status, people: readonly Person[]) {
   const { id, name, role } = status.folder;
   if (value === "archive") {
@@ -160,6 +178,7 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
     return;
   }
   if (value === "restore") {
+    refocusMenuUntil = Date.now() + refocusWindowMs;
     folders.restore(id, name);
     return;
   }
@@ -214,7 +233,12 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean, arc
     @wa-select=${(e: CustomEvent<{ item: { value: string } }>) =>
       void chooseAlbumAction(e.detail.item.value, status, people)}
   >
-    <button slot="trigger" class="ui-icon-btn" aria-label=${copy("album.more_options")}>
+    <button
+      slot="trigger"
+      class="ui-icon-btn"
+      aria-label=${copy("album.more_options")}
+      ${refocusMenu}
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <circle cx="12" cy="5" r="2" />
         <circle cx="12" cy="12" r="2" />
