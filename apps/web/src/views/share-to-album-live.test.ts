@@ -23,9 +23,11 @@ vi.mock("../machines/shared-photos-machine", () => ({
 vi.mock("./photo-picker", () => ({ addableAlbum: m.addableAlbum, addPicked: m.addPicked }));
 vi.mock("./start-album", () => ({ startAlbum: m.startAlbum }));
 
-import { createAndAdd, sharedPhotosSheet } from "./share-to-album";
+import { pickedPhotos, pickedPhotosActor } from "../machines/picked-photos-machine";
+import { addPickedTo, albumSheet, createAndAdd, sharedPhotosSheet } from "./share-to-album";
 
 afterEach(() => {
+  pickedPhotos.cancel();
   vi.clearAllMocks();
   m.view = { asking: true, batches: [], count: 2 };
   m.vm = { state: "showingAlbums", fatal: false, folders: [] };
@@ -90,5 +92,64 @@ describe("the live sheet", () => {
     expect(m.startAlbum.mock.calls[0]![0]).toBe(
       "Start one per trip, family or event. The 1 photo goes into it.",
     );
+  });
+
+  describe("photos picked in the app", () => {
+    const picks = ["c", "a", "b"].map((name) => ({ kind: "path" as const, name, path: name }));
+    const drawOne = () => {
+      const host = document.createElement("div");
+      render(albumSheet(), host);
+      return host;
+    };
+
+    test("the pick's sheet shows while the share sheet also asks: one dialog, the pick's count", () => {
+      m.vm = { ...m.vm, folders: [folder] };
+      pickedPhotos.picked(picks);
+      const host = drawOne();
+      expect(host.querySelectorAll("dialog")).toHaveLength(1);
+      expect(host.querySelector("dialog")?.getAttribute("aria-label")).toBe("Add 3 photos to");
+    });
+
+    test("no pick: the share sheet shows", () => {
+      const host = drawOne();
+      expect(host.querySelector("dialog")?.getAttribute("aria-label")).toBe("Add 2 photos to");
+    });
+
+    test("neither asking: no dialog", () => {
+      m.view = { ...m.view, asking: false };
+      expect(drawOne().querySelector("dialog")).toBeNull();
+    });
+
+    test("Not now on the pick's sheet drops the pick, not the share", () => {
+      m.vm = { ...m.vm, folders: [folder] };
+      pickedPhotos.picked(picks);
+      drawOne().querySelector<HTMLButtonElement>("[data-dismiss]")!.click();
+      expect(pickedPhotosActor.snapshot().context.photos).toEqual([]);
+      expect(m.notNow).not.toHaveBeenCalled();
+    });
+
+    test("an album adds the pick in picked order, and the pick is let go", () => {
+      pickedPhotos.picked(picks);
+      m.addableAlbum.mockReturnValue("s");
+      m.addPicked.mockReturnValue(true);
+      addPickedTo("s");
+      expect(m.addPicked).toHaveBeenCalledWith("s", picks, "library");
+      expect(pickedPhotosActor.snapshot().context.photos).toEqual([]);
+    });
+
+    test("an add that does not start keeps the pick", () => {
+      pickedPhotos.picked(picks);
+      m.addableAlbum.mockReturnValue("s");
+      m.addPicked.mockReturnValue(false);
+      addPickedTo("s");
+      expect(pickedPhotosActor.snapshot().context.photos).toEqual(picks);
+    });
+
+    test("an album she cannot add to adds nothing", () => {
+      pickedPhotos.picked(picks);
+      m.addableAlbum.mockReturnValue(null);
+      addPickedTo("s");
+      expect(m.addPicked).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1,9 +1,15 @@
 import { html, type TemplateResult } from "lit-html";
+import { keyed } from "lit-html/directives/keyed.js";
 import { ref } from "lit-html/directives/ref.js";
 import { watch } from "@mantaq/lit";
 import type { FolderSummary } from "@justus/core";
 import { copy } from "../copy/copy";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
+import {
+  pickedPhotos,
+  pickedPhotosActor,
+  pickedPhotosViewOf,
+} from "../machines/picked-photos-machine";
 import { open } from "../machines/router-machine";
 import {
   sharedPhotos,
@@ -122,20 +128,50 @@ const actions: ShareSheetActions = {
   notNow: sharedPhotos.notNow,
 };
 
-/** The live sheet: open while the sharedPhotos machine asks. Rendered once, in main.ts. */
+function albumsOf(f: Parameters<typeof foldersViewModel>[0]): ShareSheetView["albums"] {
+  const vm = foldersViewModel(f);
+  return vm.state === "albumsNotLoaded" || vm.state === "loadingAlbums"
+    ? "loading"
+    : vm.state === "couldNotLoadAlbums" || vm.fatal
+      ? "failed"
+      : addableAlbums(vm.folders);
+}
+
+/** The live sheet: open while the sharedPhotos machine asks. */
 export function sharedPhotosSheet(): unknown {
   return watch(sharedPhotosActor, (s) => {
     const v = sharedPhotosViewOf(s);
     if (!v.asking) return null;
-    return watch(foldersActor, (f) => {
-      const vm = foldersViewModel(f);
-      const albums =
-        vm.state === "albumsNotLoaded" || vm.state === "loadingAlbums"
-          ? "loading"
-          : vm.state === "couldNotLoadAlbums" || vm.fatal
-            ? "failed"
-            : addableAlbums(vm.folders);
-      return shareSheetPanel({ count: v.count, albums }, actions);
-    });
+    return watch(foldersActor, (f) =>
+      shareSheetPanel({ count: v.count, albums: albumsOf(f) }, actions),
+    );
+  });
+}
+
+/** Photos she picked on Photos go into the album she taps; she stays where she is. */
+export function addPickedTo(albumId: string) {
+  const folderId = addableAlbum(albumId);
+  if (!folderId) return;
+  if (!addPicked(folderId, pickedPhotosActor.snapshot().context.photos, "library")) return;
+  pickedPhotos.addStarted();
+}
+
+const pickedActions: ShareSheetActions = {
+  add: addPickedTo,
+  create: pickedPhotos.cancel,
+  notNow: pickedPhotos.cancel,
+};
+
+function pickedPhotosSheet(count: number): unknown {
+  return watch(foldersActor, (f) => shareSheetPanel({ count, albums: albumsOf(f) }, pickedActions));
+}
+
+/** The one album sheet, rendered once in main.ts: photos she just picked first; photos shared from another app wait until it closes. */
+export function albumSheet(): unknown {
+  return watch(pickedPhotosActor, (p) => {
+    const v = pickedPhotosViewOf(p);
+    return v.asking
+      ? keyed("picked", pickedPhotosSheet(v.count))
+      : keyed("shared", sharedPhotosSheet());
   });
 }
