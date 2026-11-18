@@ -533,6 +533,38 @@ describe("album join requests", () => {
     );
   });
 
+  test("the Accept all sheet shows the same-name line on the matching person only", async () => {
+    const withBen = {
+      ...status,
+      members: [
+        ...status.members,
+        { key: "kb", name: "Ben", admin: false, connected: true, identity: "ib", color: 3 },
+      ],
+    } as unknown as SyncStatus;
+    const host = await show(
+      [
+        { ...ask("a", true, "maple river stone"), requesterName: "Ben", requesterIdentity: "ia" },
+        ask("b", true, "lamp ocean tiger"),
+      ],
+      withBen,
+    );
+    button(host, "Accept all 2, can only look")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('dialog[aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    const lines = host
+      .querySelector('dialog[aria-label^="Accept these"]')!
+      .querySelectorAll('[data-copy-id="album.same_name_in"]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.textContent).toBe(
+      copy("album.same_name_in", {
+        name: "Ben",
+        folderName: "Trip",
+        presence: copy("people.connected"),
+      }),
+    );
+  });
+
   test("rows show their three words and the section says what it is for", async () => {
     const host = await show([
       { ...ask("a", true, "maple river stone"), requesterName: "Ben" },

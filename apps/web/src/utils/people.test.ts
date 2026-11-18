@@ -415,6 +415,26 @@ describe("same name", () => {
     expect(live.requests[0]!.sameNameIn).toBe(copy("people.connected"));
   });
 
+  it("the most recent match wins wherever it sits in the list", () => {
+    const day = copy("people.last_seen", { when: copy("time.ago", { days: 1 }) });
+    const recentFirst = withBens(ben("k3", "i3", NOW - 86_400_000), ben("k1", "i1", old));
+    expect(buildPeople(recentFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(day);
+    const liveFirst = withBens(ben("k3", "i3", undefined, true), ben("k1", "i1", old));
+    expect(buildPeople(liveFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(
+      copy("people.connected"),
+    );
+  });
+
+  it("matches the shown names: a saved friend name counts, the typed name under it does not", () => {
+    const savedAsBen = withBens({ ...ben("k1", "i1", old), name: "Benjamin" });
+    expect(buildPeople(savedAsBen, [ask({})], { i1: "Ben" }, NOW).requests[0]!.sameNameIn).toBe(
+      threeDays,
+    );
+    const askerSaved = withBens(ben("k1", "i1", old));
+    const row = buildPeople(askerSaved, [ask({})], { i2: "Benjamin" }, NOW).requests[0]!;
+    expect(row.sameNameIn).toBeUndefined();
+  });
+
   it("has no line for the same phone, the same key, another name or an empty name", () => {
     const s = withBens(ben("k1", "i1", old));
     const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
@@ -422,6 +442,26 @@ describe("same name", () => {
     expect(some(ask({ requesterKey: "k1" }))).toBeUndefined();
     expect(some(ask({ requesterName: "Dee" }))).toBeUndefined();
     expect(some(ask({ requesterName: " " }))).toBeUndefined();
+  });
+
+  it("without an identity on either side the key decides", () => {
+    const { identity: _identity, ...noId } = ben("k1", "i1", old);
+    const s = withBens(noId as ReturnType<typeof ben>);
+    const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
+    expect(some(ask({ requesterIdentity: undefined }))).toBe(threeDays);
+    expect(some(ask({ requesterIdentity: undefined, requesterKey: "k1" }))).toBeUndefined();
+  });
+
+  it("an own row named Ben next to one other Ben flags both", () => {
+    const s = status("creator");
+    const own = { ...s.members[0]!, name: "Ben" };
+    const vm = buildPeople(
+      { ...s, members: [own, ben("k1", "i1", old)] } as SyncStatus,
+      [],
+      {},
+      NOW,
+    );
+    expect(vm.people.map((p) => p.sameName === true)).toEqual([true, true]);
   });
 
   it("the own row never matches", () => {
