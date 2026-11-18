@@ -100,6 +100,17 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   if (!change) return;
   const { kind, folderId, name } = change;
   if (next === "couldNotChangeAlbum") {
+    if (foldersActor.snapshot().context.changeRefused) {
+      const who = foldersActor.snapshot().context.folders.find((f) => f.id === folderId)
+        ?.handingOver?.name;
+      toast(
+        copy("albums.already_with_the_new_admin", {
+          who: who || copy("albums.the_new_admin"),
+          name,
+        }),
+      );
+      return;
+    }
     toast(copy("albums.couldn_t_try_again", { action: changeVerbs[kind], name }));
     return;
   }

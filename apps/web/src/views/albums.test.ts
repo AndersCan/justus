@@ -28,6 +28,8 @@ const mock = vi.hoisted(() => ({
   joinOffer: vi.fn(),
   createFolder: vi.fn(),
   leaveAlbum: vi.fn(),
+  stayAdmin: vi.fn(),
+  handOverAlbum: vi.fn(),
   setActive: vi.fn(),
   dismissWhoLeft: vi.fn(),
   ask: vi.fn(),
@@ -43,6 +45,8 @@ vi.mock("../gateway", () => ({
     joinOffer: mock.joinOffer,
     createFolder: mock.createFolder,
     leaveAlbum: mock.leaveAlbum,
+    stayAdmin: mock.stayAdmin,
+    handOverAlbum: mock.handOverAlbum,
     setActive: mock.setActive,
     dismissWhoLeft: mock.dismissWhoLeft,
     logs: { view: vi.fn(), clear: vi.fn() },
@@ -941,6 +945,87 @@ describe("Your albums page motion", () => {
     await flush();
     await flush();
     expect(calls.filter((c) => host.contains(c.el))).toHaveLength(0);
+  });
+});
+
+describe("calling off a handover that fails", () => {
+  const handing = {
+    ...album("a"),
+    name: "Summer",
+    handingOver: { key: "b", name: "Ben", final: false },
+  };
+  const stay = async (failure: Error) => {
+    mock.folders.mockResolvedValue([null, { folders: [handing], activeFolderId: "a" }]);
+    mock.stayAdmin.mockResolvedValue([failure, null]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.stayAdmin("a", "Summer");
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("couldNotChangeAlbum"));
+  };
+
+  test("a refused call-off says Ben already has the album, with no Try again", async () => {
+    await stay(
+      Object.assign(new Error("The album is already with the new Admin"), {
+        code: "justus.photos/handover-refused",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "Ben already has “Summer”, so it can't be called off now.",
+      ),
+    );
+    expect(document.body.textContent).not.toContain("Couldn't call off the handover of");
+  });
+
+  test("a refused call-off names the new Admin when the album row has no name for them", async () => {
+    mock.folders.mockResolvedValue([
+      null,
+      {
+        folders: [{ ...handing, handingOver: { key: "b", name: "", final: false } }],
+        activeFolderId: "a",
+      },
+    ]);
+    mock.stayAdmin.mockResolvedValue([
+      Object.assign(new Error("already"), { code: "justus.photos/handover-refused" }),
+      null,
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.stayAdmin("a", "Summer");
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "The new Admin already has “Summer”, so it can't be called off now.",
+      ),
+    );
+  });
+
+  test("a refused hand-over (not a call-off) still says Try again", async () => {
+    mock.folders.mockResolvedValue([null, { folders: [handing], activeFolderId: "a" }]);
+    mock.handOverAlbum.mockResolvedValue([
+      Object.assign(new Error("The album is being changed"), {
+        code: "justus.photos/handover-refused",
+      }),
+      null,
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    const calledOff = () => document.body.textContent?.split("can't be called off").length;
+    const before = calledOff();
+    folders.handOver("a", "Summer", "b");
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("couldNotChangeAlbum"));
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Couldn't hand over “Summer”. Try again."),
+    );
+    expect(calledOff()).toBe(before);
+  });
+
+  test("any other failure still says Try again", async () => {
+    await stay(new Error("disk full"));
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "Couldn't call off the handover of “Summer”. Try again.",
+      ),
+    );
   });
 });
 

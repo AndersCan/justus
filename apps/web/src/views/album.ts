@@ -478,7 +478,8 @@ function memberRow(
           : null
       }
     </div>`;
-  const controls = vm.isAdmin && !p.you && !p.admin;
+  const handingKey = vm.folder?.handingOver?.key.toLowerCase();
+  const controls = vm.isAdmin && !p.you && !p.admin && p.key.toLowerCase() !== handingKey;
   const roleButtonClass =
     "ui-btn-ghost min-w-0 flex-1 basis-40 justify-start text-left [overflow-wrap:anywhere]";
   return html`<li
