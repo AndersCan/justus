@@ -268,6 +268,14 @@ describe("onboarding App lock offer", () => {
     expect(actor.state.name).toBe("choosingCreateOrJoin");
   });
 
+  test("a status read before the name is saved does not hold the person", async () => {
+    const { actor } = setup();
+    send(actor, "LOCK_READ_STARTED");
+    readLock(actor, true, false);
+    await saveName(actor);
+    expect(actor.state.name).toBe("offeringAppLock");
+  });
+
   test("a read that gave up before the name is saved does not hold the person", async () => {
     const { actor } = setup();
     send(actor, "LOCK_READ_STARTED");

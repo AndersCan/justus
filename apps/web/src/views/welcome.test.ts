@@ -111,6 +111,20 @@ describe("readLockForOnboarding", () => {
     vi.restoreAllMocks();
   });
 
+  it("tells onboarding a read is pending until it ends", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    const pending = () => onboardingActor.snapshot().context.lockPending;
+    let answer: (v: [null, { available: boolean; enabled: boolean }]) => void = () => {};
+    const load = vi.fn(
+      () => new Promise<[null, { available: boolean; enabled: boolean }]>((r) => (answer = r)),
+    );
+    const read = readLockForOnboarding(load);
+    await vi.waitFor(() => expect(pending()).toBe(true));
+    answer([null, { available: true, enabled: false }]);
+    await read;
+    await vi.waitFor(() => expect(pending()).toBe(false));
+  });
+
   it("logs what the phone said, so a skipped offer can be told from no screen lock", async () => {
     vi.stubGlobal("window", { BareShell: true });
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
