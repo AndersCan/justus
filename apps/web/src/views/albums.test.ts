@@ -5,6 +5,7 @@ import { folders, foldersActor } from "../machines/folders-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
 import { join, joinActor } from "../machines/sharing/join-request";
 import { buildInviteLink } from "../utils/invite-link";
+import { copy } from "../copy/copy";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { sharingView, waitingForYou } from "./sharing";
 import {
@@ -27,6 +28,7 @@ const mock = vi.hoisted(() => ({
   joinOffer: vi.fn(),
   createFolder: vi.fn(),
   leaveAlbum: vi.fn(),
+  setActive: vi.fn(),
   dismissWhoLeft: vi.fn(),
   ask: vi.fn(),
   linkTurnedOff: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("../gateway", () => ({
     joinOffer: mock.joinOffer,
     createFolder: mock.createFolder,
     leaveAlbum: mock.leaveAlbum,
+    setActive: mock.setActive,
     dismissWhoLeft: mock.dismissWhoLeft,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
@@ -158,6 +161,24 @@ describe("albums wiring", () => {
     await vi.waitFor(() => expect(foldersActor.snapshot().context.activeId).toBe("m"));
     await foldersActor.settled();
     expect(currentPage()?.route).toBe("photoAlbums");
+  });
+
+  test("opening an archived album's page makes it the active album; its photos page does not", async () => {
+    const { open } = await import("../machines/router-machine");
+    mock.setActive.mockClear().mockResolvedValue([null, { folder: album("z"), members: [] }]);
+    mock.folders.mockResolvedValue([
+      null,
+      { folders: [album("a")], archived: [album("z")], deleted: [], activeFolderId: "a" },
+    ]);
+    folders.refresh();
+    await foldersActor.settled();
+    open("/albums/z");
+    await foldersActor.settled();
+    expect(mock.setActive).not.toHaveBeenCalled();
+    open("/sharing/z");
+    await vi.waitFor(() => expect(mock.setActive).toHaveBeenCalledWith("z"));
+    expect(mock.setActive).toHaveBeenCalledTimes(1);
+    open("/albums");
   });
 
   test("moving from one album to another closes the people sheet", async () => {
@@ -1000,6 +1021,45 @@ describe("archived and deleted sections", () => {
       "Nils deleted “Old”. The album and its photos were removed from this phone.",
     ]);
     expect(host.querySelector("[aria-label='Dismiss notice about Old']")).not.toBeNull();
+  });
+
+  test("an archived row opens its page, and an Admin's row shows the requests waiting", async () => {
+    vi.restoreAllMocks();
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    mock.folders.mockResolvedValue([
+      null,
+      {
+        folders: [album("a")],
+        archived: [album("z"), album("y", "member")],
+        deleted: [],
+        activeFolderId: "a",
+      },
+    ]);
+    mock.requests.mockResolvedValue([
+      null,
+      {
+        requests: ["z", "y"].map((folderId) => ({
+          folderId,
+          requesterKey: "k" + folderId,
+          requesterName: "Kim",
+          viaInvite: false,
+        })),
+      },
+    ]);
+    requests.refresh();
+    await vi.waitFor(() => expect(requestsActor.snapshot().context.requests.length).toBe(2));
+    folders.refresh();
+    await vi.waitFor(() => expect(host.querySelector("details")).not.toBeNull());
+    await vi.waitFor(() =>
+      expect(host.querySelector("a[href='/sharing/z']")?.closest("li")?.textContent).toContain(
+        copy("albums.n_waiting", { waiting: 1 }),
+      ),
+    );
+    expect(host.querySelector("a[href='/sharing/z']")?.textContent).toContain("Album z");
+    expect(host.querySelector("[aria-label='Restore Album z']")).not.toBeNull();
+    const member = host.querySelector("a[href='/sharing/y']")?.closest("li");
+    expect(member?.textContent).not.toContain(copy("albums.n_waiting", { waiting: 1 }));
   });
 
   test("the summary counts requests waiting on archived albums", () => {

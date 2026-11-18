@@ -1588,6 +1588,13 @@
     "who": "Everyone, every time they open Your albums",
     "screen": ""
   },
+  "albums.n_waiting": {
+    "text": "{waiting} waiting",
+    "status": "draft",
+    "where": "Your albums › Archived › chip",
+    "who": "An Admin with join requests waiting on an archived album",
+    "screen": ""
+  },
   "albums.waiting": {
     "text": " · {waiting} waiting",
     "status": "draft",
