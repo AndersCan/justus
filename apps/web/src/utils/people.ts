@@ -52,7 +52,7 @@ export type People = {
   requests: RequestRow[];
 };
 
-function nameKey(text: string): string {
+export function nameKey(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 

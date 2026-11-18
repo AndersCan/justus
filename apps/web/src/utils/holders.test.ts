@@ -132,6 +132,21 @@ describe("holdersLine", () => {
       "On your phone and 2 others",
     );
   });
+  it("counts the phones when two holders share a name", () => {
+    const ben = (key: string, name = "Ben") => ({ key, name });
+    expect(holdersLine(h({ others: [ben("k1"), ben("k2")] })).text).toBe(
+      copy("holders.on_your_phone_and", { k: 2 }),
+    );
+    expect(holdersLine(h({ others: [ben("k1"), ben("k2", " ben")] })).text).toBe(
+      copy("holders.on_your_phone_and", { k: 2 }),
+    );
+    expect(holdersLine(h({ others: [ben("k1"), ben("k2", "Cy")] })).text).toBe(
+      "On Ben's, Cy's and your phone",
+    );
+    expect(holdersLine(h({ here: false, others: [ben("k1"), ben("k2")] })).text).toBe(
+      copy("holders.on_arriving_on_yours", { k: 2 }),
+    );
+  });
   it("not here: one named other, else counts", () => {
     expect(holdersLine(h({ here: false, others: [m("Maya")] })).text).toBe(
       "On Maya's phone. Arriving on yours…",
