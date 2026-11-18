@@ -6085,22 +6085,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             return err(PhotoError.ALREADY_ENROLLED, acceptErr.message);
           return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
         }
-        // The answer and the list on screen need only the registry. The new phone's
-        // drive can take up to the open timeout to appear, so the rest follows in the
-        // background and tells the screen again when it is done.
+        await loadMemberDrive(rt, requesterKey, accepted.member.name);
+        const joined = rt.memberDrives.get(requesterKey);
+        await forgetFormer(
+          rt,
+          seated ??
+            requesterIdentity.get(requesterKey) ??
+            (joined ? await identityOfDrive(joined) : undefined),
+        );
         deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-        void oneChangePerAlbum(folderId, async () => {
-          if (!(await readRegistryIn(rt.folderDrive)).members[requesterKey]) return;
-          await loadMemberDrive(rt, requesterKey, accepted.member.name);
-          const joined = rt.memberDrives.get(requesterKey);
-          await forgetFormer(
-            rt,
-            seated ??
-              requesterIdentity.get(requesterKey) ??
-              (joined ? await identityOfDrive(joined) : undefined),
-          );
-          deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-        }).catch(answerErr("enroll"));
         if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
         return ok({ ok: true });
       }).finally(() => answering.delete(tapped));
