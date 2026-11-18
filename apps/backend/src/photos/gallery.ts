@@ -143,7 +143,6 @@ export async function listGallery(
           }
           return entries;
         })();
-        scan.catch(() => {});
         const entries = await Promise.race([scan, timedOut]);
         if (entries === "timeout") {
           complete = false;

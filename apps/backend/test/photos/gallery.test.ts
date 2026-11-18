@@ -217,6 +217,37 @@ describe("listGallery", () => {
     }
   });
 
+  it("bounds stuck drives together, not one after another", async () => {
+    vi.useFakeTimers();
+    try {
+      const [a, b, c] = devices(3);
+      const da = await a.drives.openOwn("a");
+      const db = await b.drives.openOwn("b");
+      const dc = await c.drives.openOwn("c");
+      await photoAt(da, { id: "p1", addedAt: 1000 });
+      const stuck = (d: Drive) =>
+        ({
+          ...d,
+          list: () => ({
+            [Symbol.asyncIterator]: () => ({ next: () => new Promise<never>(() => {}) }),
+          }),
+        }) as unknown as Drive;
+      const sources = [
+        { key: db.key, drive: stuck(db) },
+        { key: dc.key, drive: stuck(dc) },
+        { key: da.key, drive: da },
+      ];
+      let done = false;
+      const pending = listGallery(sources, { removedFrom: da, memberName: () => "X", log: a.log });
+      void pending.then(() => (done = true));
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(done).toBe(true);
+      expect((await pending).photos.map((p) => p.id)).toEqual(["p1"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("of an empty album is empty", async () => {
     const [a] = devices(1);
     const da = await a.drives.openOwn("a");
