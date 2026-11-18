@@ -7,4 +7,7 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 This board is `justusMachine` in `apps/web/src/machines/app.ts`: every machine the app runs, side by side. A dotted line starts at the state the sender was in and ends at the arrow that took the message.
 
-<Machine src="apps/web/src/machines/app.ts" />
+<Machine
+  src="apps/web/src/machines/app.ts"
+  run="a saved name, an opened album, a sync status, a waiting request and an open sheet each reach the machine they are wired to"
+/>

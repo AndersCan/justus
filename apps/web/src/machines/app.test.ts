@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { VirtualClock } from "@mantaq/core";
 import { inspectFile } from "@mantaq/inspect";
+import { createDriver } from "@mantaq/inspect/drive";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
 import { justusMachine } from "./app";
@@ -95,6 +96,42 @@ test("a saved name, an opened album, a sync status, a waiting request and an ope
   await made.folders.settled();
   expect(made.folders.snapshot().context.userName).toBe("Ann");
   made.people.send({ type: "OPEN" } as never);
+});
+
+test("the whole-app walk names who sent each of its six messages, in order", async () => {
+  const loaded = await inspectFile(join(here, "app.ts"));
+  const run = loaded.machines.find((m) => m.id === "justus")?.runs[0];
+  expect(run).toBeDefined();
+  const driver = createDriver({
+    id: "justus",
+    create: () => {
+      const clock = VirtualClock();
+      const made = justusMachine.create({ clock });
+      return { actor: made.actor, clock, made };
+    },
+  });
+  const seen: Array<[string | null, string, string | undefined]> = [];
+  const dropped: string[] = [];
+  driver.reset();
+  for (const step of run!.steps) {
+    const state = driver.step(step);
+    for (const entry of [state.last, ...state.after]) {
+      if (entry?.message === undefined) continue;
+      const actor =
+        entry.actor !== undefined && "region" in entry.actor ? entry.actor.region : undefined;
+      seen.push([entry.message.sender, entry.event, actor]);
+      if (entry.message.dropped !== null) dropped.push(entry.event);
+    }
+  }
+  expect(seen).toEqual([
+    ["onboarding", "NAME_SEEN", "folders"],
+    ["folders", "whoMustUpdateChanged", "join"],
+    ["folders", "STATUS_SEEN", "sync"],
+    ["sync", "NAME_SEEN", "folders"],
+    ["sync", "UNREACHABLE", "reach"],
+    ["people", "REFRESH", "requests"],
+  ]);
+  expect(dropped).toEqual([]);
 });
 
 test("every timed part runs on the clock the app is given", () => {
