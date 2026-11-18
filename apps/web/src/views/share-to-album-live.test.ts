@@ -175,6 +175,47 @@ describe("the live sheet", () => {
       host.remove();
     });
 
+    test("closing the pick's sheet gives focus back to the button that opened it", async () => {
+      m.view = { ...m.view, asking: false };
+      m.vm = { ...m.vm, folders: [folder] };
+      const opener = document.createElement("button");
+      document.body.append(opener);
+      opener.focus();
+      const host = document.createElement("div");
+      document.body.append(host);
+      render(albumSheet(), host);
+      pickedPhotos.picked(picks);
+      await tick();
+      expect(host.querySelector("dialog")?.open).toBe(true);
+      host.querySelector<HTMLButtonElement>("[data-dismiss]")!.click();
+      await tick();
+      expect(host.querySelector("dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+      host.remove();
+      opener.remove();
+    });
+
+    test("tapping an album on the pick's sheet gives focus back to the button that opened it", async () => {
+      m.view = { ...m.view, asking: false };
+      m.vm = { ...m.vm, folders: [folder] };
+      m.addableAlbum.mockReturnValue(folder.id);
+      m.addPicked.mockReturnValue(true);
+      const opener = document.createElement("button");
+      document.body.append(opener);
+      opener.focus();
+      const host = document.createElement("div");
+      document.body.append(host);
+      render(albumSheet(), host);
+      pickedPhotos.picked(picks);
+      await tick();
+      host.querySelector<HTMLButtonElement>("ul button")!.click();
+      await tick();
+      expect(host.querySelector("dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+      host.remove();
+      opener.remove();
+    });
+
     test("Create album on the pick's sheet (every row gone) starts an album and adds the pick to it", async () => {
       m.view = { ...m.view, asking: false };
       pickedPhotos.picked(picks);

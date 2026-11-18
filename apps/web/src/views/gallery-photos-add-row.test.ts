@@ -79,3 +79,33 @@ describe("Add photos on All and Added by me", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("where the row is drawn, and which album its card names", () => {
+  test("a failed batch in the second album: the card is that album's", () => {
+    const winter = { id: "f3", name: "Winter", role: "creator", members: 1 };
+    const failed = {
+      ...batch,
+      folderId: "f3",
+      running: false,
+      failed: [{ source: { kind: "path", path: "/a.jpg", name: "a.jpg" } }],
+    };
+    const alert = rowOf([summer, winter], failed).querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain("Winter");
+  });
+
+  test("no Add photos row on the album grid or on an album page", async () => {
+    const { foldersActor } = await import("../machines/folders-machine");
+    const real = foldersActor.snapshot();
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({
+      ...real,
+      path: ["showingAlbums"],
+      context: { ...real.context, folders: [summer] },
+    } as never);
+    const { albumGridView, galleryView } = await import("./gallery");
+    for (const view of [albumGridView(), galleryView({ kind: "album", id: "f1" })]) {
+      const host = document.createElement("div");
+      render(view, host);
+      expect(host.querySelector('[data-copy-id="gallery.add_photos"]')).toBeNull();
+    }
+  });
+});

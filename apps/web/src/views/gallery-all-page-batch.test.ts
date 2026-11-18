@@ -98,3 +98,16 @@ test("a failed batch for an album she can only view still toasts on All", async 
   gallery.addMany([{ kind: "path", path: "/d.jpg", name: "d.jpg" }], "f9");
   await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
 });
+
+test("on Added by me, a failed batch keeps its card and raises no toast", async () => {
+  vi.spyOn(foldersActor, "snapshot").mockReturnValue({ context: { folders: [summer] } } as never);
+  hoisted.toast.mockClear();
+  open("/mine");
+  hoisted.gateway.add.mockReset();
+  hoisted.gateway.add.mockResolvedValueOnce([{ message: "boom" }, null]);
+  gallery.addMany([{ kind: "path", path: "/e.jpg", name: "e.jpg" }], "f1");
+  await vi.waitFor(() => expect(galleryActor.snapshot().context.batch?.running).toBe(false));
+  await galleryActor.settled();
+  expect(hoisted.toast).not.toHaveBeenCalled();
+  gallery.dismissBatch();
+});
