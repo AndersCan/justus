@@ -27,6 +27,7 @@ const mock = vi.hoisted(() => ({
   joinOffer: vi.fn(),
   createFolder: vi.fn(),
   leaveAlbum: vi.fn(),
+  dismissWhoLeft: vi.fn(),
   ask: vi.fn(),
   linkTurnedOff: vi.fn(),
 }));
@@ -40,6 +41,7 @@ vi.mock("../gateway", () => ({
     joinOffer: mock.joinOffer,
     createFolder: mock.createFolder,
     leaveAlbum: mock.leaveAlbum,
+    dismissWhoLeft: mock.dismissWhoLeft,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -955,6 +957,21 @@ describe("leaving an album", () => {
       expect(document.body.textContent).toContain("Deleted “Summer” from this phone"),
     );
     expect(host.querySelector("[role=status]")).toBeNull();
+  });
+});
+
+describe("a failed dismiss of the who-left line", () => {
+  test("says it couldn't dismiss the notice, by album name", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    mock.folders.mockResolvedValue([null, { folders: [album("a")], activeFolderId: "a" }]);
+    mock.dismissWhoLeft.mockResolvedValue([new Error("NOT_CREATOR"), null]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.dismissWhoLeft("a", "Summer");
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Couldn't dismiss the notice for “Summer”."),
+    );
   });
 });
 
