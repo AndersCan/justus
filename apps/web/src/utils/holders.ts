@@ -12,14 +12,18 @@ export function holdersLine(
   now = Date.now(),
 ): { text: string; tappable: boolean } {
   const line = baseLine(h);
-  if (h?.kind !== "inAlbum" || !h.here || h.quiet.length === 0) return line;
+  if (h?.kind !== "inAlbum" || h.quiet.length === 0) return line;
   const quiet = h.quiet
     .map((m) =>
       copy("holders.quiet_one_when", { name: `${m.name}'s`, when: formatDay(m.lastSeenAt, now) }),
     )
     .join(", ");
-  const base = h.others.length + h.former.length === 0 ? copy("holders.on_your_phone") : line.text;
-  return { text: copy("holders.line_and_quiet", { line: base, quiet }), tappable: true };
+  const base =
+    h.here && h.others.length + h.former.length === 0 ? copy("holders.on_your_phone") : line.text;
+  const text = base.endsWith("…")
+    ? `${base} ${quiet}`
+    : copy("holders.line_and_quiet", { line: base, quiet });
+  return { text, tappable: true };
 }
 
 function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {

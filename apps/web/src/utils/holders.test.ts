@@ -182,10 +182,28 @@ describe("holdersLine with a quiet phone", () => {
     );
   });
 
-  it("leaves the line alone while this phone is still waiting for its copy", () => {
+  it("names a quiet phone while this phone is still waiting for its copy", () => {
     expect(holdersLine(h({ here: false, quiet: [q("Ben", friday)] }), now).text).toBe(
-      "Arriving on your phone…",
+      "Arriving on your phone… Ben's phone last had it Friday",
     );
+    expect(
+      holdersLine(h({ here: false, others: [m("Ada")], quiet: [q("Ben", friday)] }), now).text,
+    ).toContain("Ben's phone last had it Friday");
+  });
+
+  it("says the day from the clock it is given", () => {
+    const later = new Date(2031, 0, 8, 9, 0).getTime();
+    const monday = new Date(2031, 0, 6, 9, 0).getTime();
+    expect(holdersLine(h({ quiet: [q("Ben", monday)] }), later).text).toBe(
+      "On your phone. Ben's phone last had it Monday",
+    );
+  });
+
+  it("keeps four fresh names as a count with the quiet phone after", () => {
+    expect(
+      holdersLine(h({ others: [m("A"), m("B"), m("C"), m("D")], quiet: [q("Cy", friday)] }), now)
+        .text,
+    ).toBe("On your phone and 4 others. Cy's phone last had it Friday");
   });
 
   it("is today's line with nobody quiet", () => {
