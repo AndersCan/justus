@@ -71,6 +71,7 @@ import { makeMemberViewer, makeViewerMember, removeViewer, seatViewer } from "./
 import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_VIEWERS,
+  DRIVE_PATH_FOLDER,
   DRIVE_PATH_REQUESTS,
   readViewers,
   openAlbum,
@@ -122,6 +123,7 @@ import {
   type RegistryFile,
   type ViewersFile,
   type RemovedFile,
+  parseFolderName,
 } from "./membership/records";
 import {
   DRIVE_PATH_ADMIN,
@@ -1548,10 +1550,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             log("error", { where: "refreshAlbumName", folder: short(folderId), err: errText(e) }),
           );
         }
-        // The Admin's drive may now hand the album to this phone.
-        if (rt && drive === rt.folderDrive && rt.record.takingOver) {
-          void advanceToSelf(rt).catch((e) =>
-            log("error", { where: "advanceToSelf", folder: short(folderId), err: errText(e) }),
+        // The Admin's drive may now hand the album to another phone, or to this one.
+        if (rt && drive === rt.folderDrive && rt.record.role !== "creator") {
+          void advanceAdmin(rt).catch((e) =>
+            log("error", { where: "advanceAdmin", folder: short(folderId), err: errText(e) }),
           );
         }
         // The Admin's drive may now carry the delete note.
@@ -4349,7 +4351,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           saveState();
         }
       } else {
-        fd = await openDriveWithTopic(record.shareKey, { server: false });
+        fd = await openDriveWithTopic(record.adminChain?.at(-1) ?? record.shareKey, {
+          server: false,
+        });
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = selfDrive.key;
@@ -4404,9 +4408,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         former: [],
       };
       runtimes.set(record.id, rt);
-      if (!isCreator && record.takingOver) {
-        void advanceToSelf(rt).catch((e) =>
-          log("error", { where: "advanceToSelf", folder: short(record.id), err: errText(e) }),
+      if (!isCreator) {
+        void advanceAdmin(rt).catch((e) =>
+          log("error", { where: "advanceAdmin", folder: short(record.id), err: errText(e) }),
         );
       }
       // A delete the Admin made while this phone was away, or work a restart
@@ -5383,7 +5387,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       log("handover.ready", { folder: short(rt.record.id) });
     });
-    void advanceToSelf(rt).catch(answerErr("advance"));
+    void advanceAdmin(rt).catch(answerErr("advance"));
   }
 
   /** Admin: the next Admin has the lists. Writes `/admin.json`, the drive's last write, when both copies agree and nothing changed since the package was sent. */
@@ -5453,30 +5457,69 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     actor.send({ type: "handOverFinished" });
   }
 
-  /** New Admin: once the Admin's drive names this phone's drive, this phone is the Admin. */
-  async function advanceToSelf(rt: FolderRuntime): Promise<void> {
+  /** Follows the Admin role along `/admin.json`: each hop is the album's Admin from then on; a hop naming this phone's own drive makes this phone the Admin. */
+  async function advanceAdmin(rt: FolderRuntime): Promise<void> {
     const id = rt.record.id;
-    if (rt.record.role !== "member" || !rt.record.takingOver || advancing.has(id)) return;
+    if (advancing.has(id)) return;
     advancing.add(id);
     try {
       const selfDrive = rt.selfDrive;
       const followed = await followAdmin(
         {
-          open: async (key) =>
-            key === selfDrive.key ? [null, selfDrive] : [new Error("not this phone's drive"), null],
+          open: async (key) => {
+            if (key === selfDrive.key) return [null, selfDrive];
+            const known = rt.memberDrives.get(key);
+            if (known) return [null, known];
+            try {
+              return [null, await openDriveWithTopic(key, { server: false })];
+            } catch (e) {
+              return [e instanceof Error ? e : new Error(errText(e)), null];
+            }
+          },
           release: async () => {},
           verify: (p) => deps.drives.verifyIdentity(p),
           log,
         },
         { from: rt.folderDrive, chain: rt.record.adminChain ?? [rt.record.shareKey] },
       );
-      const hop = followed.hops[0];
-      const taking = rt.record.takingOver;
-      if (!hop || hop.drive !== selfDrive || hop.next.identity !== ownDrive.key || !taking) return;
-      await becomeAdmin(rt, taking);
+      for (const hop of followed.hops) {
+        if (hop.drive === selfDrive) {
+          const taking = rt.record.takingOver;
+          if (taking && hop.next.identity === ownDrive.key) await becomeAdmin(rt, taking);
+          return;
+        }
+        await followHop(rt, hop);
+      }
     } finally {
       advancing.delete(id);
     }
+  }
+
+  /** Another phone is the Admin now: its drive holds the lists this phone reads. */
+  async function followHop(
+    rt: FolderRuntime,
+    hop: { drive: Drive; next: { key: string; identity: string } },
+  ): Promise<void> {
+    const key = hop.drive.key;
+    // The drive stays open as the album's drive, so it is not released with the member drives.
+    rt.memberDrives.delete(key);
+    rt.keptAt.delete(key);
+    rt.memberNameCache.delete(key);
+    rt.folderDrive = hop.drive;
+    patchRecord(rt, {
+      adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
+      ...(rt.record.invite ? { invite: { ...rt.record.invite, owner: hop.next.identity } } : {}),
+    });
+    log("admin.followed", { folder: short(rt.record.id), to: short(key) });
+    await refreshMembersFor(rt);
+    await becomeViewerIfListed(rt);
+    void checkDeleteNote(rt, 2_000).catch((e) =>
+      log("error", { where: "checkDeleteNote", folder: short(rt.record.id), err: errText(e) }),
+    );
+    void checkRemovedNote(rt, 2_000).catch((e) =>
+      log("error", { where: "checkRemovedNote", folder: short(rt.record.id), err: errText(e) }),
+    );
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id });
   }
 
   /** This phone's drive now holds the album's lists: it is the Admin, with the invite state the earlier Admin handed over. */
@@ -6083,7 +6126,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // (a remote `drive.ready()` otherwise waits forever).
     const [openErr, album] = await openAlbum(joinPorts, { shareKey: key });
     if (openErr) return err(PhotoError.INVALID_KEY, `Cannot open album: ${openErr.message}`);
-    const { folderDrive: drive, registry, folderName } = album;
+    let { folderDrive: drive, registry, folderName } = album;
+    // An album handed on since the link was made: its lists are on the Admin's drive now.
+    const followed = await followAdmin(
+      {
+        open: async (hopKey) => {
+          try {
+            return [null, await openDriveWithTopic(hopKey, { server: false })];
+          } catch (e) {
+            return [e instanceof Error ? e : new Error(errText(e)), null];
+          }
+        },
+        release: async () => {},
+        verify: (p) => deps.drives.verifyIdentity(p),
+        log,
+      },
+      { from: drive, chain: [key] },
+    );
+    const adminChain =
+      followed.hops.length > 0 ? [key, ...followed.hops.map((h) => h.drive.key)] : undefined;
+    const handedTo = followed.hops.at(-1)?.drive;
+    if (handedTo) {
+      drive = handedTo;
+      registry = await readRegistryIn(handedTo);
+      folderName = parseFolderName(await readText(handedTo, DRIVE_PATH_FOLDER)) || folderName;
+    }
 
     // The drive this device will add photos to in this album, and the key the
     // Admin enrolls (#195).
@@ -6128,6 +6195,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         createdAt: old?.record.createdAt ?? Date.now(),
         ...(old?.record.lifecycle ? { lifecycle: old.record.lifecycle } : {}),
         ...(via ? { invite: via.invite, selfNs: via.selfNs } : {}),
+        ...(adminChain ? { adminChain } : {}),
         ...(old
           ? {
               formerSelf: [...new Set([old.selfDrive.key, ...(old.record.formerSelf ?? [])])].slice(
@@ -7211,6 +7279,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             connected: memberPresence(presence, adminKeyOf(rt)).connected,
           },
           ...(rt.record.adminChain ? { adminChain: rt.record.adminChain } : {}),
+          ...(rt.record.invite ? { inviteOwner: rt.record.invite.owner } : {}),
           ...(rt.record.handover
             ? {
                 handover: {
