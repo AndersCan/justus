@@ -98,6 +98,9 @@ export type Gallery = {
   complete: boolean;
 };
 
+/** Longest a drive's photo list may take before the gallery skips that drive. */
+const SCAN_TIMEOUT_MS = 3000;
+
 /** Reads the album's gallery off its drives. A drive it cannot list is logged and skipped. */
 export async function listGallery(
   sources: GallerySource[],
@@ -123,17 +126,41 @@ export async function listGallery(
   }
   const removed = parseRemoved(removedText);
 
-  const scans: DriveScan[] = [];
-  for (const { key, drive } of sources) {
-    try {
-      const entries = [];
-      for await (const entry of drive.list(DRIVE_PATH_PHOTOS, { wait: false })) entries.push(entry);
-      scans.push({ key, entries });
-    } catch (e: unknown) {
-      complete = false;
-      log("error", { where: "drive.scan", drive: short(key), err: errText(e) });
-    }
-  }
+  // Hyperbee ignores `wait: false` for a drive whose peer is gone: its iteration never ends
+  // (trace: justus#853 same-name spec, `list.readFrom done` then no `scanned`). So each drive
+  // gets a bound, and the drives are scanned in parallel so one stuck drive holds no other.
+  const results = await Promise.all(
+    sources.map(async ({ key, drive }): Promise<DriveScan | null> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const timedOut = new Promise<"timeout">((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), SCAN_TIMEOUT_MS);
+        });
+        const scan = (async () => {
+          const entries = [];
+          for await (const entry of drive.list(DRIVE_PATH_PHOTOS, { wait: false })) {
+            entries.push(entry);
+          }
+          return entries;
+        })();
+        scan.catch(() => {});
+        const entries = await Promise.race([scan, timedOut]);
+        if (entries === "timeout") {
+          complete = false;
+          log("error", { where: "drive.scan", drive: short(key), err: "list timed out" });
+          return null;
+        }
+        return { key, entries };
+      } catch (e: unknown) {
+        complete = false;
+        log("error", { where: "drive.scan", drive: short(key), err: errText(e) });
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+  );
+  const scans = results.filter((scan) => scan !== null);
 
   // Sequential on purpose: same order of drive reads as before the move.
   const names = new Map<string, string>();
