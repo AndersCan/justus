@@ -3147,6 +3147,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Lowercased extension of a file name; `"."` alone counts as none. */
   const extOf = (name: string) => path.extname(name).toLowerCase().replace(/^\.$/, "");
 
+  /** The last stamp this phone gave a photo: adds in one run get strictly increasing stamps. */
+  let lastAddedAt = 0;
+
   async function addFromPath(
     filePath: string,
     originalName?: string,
@@ -3244,8 +3247,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       typeof opts.takenAt === "string" && TAKEN_AT_RE.test(opts.takenAt)
         ? opts.takenAt
         : readTakenAt(source);
+    const addedAt = Math.max(Date.now(), lastAddedAt + 1);
+    lastAddedAt = addedAt;
     const [writeErr, added] = await addPhoto(targetDrive, {
       id,
+      addedAt,
       ext,
       bytes: display.bytes,
       ...(thumb ? { thumb } : {}),

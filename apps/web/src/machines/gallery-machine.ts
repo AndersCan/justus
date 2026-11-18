@@ -407,7 +407,8 @@ export const galleryMachine = machine("gallery", {
           });
         }
         // One photo at a time: the worklet writes each to the album's drive in
-        // turn, and the progress count stays honest.
+        // turn, and the progress count stays honest. The last picked is added
+        // first, so the first picked is the newest and shows on top on every phone.
         /** Each picked photo is added in turn, and the progress count goes up after each. */
         m.effect(addingPhotos, {
           name: "addingPhotos",
@@ -422,7 +423,7 @@ export const galleryMachine = machine("gallery", {
             const key = (id: string, folderId?: string) => `${folderId ?? ""}/${id}`;
             const held = new Set(context.get().photos.map((p) => key(p.id, p.folderId)));
             return (async () => {
-              for (const source of batch.sources) {
+              for (const source of [...batch.sources].reverse()) {
                 if (signal.aborted) return;
                 await runInvoke(
                   signal,
@@ -459,7 +460,7 @@ export const galleryMachine = machine("gallery", {
             batch: c.batch ? { ...c.batch, done: c.batch.done + 1, ...change(c.batch) } : c.batch,
           });
         };
-        /** A photo is added to the top of the list, or counted as already in the album. */
+        /** A photo is added to the top of the list (the last picked first), or counted as already in the album. */
         m.on(addingPhotos, {
           event: itemAdded,
           handler: (e, opts) => {
@@ -474,11 +475,11 @@ export const galleryMachine = machine("gallery", {
             return {};
           },
         });
-        /** A photo failed to add: it is kept in the summary for retry and the rest carry on. */
+        /** A photo failed to add: it is kept in the summary for retry, in picked order, and the rest carry on. */
         m.on(addingPhotos, {
           event: itemFailed,
           handler: (e, opts) => {
-            tally(opts, (b) => ({ failed: [...b.failed, e.payload] }));
+            tally(opts, (b) => ({ failed: [e.payload, ...b.failed] }));
             return {};
           },
         });
