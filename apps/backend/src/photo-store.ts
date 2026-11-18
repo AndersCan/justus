@@ -6089,7 +6089,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // drive can take up to the open timeout to appear, so the rest follows in the
         // background and tells the screen again when it is done.
         deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-        void (async () => {
+        void oneChangePerAlbum(folderId, async () => {
+          if (!(await readRegistryIn(rt.folderDrive)).members[requesterKey]) return;
           await loadMemberDrive(rt, requesterKey, accepted.member.name);
           const joined = rt.memberDrives.get(requesterKey);
           await forgetFormer(
@@ -6099,7 +6100,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               (joined ? await identityOfDrive(joined) : undefined),
           );
           deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-        })().catch(answerErr("enroll"));
+        }).catch(answerErr("enroll"));
         if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
         return ok({ ok: true });
       }).finally(() => answering.delete(tapped));
