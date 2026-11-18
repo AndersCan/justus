@@ -19,6 +19,7 @@ const NOT_COPY = [
   /^no /,
   / returned no /,
   /^unknown error$/,
+  /^invoke timeout$/,
   /^friends: could not load$/,
   /^seen: could not (save|read)$/,
   /^canvas unavailable$/,

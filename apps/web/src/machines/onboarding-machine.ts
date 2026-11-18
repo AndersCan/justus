@@ -163,6 +163,7 @@ export const onboardingMachine = machine("onboarding", {
             return {};
           },
         });
+        /** The phone's lock status read began; a name saved before it ends waits for it. */
         m.onAny({
           event: lockReadStarted,
           handler: (_e, opts) => {
@@ -170,6 +171,7 @@ export const onboardingMachine = machine("onboarding", {
             return {};
           },
         });
+        /** The lock status read failed for good; nothing is pending, so the offer is skipped. */
         m.onAny({
           event: lockReadGaveUp,
           handler: (_e, opts) => {
