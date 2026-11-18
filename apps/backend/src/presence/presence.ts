@@ -24,6 +24,8 @@ export type Presence = {
   unverified: Map<string, "unsigned" | "rejected">;
   /** Member drive key to the last time (ms epoch) their last connection closed. */
   lastSeen: Map<string, number>;
+  /** Peer key to when its last connection closed before any member was known for it. Moved into `lastSeen` once a member learns that key. Not saved. */
+  closedAt: Map<string, number>;
 };
 
 /** What a member's entry in the People sheet takes from presence. Unset fields are absent. */
@@ -41,6 +43,7 @@ export function createPresence(options: { lastSeen: [string, number][] }): Prese
     identities: new Map(),
     unverified: new Map(),
     lastSeen: new Map(options.lastSeen),
+    closedAt: new Map(),
   };
 }
 
@@ -95,7 +98,10 @@ export function peerDisconnected(
     state: "down",
     conns: 0,
   });
-  if (member === undefined) return "unknown-peer-down";
+  if (member === undefined) {
+    presence.closedAt.set(peerKey, now);
+    return "unknown-peer-down";
+  }
   for (const [m, key] of presence.peerKeys) if (key === peerKey) presence.lastSeen.set(m, now);
   return "member-down";
 }
@@ -163,6 +169,11 @@ async function learnDevice(
   const prev = presence.peerKeys.get(memberKey);
   if (prev === peerKey) return changed;
   presence.peerKeys.set(memberKey, peerKey);
+  const closed = presence.closedAt.get(peerKey);
+  if (closed !== undefined) {
+    presence.closedAt.delete(peerKey);
+    presence.lastSeen.set(memberKey, Math.max(closed, presence.lastSeen.get(memberKey) ?? closed));
+  }
   log(prev !== undefined ? "swarmkey.changed" : "swarmkey.learned", {
     member: short(memberKey),
     swarmkey: short(peerKey),
