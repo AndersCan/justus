@@ -94,3 +94,40 @@ describe("album header presence while connecting", () => {
     expect(text).not.toContain("Connecting");
   });
 });
+
+describe("album header still-to-drop line", () => {
+  const withLine = {
+    folder: { id: "f1" },
+    members: [
+      { key: "k0", name: "Me", connected: true },
+      { key: "k1", name: "Ben", connected: false, stillToDrop: ["p1"] },
+    ],
+  };
+  const line = "Ben's phone still has a deleted photo.";
+  const textOf = (page: object, a: object = album) => {
+    const host = document.createElement("div");
+    render(albumHeader(page as never, a as never), host);
+    return host.textContent?.replace(/\s+/g, " ");
+  };
+  const base = { folders: [album], requests: [], photos: [], lastSync: Date.now() };
+
+  test("renders under the presence strip", () => {
+    expect(textOf({ ...base, status: withLine })).toContain(line);
+  });
+
+  test("renders while a join request line holds the slot", () => {
+    const admin = { ...album, role: "creator" };
+    const request = { folderId: "f1", requestedAt: 1, requesterName: "Cy", requesterKey: "x" };
+    const page = { ...base, status: withLine, requests: [request] };
+    expect(textOf(page, admin)).toContain(line);
+  });
+
+  test("is absent for a removed album", () => {
+    const removed = { ...album, notice: { kind: "removed" } };
+    expect(textOf({ ...base, status: withLine }, removed)).not.toContain(line);
+  });
+
+  test("is absent while there is no status", () => {
+    expect(textOf({ ...base, status: null })).not.toContain(line);
+  });
+});
