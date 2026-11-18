@@ -110,7 +110,7 @@ describe("holdersSheet leavers", () => {
     const text =
       draw(holdersSheet(photo(h({ former: ["Maya"], left: ["Cleo"] })), [])).textContent ?? "";
     expect(text.indexOf("Maya")).toBeLessThan(text.indexOf("Cleo"));
-    expect(text).toContain("Has the full photo from before.");
+    expect(text).toContain("Has the full photo from before they were removed.");
     expect(text).toContain("Their phone deleted its copy.");
     expect(text).not.toContain("Left.");
   });
