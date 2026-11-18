@@ -218,6 +218,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (!::webView.isInitialized) return
+        applyRecentsScreenshot()
         val now = SystemClock.elapsedRealtime()
         if (locked && !isDeviceSecure(this)) {
             locked = false
