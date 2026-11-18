@@ -152,7 +152,7 @@ describe("colour seats", () => {
     await until(async () => (await read("/viewers.json")).viewers[s.keys.ben].color === 2);
     expect((await read("/viewers.json")).viewers[s.keys.ben].color).toBe(2);
     await sleep(300);
-    const filledPushes = pushed.length;
+    const filledEnrolls = pushed.filter((e) => (e as { cause: string }).cause === "enroll").length;
     expect((await seats({ store: again } as P))[s.keys.ben]).toBe(2);
     // The filled seat is the one the next person is kept away from.
     const key = "ab".repeat(32);
@@ -162,13 +162,13 @@ describe("colour seats", () => {
 
     // A boot with nothing to fill pushes fewer changes: the fill told the screen.
     const deps3 = restarted(deps2);
-    let quietPushes = 0;
-    deps3.onChanged = () => void quietPushes++;
+    let quietEnrolls = 0;
+    deps3.onChanged = (e: { cause: string }) => void (e.cause === "enroll" && quietEnrolls++);
     const quiet = createPhotoStore(deps3);
     await quiet.ready();
     await sleep(300);
-    // The fill pushes twice: once from the refresh after the write, once of its own.
-    expect(filledPushes).toBeGreaterThanOrEqual(quietPushes + 2);
+    // The fill tells the screen with a seat change of its own.
+    expect(filledEnrolls).toBe(quietEnrolls + 1);
     await quiet.close();
     await s.nils.store.close();
     await s.ben.store.close();

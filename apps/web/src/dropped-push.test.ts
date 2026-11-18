@@ -29,7 +29,7 @@ describe("dropped push", () => {
       push({
         cause: "dropped",
         folderId: "f1",
-        dropped: { photoId: "p1", people: [{ key: "k-ben", name: "Ben" }] },
+        dropped: { people: [{ key: "k-ben", name: "Ben" }] },
       }),
     );
     expect(load).not.toHaveBeenCalled();
@@ -55,7 +55,7 @@ describe("dropped push", () => {
       push({
         cause: "dropped",
         folderId: "f1",
-        dropped: { photoId: "p1", people: [{ key: "k-ben", name: "Ben" }] },
+        dropped: { people: [{ key: "k-ben", name: "Ben" }] },
       }),
     );
     expect(toast).toHaveBeenCalledWith("Removed from Benny's phone.");
@@ -66,7 +66,7 @@ describe("dropped push", () => {
       push({
         cause: "dropped",
         folderId: "f1",
-        dropped: { photoId: "p1", people: [{ key: "k-old", name: "" }] },
+        dropped: { people: [{ key: "k-old", name: "" }] },
       }),
     );
     expect(toast).not.toHaveBeenCalledWith("Removed from 's phone.");

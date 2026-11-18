@@ -30,7 +30,9 @@ function watched(
     on: boolean;
     previews: boolean;
     delFails: boolean;
+    delFailsFor?: string;
     slowHeldMs?: number;
+    slowMarkerMs?: number;
     dels?: string[];
   },
 ) {
@@ -41,6 +43,8 @@ function watched(
       const del = drive.del.bind(drive);
       drive.del = async (path: string, ...rest: unknown[]) => {
         if (quiet.delFails && path.startsWith("/held/")) throw new Error("disk full");
+        if (quiet.delFailsFor !== undefined && path === `/held/${quiet.delFailsFor}`)
+          throw new Error("disk full");
         quiet.dels?.push(path);
         return (del as (...a: unknown[]) => Promise<void>)(path, ...rest);
       };
@@ -70,6 +74,8 @@ function watched(
       const readSmall = drive.readSmall.bind(drive);
       drive.readSmall = async (...a: Parameters<Drive["readSmall"]>) => {
         if (quiet.on && a[0] === "/holding.json") throw new Error("unreachable");
+        // A record read over the network takes a while; reads triggered meanwhile overlap.
+        if (quiet.slowMarkerMs && a[0] === "/holding.json") await sleep(quiet.slowMarkerMs);
         return readSmall(...a);
       };
       return result;
@@ -100,7 +106,9 @@ function phone(
     on: boolean;
     previews: boolean;
     delFails: boolean;
+    delFailsFor?: string;
     slowHeldMs?: number;
+    slowMarkerMs?: number;
     dels?: string[];
   } = { on: false, previews: false, delFails: false };
   const logs: { event: string; fields: Record<string, unknown> }[] = [];
@@ -1392,7 +1400,7 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
 });
 
 describe("the phone that deletes a photo hears who dropped it", () => {
-  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  type Dropped = { cause: string; dropped?: { people: { key: string }[] } };
   const droppedPushes = (s: Album) =>
     (s.anna.pushes as Dropped[]).filter((p) => p.cause === "dropped");
 
@@ -1434,13 +1442,13 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     expect(droppedPushes(s)).toEqual([
       expect.objectContaining({
         folderId: s.folderId,
-        dropped: { photoId: photo.id, people: [expect.objectContaining({ key: s.nilsKey })] },
+        dropped: { people: [expect.objectContaining({ key: s.nilsKey })] },
       }),
     ]);
     await s.close();
   });
 
-  it("does not wait on a quiet phone: a delete with Nils away 4 days records no watch for him", async () => {
+  it("names Nils when he drops it after 4 days away", async () => {
     const s = await album();
     await nilsOpens(s, "sunset.jpg");
     await s.anna.store.close();
@@ -1464,12 +1472,61 @@ describe("the phone that deletes a photo hears who dropped it", () => {
       return true;
     });
     await reopened.remove(id);
-    await s.nils.store.list(s.nilsFolderId);
-    await sleep(800);
-    expect(pushes.filter((p) => p.cause === "dropped")).toEqual([]);
+    await until(
+      async () => (
+        await s.nils.store.list(s.nilsFolderId),
+        pushes.some((p) => p.cause === "dropped")
+      ),
+    );
+    expect(pushes.filter((p) => p.cause === "dropped")).toEqual([
+      expect.objectContaining({
+        dropped: { people: [expect.objectContaining({ key: s.nilsKey })] },
+      }),
+    ]);
     await reopened.close();
     await s.nils.store.close();
   });
+
+  it("names Nils once when two reads of his record overlap", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    await s.anna.store.addBytes("other.jpg", new Uint8Array([4, 4, 4, 4]));
+    await until(async () =>
+      (await s.nils.store.list(s.nilsFolderId)).some((p) => p.name === "other.jpg"),
+    );
+    // Anna's read of Nils's record takes longer than the 400 ms change debounce.
+    s.anna.quiet.slowMarkerMs = 1_000;
+    s.nils.quiet.dels = [];
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), s.nils.quiet.dels!.length > 0),
+    );
+    // Nils's record changes again while Anna's first read is still running.
+    await sleep(500);
+    const other = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "other.jpg")!;
+    await s.nils.server.getForTest(new URL(other.url).pathname);
+    await sleep(3_000);
+    expect(droppedPushes(s).flatMap((p) => p.dropped!.people.map((m) => m.key))).toEqual([
+      s.nilsKey,
+    ]);
+    await s.close();
+  });
+
+  it("names Nils when his record drops one deleted photo and keeps another", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "thumbed.jpg")).length === 1);
+    // Nils's phone cannot take the full photo out of its record, only the preview.
+    const held = await s.annaPhoto();
+    s.nils.quiet.delFailsFor = held.id;
+    await s.anna.store.remove(held.id);
+    await s.anna.store.remove(thumbed.id);
+    await untilDropped(s, 1);
+    expect(droppedPushes(s)[0]!.dropped!.people.map((p) => p.key)).toEqual([s.nilsKey]);
+    await s.close();
+  }, 15_000);
 
   it("names Nils for a photo he only previewed", async () => {
     const s = await album();
@@ -1493,15 +1550,15 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await s.close();
   });
 
-  it("stops listening 60 s after the delete", async () => {
+  it("still names Nils when he drops it 2 minutes after the delete", async () => {
     const s = await album();
     await nilsOpens(s, "sunset.jpg");
     await s.anna.store.remove((await s.annaPhoto()).id);
     const now = Date.now();
-    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
-    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 1_000);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 120_000);
+    await untilDropped(s, 1);
     clock.mockRestore();
-    expect(droppedPushes(s)).toEqual([]);
+    expect(droppedPushes(s)[0]!.dropped!.people.map((p) => p.key)).toEqual([s.nilsKey]);
     await s.close();
   });
 
@@ -1524,7 +1581,7 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await s.close();
   });
 
-  it("tells each delete on its own", async () => {
+  it("two deletes Nils drops in one record change name him once", async () => {
     const s = await album();
     await s.anna.store.addBytes("two.jpg", new Uint8Array([2, 2, 2, 2]));
     await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
@@ -1533,19 +1590,17 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await until(async () => (await s.annaPhotoNamed("two.jpg")).holders!.others.length === 1);
     const ids = [(await s.annaPhoto()).id, (await s.annaPhotoNamed("two.jpg")).id];
     for (const id of ids) await s.anna.store.remove(id);
-    await untilDropped(s, 2);
-    await sleep(300);
-    expect(
-      droppedPushes(s)
-        .map((p) => p.dropped!.photoId)
-        .sort(),
-    ).toEqual([...ids].sort());
+    await untilDropped(s, 1);
+    await sleep(500);
+    expect(droppedPushes(s).flatMap((p) => p.dropped!.people.map((m) => m.key))).toEqual([
+      s.nilsKey,
+    ]);
     await s.close();
   });
 });
 
 describe("the deleting phone hears every holder, on any delete path", () => {
-  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  type Dropped = { cause: string; dropped?: { people: { key: string }[] } };
   const droppedKeys = (pushes: unknown[]) =>
     (pushes as Dropped[])
       .filter((p) => p.cause === "dropped")

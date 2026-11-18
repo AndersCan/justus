@@ -241,7 +241,7 @@ describe("deleted push", () => {
 });
 
 describe("dropped push", () => {
-  const dropped = { photoId: "p1", people: [{ key: "k", name: "Ben" }] };
+  const dropped = { people: [{ key: "k", name: "Ben" }] };
 
   it("accepts a dropped push and names a bad field", () => {
     expect(checkPhotoChanged({ cause: "dropped", folderId: "f", dropped })).toBeNull();

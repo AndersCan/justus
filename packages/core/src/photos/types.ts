@@ -280,7 +280,7 @@ export type DeletedPhoto = {
 export type DeletedPhotos = { albumName: string; photos: DeletedPhoto[] };
 
 /** For cause "dropped": phones that no longer hold a photo this phone deleted. */
-export type DroppedPhoto = { photoId: string; people: PhotoMember[] };
+export type DroppedPhoto = { people: PhotoMember[] };
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {

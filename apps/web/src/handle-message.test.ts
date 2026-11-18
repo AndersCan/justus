@@ -200,7 +200,7 @@ describe("handleMessage deleted", () => {
 });
 
 describe("handleMessage dropped", () => {
-  const dropped = { photoId: "p1", people: [{ key: "k1", name: "Ben" }] };
+  const dropped = { people: [{ key: "k1", name: "Ben" }] };
 
   it("a dropped push tells the toast and reloads nothing", () => {
     const spy = vi.spyOn(droppedToast, "show").mockImplementation(() => {});
