@@ -390,7 +390,12 @@ export function parseJoinRequests(
 
 /** The invite codes an outbox's requests were made through, with when. */
 /** When one link the Admin made works: from its making to its end, ms since the epoch. */
-export type LinkTime = { from: number; to: number };
+export type LinkTime = {
+  from: number;
+  to: number;
+  /** The name of the Admin who made the link; set only on links a new Admin inherited. */
+  by?: string;
+};
 
 /** How far apart two phones' clocks may be. */
 export const CLOCK_SLACK_MS = 10 * 60_000;
@@ -419,6 +424,8 @@ export function invitesAsked(text: string): Array<{ code: string; requestedAt: n
 export type Answer =
   | { code: string; answer: "accepted"; shareKey: string; movedFrom?: string[] }
   | { code: string; answer: "declined"; askedAt?: number }
+  /** The Admin handed the album on: `chain` signs the asker's code over to the new Admin's identity. */
+  | { code: string; answer: "handedOver"; chain: HandoverProof[] }
   /** The code no longer works for this ask; `why` says which, when known. */
   | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy }
   /** The Admin's phone has this ask and it waits on the Admin: the names the asker's screens show. Never a key. */
@@ -434,17 +441,23 @@ export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey, askedAt, movedFrom, why, albumName, ownerName } = value as {
-    code?: unknown;
-    answer?: unknown;
-    shareKey?: unknown;
-    askedAt?: unknown;
-    movedFrom?: unknown;
-    why?: unknown;
-    albumName?: unknown;
-    ownerName?: unknown;
-  };
+  const { code, answer, shareKey, askedAt, movedFrom, why, albumName, ownerName, chain } =
+    value as {
+      code?: unknown;
+      chain?: unknown;
+      answer?: unknown;
+      shareKey?: unknown;
+      askedAt?: unknown;
+      movedFrom?: unknown;
+      why?: unknown;
+      albumName?: unknown;
+      ownerName?: unknown;
+    };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
+  if (answer === "handedOver") {
+    const proofs = parseProofChain(chain);
+    return proofs ? { code, answer, chain: proofs } : undefined;
+  }
   if (answer === "received") {
     if (typeof askedAt !== "number" || !Number.isFinite(askedAt)) return undefined;
     if (typeof albumName !== "string" || typeof ownerName !== "string") return undefined;
@@ -498,7 +511,15 @@ export type FriendMessage =
   /** A removed phone deleted its copy of the album whose old key has this discovery key. */
   | { kind: "copyDeleted"; album: string }
   /** The Admin's phone handled `copyDeleted` for `album`; the sender can stop telling it. */
-  | { kind: "copyDeletedSeen"; album: string };
+  | { kind: "copyDeletedSeen"; album: string }
+  /** Admin to the next Admin: the album's lists and links, to be confirmed with `handoverReady`. */
+  | { kind: "handover"; album: string; digest: string; admin: HandoverPackage }
+  /** Next Admin to the Admin: its copy of the lists matches `digest`. */
+  | { kind: "handoverReady"; album: string; digest: string }
+  /** Next Admin to the Admin: the next Admin's phone is the Admin now. */
+  | { kind: "handoverDone"; album: string }
+  /** Admin to the next Admin: the Admin stayed; ignore the handover. */
+  | { kind: "handoverCancelled"; album: string };
 
 export type MoveOffer = { from: string[]; role: "member" | "reader" };
 
@@ -524,6 +545,21 @@ export function isFriendMessageShape(value: unknown): boolean {
 export function parseFriendMessage(value: unknown): FriendMessage | undefined {
   if (!isTextJSON(value)) return undefined;
   const { kind, code, albumName, ownerName, album } = value;
+  if (
+    kind === "handover" ||
+    kind === "handoverReady" ||
+    kind === "handoverDone" ||
+    kind === "handoverCancelled"
+  ) {
+    if (typeof album !== "string" || !isHexKey(album)) return undefined;
+    const albumKey = album.toLowerCase();
+    if (kind === "handoverDone" || kind === "handoverCancelled") return { kind, album: albumKey };
+    if (typeof value.digest !== "string" || !isHexKey(value.digest)) return undefined;
+    const digest = value.digest.toLowerCase();
+    if (kind === "handoverReady") return { kind, album: albumKey, digest };
+    const admin = parseHandoverPackage(value.admin);
+    return admin ? { kind, album: albumKey, digest, admin } : undefined;
+  }
   if (kind === "copyDeleted" || kind === "copyDeletedSeen") {
     return typeof album === "string" && isHexKey(album) ? { kind, album } : undefined;
   }
@@ -549,4 +585,208 @@ export function parseFriendMessage(value: unknown): FriendMessage | undefined {
     return { kind, code };
   }
   return undefined;
+}
+
+/** What the Admin who hands an album on leaves at `/admin.json` of the drive that holds the lists. */
+export type AdminNote = {
+  version: 1;
+  /** The next Admin's own album drive and identity drive, 64 hex each. */
+  next: { key: string; identity: string; name: string };
+  at: number;
+};
+
+/** The note in an `/admin.json` text. Missing or malformed reads as none; a version other than 1 reads as none and calls `onUnsupported`. */
+export function parseAdminNote(
+  text: string | null | undefined,
+  onUnsupported?: () => void,
+): AdminNote | undefined {
+  if (text === null || text === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (!isTextJSON(parsed)) return undefined;
+    if (parsed.version !== 1) {
+      if (typeof parsed.version === "number" && parsed.version > 1) onUnsupported?.();
+      return undefined;
+    }
+    const { next, at } = parsed;
+    if (!isTextJSON(next) || typeof at !== "number" || !Number.isFinite(at)) return undefined;
+    if (typeof next.key !== "string" || !isHexKey(next.key)) return undefined;
+    if (typeof next.identity !== "string" || !isHexKey(next.identity)) return undefined;
+    return {
+      version: 1,
+      next: {
+        key: next.key.toLowerCase(),
+        identity: next.identity.toLowerCase(),
+        name: peerName(next.name, DEFAULT_ASK_OWNER),
+      },
+      at,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** One signature: identity `from` signed the code over to identity `to`. All hex, lowercased. */
+export type HandoverProof = { from: string; to: string; publicKey: string; signature: string };
+
+/** Longest run of Admins one album follows, and of links in one proof chain. */
+export const MAX_ADMIN_CHAIN = 16;
+/** Most invite links, retired codes and proof chains one handover carries. */
+export const MAX_HANDOVER_CODES = 50;
+/** Most answers one handover carries. */
+export const MAX_HANDOVER_ANSWERS = 1000;
+
+/** Everything the next Admin needs from the Admin's phone that is not on a drive. */
+export type HandoverPackage = {
+  fromName: string;
+  invite: { code: string; links?: LinkTime[] };
+  retiredInvites?: string[];
+  retiredWhy?: Record<string, "turnedOff" | "replaced">;
+  answers?: Record<string, "accepted" | "declined">;
+  declinedAsks?: Record<string, number>;
+  /** One per code in `invite` and `retiredInvites`. */
+  chains: Record<string, HandoverProof[]>;
+};
+
+/** The bytes an Admin signs to hand `code` to identity `to`. */
+export function handoverMessage(code: string, to: string): Uint8Array {
+  return Buffer.from(`justus-handover/v1:${code.toLowerCase()}:${to.toLowerCase()}`, "utf8");
+}
+
+const isHexOf = (value: unknown, length: number): value is string =>
+  typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`, "i").test(value);
+
+function parseProofChain(value: unknown): HandoverProof[] | undefined {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_ADMIN_CHAIN) return undefined;
+  const out: HandoverProof[] = [];
+  for (const raw of value as unknown[]) {
+    if (!isTextJSON(raw)) return undefined;
+    const { from, to, publicKey, signature } = raw;
+    if (!isHexOf(from, 64) || !isHexOf(to, 64) || !isHexOf(publicKey, 64)) return undefined;
+    if (!isHexOf(signature, 128)) return undefined;
+    out.push({
+      from: from.toLowerCase(),
+      to: to.toLowerCase(),
+      publicKey: publicKey.toLowerCase(),
+      signature: signature.toLowerCase(),
+    });
+  }
+  return out;
+}
+
+/** True when `chain` hands `code` on from identity `from` to identity `to`: it holds a link from `from`, each link after it starts where the one before ended, the last ends at `to`, and every link verifies. */
+export function chainReaches(
+  chain: readonly HandoverProof[],
+  options: {
+    code: string;
+    from: string;
+    to: string;
+    verify: (proof: IdentityProof) => boolean;
+  },
+): boolean {
+  if (chain.length < 1 || chain.length > MAX_ADMIN_CHAIN) return false;
+  const from = options.from.toLowerCase();
+  const start = chain.findIndex((link) => link.from.toLowerCase() === from);
+  if (start < 0) return false;
+  for (let i = start; i < chain.length - 1; i++) {
+    if (chain[i].to.toLowerCase() !== chain[i + 1].from.toLowerCase()) return false;
+  }
+  if (chain[chain.length - 1].to.toLowerCase() !== options.to.toLowerCase()) return false;
+  return chain.every((link) =>
+    options.verify({
+      identityKey: link.from,
+      publicKey: link.publicKey,
+      signature: link.signature,
+      message: handoverMessage(options.code, link.to),
+    }),
+  );
+}
+
+function parseLinkTimes(value: unknown): LinkTime[] | undefined {
+  if (!Array.isArray(value) || value.length > MAX_HANDOVER_CODES) return undefined;
+  const out: LinkTime[] = [];
+  for (const raw of value as unknown[]) {
+    if (!isTextJSON(raw)) return undefined;
+    if (typeof raw.from !== "number" || !Number.isFinite(raw.from)) return undefined;
+    if (typeof raw.to !== "number" || !Number.isFinite(raw.to)) return undefined;
+    out.push(
+      typeof raw.by === "string"
+        ? { from: raw.from, to: raw.to, by: peerName(raw.by, DEFAULT_ASK_OWNER) }
+        : { from: raw.from, to: raw.to },
+    );
+  }
+  return out;
+}
+
+/** A handover package off the wire, or undefined when any part of it is malformed or over its cap. */
+export function parseHandoverPackage(value: unknown): HandoverPackage | undefined {
+  if (!isTextJSON(value)) return undefined;
+  const { invite, retiredInvites, retiredWhy, answers, declinedAsks, chains } = value;
+  if (!isTextJSON(invite) || typeof invite.code !== "string" || !isHexKey(invite.code)) {
+    return undefined;
+  }
+  const code = invite.code.toLowerCase();
+  const out: HandoverPackage = {
+    fromName: peerName(value.fromName, DEFAULT_ASK_OWNER),
+    invite: { code },
+    chains: {},
+  };
+  if (invite.links !== undefined) {
+    const links = parseLinkTimes(invite.links);
+    if (!links) return undefined;
+    out.invite.links = links;
+  }
+  const codes = new Set([code]);
+  if (retiredInvites !== undefined) {
+    if (!Array.isArray(retiredInvites) || retiredInvites.length > MAX_HANDOVER_CODES) {
+      return undefined;
+    }
+    const retired: string[] = [];
+    for (const c of retiredInvites as unknown[]) {
+      if (typeof c !== "string" || !isHexKey(c)) return undefined;
+      retired.push(c.toLowerCase());
+      codes.add(c.toLowerCase());
+    }
+    out.retiredInvites = retired;
+  }
+  if (retiredWhy !== undefined) {
+    if (!isTextJSON(retiredWhy) || Object.keys(retiredWhy).length > MAX_HANDOVER_CODES) {
+      return undefined;
+    }
+    const why: Record<string, "turnedOff" | "replaced"> = {};
+    for (const [c, w] of Object.entries(retiredWhy)) {
+      if (!isHexKey(c) || (w !== "turnedOff" && w !== "replaced")) return undefined;
+      why[c.toLowerCase()] = w;
+    }
+    out.retiredWhy = why;
+  }
+  if (answers !== undefined) {
+    if (!isTextJSON(answers) || Object.keys(answers).length > MAX_HANDOVER_ANSWERS) {
+      return undefined;
+    }
+    const parsed: Record<string, "accepted" | "declined"> = {};
+    for (const [id, a] of Object.entries(answers)) {
+      if (!isHexKey(id) || (a !== "accepted" && a !== "declined")) return undefined;
+      parsed[id.toLowerCase()] = a;
+    }
+    out.answers = parsed;
+  }
+  if (declinedAsks !== undefined) {
+    if (!isTextJSON(declinedAsks) || Object.keys(declinedAsks).length > MAX_HANDOVER_ANSWERS) {
+      return undefined;
+    }
+    const parsed: Record<string, number> = {};
+    for (const [id, at] of Object.entries(declinedAsks)) {
+      if (!isHexKey(id) || typeof at !== "number" || !Number.isFinite(at)) return undefined;
+      parsed[id.toLowerCase()] = at;
+    }
+    out.declinedAsks = parsed;
+  }
+  if (!isTextJSON(chains) || Object.keys(chains).length !== codes.size) return undefined;
+  for (const c of codes) {
+    const proofs = parseProofChain(chains[c]);
+    if (!proofs) return undefined;
+    out.chains[c] = proofs;
+  }
+  return out;
 }

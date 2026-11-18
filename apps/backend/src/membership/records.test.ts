@@ -24,6 +24,14 @@ import {
 } from "./records";
 import { describe, expect, test } from "vite-plus/test";
 import type { IdentityProof } from "../ports/drive-store";
+import {
+  MAX_ADMIN_CHAIN,
+  chainReaches,
+  handoverMessage,
+  parseAdminNote,
+  parseHandoverPackage,
+  type HandoverProof,
+} from "./records";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "B".repeat(64);
@@ -610,5 +618,285 @@ describe("sealing records", () => {
     expect(parse({ ...good, invite: "z".repeat(64) })).toBeUndefined();
     expect(parseSealedAsk(Buffer.from("nope"))).toBeUndefined();
     expect(parse(null)).toBeUndefined();
+  });
+});
+
+describe("parseAdminNote", () => {
+  const good = { version: 1, next: { key: KEY_B, identity: KEY_A, name: " Ben " }, at: 5 };
+  test("reads a note, lowercasing the keys and cleaning the name", () => {
+    expect(parseAdminNote(JSON.stringify(good))).toEqual({
+      version: 1,
+      next: { key: KEY_B.toLowerCase(), identity: KEY_A, name: "Ben" },
+      at: 5,
+    });
+    expect(
+      parseAdminNote(JSON.stringify({ ...good, next: { ...good.next, name: 7 } }))?.next.name,
+    ).toBe("the Admin");
+  });
+  test("a missing file, malformed text and bad fields read as no note", () => {
+    expect(parseAdminNote(null)).toBeUndefined();
+    expect(parseAdminNote(undefined)).toBeUndefined();
+    expect(parseAdminNote("{")).toBeUndefined();
+    expect(parseAdminNote("5")).toBeUndefined();
+    expect(parseAdminNote(JSON.stringify({ ...good, version: 0 }))).toBeUndefined();
+    expect(parseAdminNote(JSON.stringify({ ...good, at: "x" }))).toBeUndefined();
+    expect(parseAdminNote(JSON.stringify({ ...good, next: null }))).toBeUndefined();
+    expect(
+      parseAdminNote(JSON.stringify({ ...good, next: { ...good.next, key: "nope" } })),
+    ).toBeUndefined();
+    expect(
+      parseAdminNote(JSON.stringify({ ...good, next: { ...good.next, identity: "nope" } })),
+    ).toBeUndefined();
+  });
+  test("version 2 reads as no note and calls onUnsupported; version 1 does not", () => {
+    let calls = 0;
+    expect(parseAdminNote(JSON.stringify({ ...good, version: 2 }), () => calls++)).toBeUndefined();
+    expect(calls).toBe(1);
+    parseAdminNote(JSON.stringify({ ...good, version: "2" }), () => calls++);
+    parseAdminNote(JSON.stringify(good), () => calls++);
+    parseAdminNote("{", () => calls++);
+    expect(calls).toBe(1);
+  });
+});
+
+describe("chainReaches", () => {
+  const ID = (n: number) => n.toString(16).padStart(64, "0");
+  const link = (from: number, to: number): HandoverProof => ({
+    from: ID(from),
+    to: ID(to),
+    publicKey: "c".repeat(64),
+    signature: "d".repeat(128),
+  });
+  const reaches = (
+    chain: HandoverProof[],
+    over: Partial<{
+      code: string;
+      from: number;
+      to: number;
+      verify: (p: IdentityProof) => boolean;
+    }> = {},
+  ) =>
+    chainReaches(chain, {
+      code: KEY_A,
+      from: ID(over.from ?? 1),
+      to: ID(over.to ?? 3),
+      verify: over.verify ?? (() => true),
+    });
+
+  test("accepts a two-link chain and asks to verify each link's own message", () => {
+    const seen: IdentityProof[] = [];
+    expect(
+      reaches([link(1, 2), link(2, 3)], {
+        verify: (p) => {
+          seen.push(p);
+          return true;
+        },
+      }),
+    ).toBe(true);
+    expect(seen.map((p) => [p.identityKey, p.message])).toEqual([
+      [ID(1), handoverMessage(KEY_A, ID(2))],
+      [ID(2), handoverMessage(KEY_A, ID(3))],
+    ]);
+  });
+  test("starts at the link from the sender, ignoring links before it", () => {
+    expect(reaches([link(9, 1), link(1, 2), link(2, 3)])).toBe(true);
+  });
+  test("refuses a broken link, a wrong code, a missing start and a wrong end", () => {
+    expect(reaches([link(1, 2), link(5, 3)])).toBe(false);
+    expect(reaches([link(1, 2), link(2, 3)], { verify: (p) => p.identityKey !== ID(2) })).toBe(
+      false,
+    );
+    const signedForA = (p: IdentityProof) =>
+      Buffer.from(p.message).toString().includes(`:${KEY_A}:`);
+    expect(reaches([link(1, 2), link(2, 3)], { verify: signedForA })).toBe(true);
+    expect(
+      chainReaches([link(1, 2), link(2, 3)], {
+        code: "b".repeat(64),
+        from: ID(1),
+        to: ID(3),
+        verify: signedForA,
+      }),
+    ).toBe(false);
+    expect(reaches([link(1, 2), link(2, 3)], { verify: () => false })).toBe(false);
+    expect(reaches([link(2, 3)], { from: 1 })).toBe(false);
+    expect(reaches([link(1, 2), link(2, 4)])).toBe(false);
+    expect(reaches([])).toBe(false);
+  });
+  test("compares keys without case and refuses 17 links", () => {
+    const upper = { ...link(10, 11), from: ID(10).toUpperCase() };
+    expect(reaches([upper], { from: 10, to: 11 })).toBe(true);
+    expect(reaches([{ ...link(1, 11), to: ID(11).toUpperCase() }, link(11, 3)])).toBe(true);
+    expect(reaches([{ ...link(1, 12), to: ID(12).toUpperCase() }], { to: 12 })).toBe(true);
+    const long = Array.from({ length: MAX_ADMIN_CHAIN + 1 }, (_, i) => link(i + 1, i + 2));
+    expect(reaches(long, { from: 1, to: MAX_ADMIN_CHAIN + 2 })).toBe(false);
+    expect(reaches(long.slice(0, MAX_ADMIN_CHAIN), { from: 1, to: MAX_ADMIN_CHAIN + 1 })).toBe(
+      true,
+    );
+  });
+});
+
+describe("handover messages", () => {
+  const ID = "e".repeat(64);
+  const SIG = "f".repeat(128);
+  const proof = { from: KEY_A, to: ID, publicKey: "c".repeat(64), signature: SIG };
+  const pkg = (over: Record<string, unknown> = {}) => ({
+    fromName: " Ada ",
+    invite: {
+      code: KEY_A,
+      links: [
+        { from: 1, to: 2 },
+        { from: 3, to: 4, by: " Ada " },
+      ],
+    },
+    retiredInvites: [ID],
+    retiredWhy: { [ID]: "replaced" },
+    answers: { [ID]: "accepted" },
+    declinedAsks: { [ID]: 9 },
+    chains: { [KEY_A]: [proof], [ID]: [proof] },
+    ...over,
+  });
+
+  test("handoverReady, handoverDone and handoverCancelled carry a hex album (and a digest)", () => {
+    expect(parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID })).toEqual({
+      kind: "handoverReady",
+      album: KEY_B.toLowerCase(),
+      digest: ID,
+    });
+    for (const kind of ["handoverDone", "handoverCancelled"] as const) {
+      expect(parseFriendMessage({ kind, album: KEY_A, digest: 5 })).toEqual({ kind, album: KEY_A });
+      expect(parseFriendMessage({ kind, album: "nope" })).toBeUndefined();
+      expect(parseFriendMessage({ kind })).toBeUndefined();
+    }
+    expect(parseFriendMessage({ kind: "handoverReady", album: KEY_A })).toBeUndefined();
+    expect(
+      parseFriendMessage({ kind: "handoverReady", album: KEY_A, digest: "x" }),
+    ).toBeUndefined();
+    expect(parseFriendMessage({ kind: "handover", album: KEY_A, digest: ID })).toBeUndefined();
+    expect(
+      parseFriendMessage({ kind: "handover", album: "x", digest: ID, admin: pkg() }),
+    ).toBeUndefined();
+    expect(parseFriendMessage({ kind: "handover", album: KEY_A, admin: pkg() })).toBeUndefined();
+  });
+  test("handover keeps a whole package, cleaned", () => {
+    const msg = parseFriendMessage({ kind: "handover", album: KEY_A, digest: ID, admin: pkg() });
+    expect(msg).toEqual({
+      kind: "handover",
+      album: KEY_A,
+      digest: ID,
+      admin: {
+        fromName: "Ada",
+        invite: {
+          code: KEY_A,
+          links: [
+            { from: 1, to: 2 },
+            { from: 3, to: 4, by: "Ada" },
+          ],
+        },
+        retiredInvites: [ID],
+        retiredWhy: { [ID]: "replaced" },
+        answers: { [ID]: "accepted" },
+        declinedAsks: { [ID]: 9 },
+        chains: { [KEY_A]: [proof], [ID]: [proof] },
+      },
+    });
+  });
+  test("a package may be just a code and its chain", () => {
+    expect(parseHandoverPackage({ invite: { code: KEY_A }, chains: { [KEY_A]: [proof] } })).toEqual(
+      {
+        fromName: "the Admin",
+        invite: { code: KEY_A },
+        chains: { [KEY_A]: [proof] },
+      },
+    );
+  });
+  test("a package with any bad part is refused whole", () => {
+    const bad = (over: Record<string, unknown>) => parseHandoverPackage(pkg(over));
+    expect(parseHandoverPackage(null)).toBeUndefined();
+    expect(bad({ invite: { code: "x" } })).toBeUndefined();
+    expect(bad({ invite: null })).toBeUndefined();
+    expect(bad({ invite: { code: KEY_A, links: "x" } })).toBeUndefined();
+    expect(bad({ invite: { code: KEY_A, links: [null] } })).toBeUndefined();
+    expect(bad({ invite: { code: KEY_A, links: [{ from: "1", to: 2 }] } })).toBeUndefined();
+    expect(bad({ invite: { code: KEY_A, links: [{ from: 1, to: NaN }] } })).toBeUndefined();
+    expect(bad({ retiredInvites: "x" })).toBeUndefined();
+    expect(bad({ retiredInvites: [5] })).toBeUndefined();
+    expect(bad({ retiredWhy: { [ID]: "expired" } })).toBeUndefined();
+    expect(bad({ retiredWhy: { x: "replaced" } })).toBeUndefined();
+    expect(bad({ answers: { [ID]: "maybe" } })).toBeUndefined();
+    expect(bad({ answers: { x: "accepted" } })).toBeUndefined();
+    expect(bad({ answers: "x" })).toBeUndefined();
+    expect(bad({ declinedAsks: { [ID]: "9" } })).toBeUndefined();
+    expect(bad({ declinedAsks: { x: 9 } })).toBeUndefined();
+    expect(bad({ declinedAsks: 5 })).toBeUndefined();
+  });
+  test("a chain is needed for every code and for no other", () => {
+    expect(parseHandoverPackage(pkg({ chains: { [KEY_A]: [proof] } }))).toBeUndefined();
+    expect(
+      parseHandoverPackage(pkg({ chains: { [KEY_A]: [proof], [ID]: [proof], [KEY_B]: [proof] } })),
+    ).toBeUndefined();
+    expect(parseHandoverPackage(pkg({ chains: null }))).toBeUndefined();
+    expect(parseHandoverPackage(pkg({ chains: { [KEY_A]: [], [ID]: [proof] } }))).toBeUndefined();
+  });
+  test("a proof with a short key or signature, or non-hex, is refused", () => {
+    const withProof = (p: unknown) => pkg({ chains: { [KEY_A]: [p], [ID]: [proof] } });
+    for (const p of [
+      null,
+      { ...proof, from: "x" },
+      { ...proof, to: "x" },
+      { ...proof, publicKey: "x" },
+      { ...proof, signature: "f".repeat(127) },
+      { ...proof, signature: "g".repeat(128) },
+    ]) {
+      expect(parseHandoverPackage(withProof(p))).toBeUndefined();
+    }
+    expect(parseHandoverPackage(withProof({ ...proof, from: KEY_B }))?.chains[KEY_A][0].from).toBe(
+      KEY_B.toLowerCase(),
+    );
+  });
+  test("caps: 50 links, 50 retired codes, 50 retiredWhy, 1000 answers, 1000 declined, 16 links a chain", () => {
+    const hex = (i: number) => i.toString(16).padStart(64, "0");
+    const links = (n: number) => Array.from({ length: n }, (_, i) => ({ from: i, to: i + 1 }));
+    const codes = (n: number) => Array.from({ length: n }, (_, i) => hex(i + 1000));
+    const chainsFor = (c: string[]) => Object.fromEntries([KEY_A, ...c].map((k) => [k, [proof]]));
+    expect(parseHandoverPackage(pkg({ invite: { code: KEY_A, links: links(50) } }))).toBeDefined();
+    expect(
+      parseHandoverPackage(pkg({ invite: { code: KEY_A, links: links(51) } })),
+    ).toBeUndefined();
+    expect(
+      parseHandoverPackage(
+        pkg({ retiredInvites: codes(50), retiredWhy: undefined, chains: chainsFor(codes(50)) }),
+      ),
+    ).toBeDefined();
+    expect(
+      parseHandoverPackage(
+        pkg({ retiredInvites: codes(51), retiredWhy: undefined, chains: chainsFor(codes(51)) }),
+      ),
+    ).toBeUndefined();
+    const whyOf = (n: number) => Object.fromEntries(codes(n).map((c) => [c, "turnedOff"]));
+    expect(parseHandoverPackage(pkg({ retiredWhy: whyOf(50) }))).toBeDefined();
+    expect(parseHandoverPackage(pkg({ retiredWhy: whyOf(51) }))).toBeUndefined();
+    const many = (n: number, v: unknown) =>
+      Object.fromEntries(Array.from({ length: n }, (_, i) => [hex(i + 1), v]));
+    expect(parseHandoverPackage(pkg({ answers: many(1000, "accepted") }))).toBeDefined();
+    expect(parseHandoverPackage(pkg({ answers: many(1001, "accepted") }))).toBeUndefined();
+    expect(parseHandoverPackage(pkg({ declinedAsks: many(1000, 1) }))).toBeDefined();
+    expect(parseHandoverPackage(pkg({ declinedAsks: many(1001, 1) }))).toBeUndefined();
+    const longChain = (n: number) =>
+      pkg({ chains: { [KEY_A]: Array(n).fill(proof), [ID]: [proof] } });
+    expect(parseHandoverPackage(longChain(16))).toBeDefined();
+    expect(parseHandoverPackage(longChain(17))).toBeUndefined();
+  });
+  test("a handedOver answer carries its code and a valid chain", () => {
+    expect(parseAnswer({ code: KEY_A, answer: "handedOver", chain: [proof] })).toEqual({
+      code: KEY_A,
+      answer: "handedOver",
+      chain: [proof],
+    });
+    expect(parseAnswer({ code: KEY_A, answer: "handedOver", chain: [] })).toBeUndefined();
+    expect(parseAnswer({ code: KEY_A, answer: "handedOver" })).toBeUndefined();
+    expect(
+      parseAnswer({ code: KEY_A, answer: "handedOver", chain: [{ ...proof, to: "x" }] }),
+    ).toBeUndefined();
+    expect(parseAnswer({ code: "x", answer: "handedOver", chain: [proof] })).toBeUndefined();
   });
 });
