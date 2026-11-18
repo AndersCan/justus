@@ -1452,6 +1452,24 @@ export const realOnlyCases: DriveCase[] = [
         );
         t.eq(await within(drive.readSmall("/members.json", 100), 2_000), "ada,ben", "members.json");
         t.eq((await within(paths(drive), 2_000)).sort(), ["/device.json", "/members.json"], "list");
+        t.eq(
+          await within(drive.download("/device.json", { timeoutMs: 500 }), 2_000),
+          "here",
+          "download",
+        );
+        const got = await within(drive.readBytes("/device.json"), 2_000);
+        t.eq(Buffer.from(got ?? []).toString("utf8"), "boot-1", "readBytes");
+        const chunks: Uint8Array[] = [];
+        await within(
+          new Promise<void>((resolve, reject) => {
+            const s = drive.createReadStream("/device.json");
+            s.on("data", (c: Uint8Array) => chunks.push(c));
+            s.on("end", () => resolve());
+            s.on("error", reject);
+          }),
+          2_000,
+        );
+        t.eq(Buffer.concat(chunks).toString("utf8"), "boot-1", "createReadStream");
       };
       await readBoth(remote);
       const store = await b.restart();
@@ -1470,6 +1488,36 @@ export const realOnlyCases: DriveCase[] = [
         "the owner coming back brings boot-2",
       );
       t.ok(changed, "onChange fired");
+    },
+  },
+  {
+    name: "R10 a copy that never read anything does not answer from its header while nobody is connected",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/members.json", bytes("ada,ben"));
+      await own.put("/device.json", bytes("boot-1"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b heard of both writes",
+      );
+      await a.disconnect();
+      await eventually(
+        async () => remote.stats().peers,
+        (n) => n === 0,
+        "b has no peer",
+        15_000,
+      );
+      const read = await remote.readSmall("/members.json", 100, { timeoutMs: 500 }).then(
+        (v) => `answered ${String(v)}`,
+        () => "waited",
+      );
+      t.eq(read, "waited", "a path this copy never read waits, not missing");
+      const listed = await within(paths(remote), 1_000).then(
+        (p) => `listed ${p.length}`,
+        () => "waited",
+      );
+      t.eq(listed, "waited", "list waits, not empty");
     },
   },
   {

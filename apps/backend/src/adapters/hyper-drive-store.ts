@@ -116,7 +116,7 @@ function wrap(
     if (length === 0 || (raw.core.peers?.length ?? 0) > 0) return raw;
     if (await raw.core.has(length - 1)) return raw;
     let version = 0;
-    for (let block = length - 1; block > 0 && block > length - 1 - MAX_BEHIND_WALK; block--) {
+    for (let block = length - 1; block > 1 && block > length - 1 - MAX_BEHIND_WALK; block--) {
       if (await raw.core.has(block - 1)) {
         version = block;
         break;
