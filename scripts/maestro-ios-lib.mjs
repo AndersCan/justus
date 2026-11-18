@@ -14,22 +14,3 @@ export function helperRoute(url, { run, notify, udid, bundleId }) {
   };
   return actions[url]?.() ?? false;
 }
-
-// The Simulator starts LocalAuthenticationUIService when the first Face ID prompt asks for it; on a
-// cold CI Simulator that outlasts the 5 s LAContext allows (-1000 "UI activation timed out"), so
-// the first-run walk's Enable fails. Start it after boot and poll `launchctl list` until it has a
-// pid, at most `limit` polls. Returns an error message, or null when it is running.
-export function lockUiService({ run, capture, pause, udid, limit = 60 }) {
-  const label = "com.apple.LocalAuthenticationUIService";
-  const spawn = (...args) => ["simctl", "spawn", udid, "launchctl", ...args];
-  run("xcrun", spawn("start", label));
-  for (let poll = 0; poll < limit; poll++) {
-    const listed = capture("xcrun", spawn("list"));
-    const running = String(listed.stdout ?? "")
-      .split("\n")
-      .some((line) => line.includes("LocalAuthenticationUIService") && /^\s*\d+\s/.test(line));
-    if (running) return null;
-    pause();
-  }
-  return "LocalAuthenticationUIService never started";
-}

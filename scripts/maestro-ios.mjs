@@ -19,7 +19,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { helperRoute, lockUiService } from "./maestro-ios-lib.mjs";
+import { helperRoute } from "./maestro-ios-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -140,13 +140,6 @@ if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install f
 // iPhone: enrol a Face ID so the first-run card offers App lock, and serve /match for the flow.
 let face = null;
 if (!ipad) {
-  const uiFailure = lockUiService({
-    run,
-    capture,
-    pause: () => spawnSync("sleep", ["1"]),
-    udid,
-  });
-  if (uiFailure) fail(uiFailure);
   const enrolment = "com.apple.BiometricKit.enrollmentChanged";
   const notify = (args) => run("xcrun", ["simctl", "spawn", udid, "notifyutil", ...args]);
   notify(["-s", enrolment, "1"]);
