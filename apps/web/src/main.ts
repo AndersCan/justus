@@ -11,7 +11,16 @@ import { onboardingActor, onboardingViewModel, showsAppNav } from "./machines/on
 import { requests } from "./machines/requests-machine";
 import { syncActor, sync } from "./machines/sync-machine";
 import { updateBanner, updateLines } from "./views/notices";
-import { open, pathFor, routerActor, type AppPage } from "./machines/router-machine";
+import {
+  currentPage,
+  onPageChange,
+  open,
+  pathFor,
+  routerActor,
+  type AppPage,
+} from "./machines/router-machine";
+import { sharedPhotos } from "./machines/shared-photos-machine";
+import { sharedPhotosSheet } from "./views/share-to-album";
 import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
@@ -61,8 +70,9 @@ transport.subscribe((message) => {
 });
 
 listenForHostInvites(addressInvite);
-// The album picker consumes shared photos; until it lands nothing needs them.
-listenForSharedPhotos(() => {});
+sharedPhotos.pageShown(currentPage()?.route === "welcome");
+onPageChange((page) => sharedPhotos.pageShown(page?.route === "welcome"));
+listenForSharedPhotos((batches) => sharedPhotos.listed(batches));
 landOnLastAlbum({ appStart });
 gallery.load();
 sync.refresh();
@@ -228,7 +238,7 @@ render(
       </main>
       ${withAppNav((shows, page) => (shows ? bottomTabs(page) : null))}
     </div>
-    ${lightboxView()} ${joinSheet()}
+    ${lightboxView()} ${joinSheet()} ${sharedPhotosSheet()}
   `,
   renderRoot!,
 );

@@ -318,28 +318,23 @@ if [[ "$WALK" == 1 ]] || ! run_maestro_suite; then
 fi
 
 # ----------------------------------------------------------------------------
-# 5a. The share-in flow shared two photos: both must wait in the shared-photos inbox
+# 5a. The share-in flow added both photos to the album: the shared-photos inbox must be empty
 # ----------------------------------------------------------------------------
 echo
-echo "▶ Share-in check: two photos wait in the inbox..."
+echo "▶ Share-in check: the shared photos left the inbox..."
 share_started=$SECONDS
-batch_files=""
+share_left=""
 for _ in $(seq 1 15); do
   batches="$(run_as 'ls -d cache/bare-cache/shared-in/*/ 2>/dev/null || true' | tr -d '\r')"
-  if [[ -n "$batches" && "$(wc -l <<<"$batches")" -eq 1 ]]; then
-    batch_files="$(run_as "ls $batches 2>/dev/null || true" | tr -d '\r')"
-    if grep -q '^batch.json$' <<<"$batch_files" && grep -q '^0\.jpeg$' <<<"$batch_files" && grep -q '^1\.png$' <<<"$batch_files" \
-      && grep -q '^copy-0-display\.jpg$' <<<"$batch_files" && grep -q '^copy-0-thumb\.jpg$' <<<"$batch_files" \
-      && grep -q '^copy-1-display\.jpg$' <<<"$batch_files" && grep -q '^copy-1-thumb\.jpg$' <<<"$batch_files"; then
-      echo "share-in: ok $(( (SECONDS - share_started) * 1000 )) ms"
-      break
-    fi
+  if [[ -z "$batches" ]]; then
+    share_left=1
+    echo "share-in: ok $(( (SECONDS - share_started) * 1000 )) ms"
+    break
   fi
-  batch_files=""
   sleep 2
 done
-if [[ -z "$batch_files" ]]; then
-  echo "✗ Share-in check FAILED: exactly one batch with 0.jpeg, 1.png, their copies and batch.json in cache/bare-cache/shared-in"
+if [[ -z "$share_left" ]]; then
+  echo "✗ Share-in check FAILED: the shared photos are still in cache/bare-cache/shared-in after the add"
   mkdir -p "$OUT_DIR"
   "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$OUT_DIR/logcat-JUSTUS_ANDROID.txt" 2>/dev/null || true
   run_as 'ls -laR cache/bare-cache/shared-in 2>&1 || true' >"$OUT_DIR/worklet-logs.txt" 2>/dev/null || true

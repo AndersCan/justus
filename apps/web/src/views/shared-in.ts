@@ -2,8 +2,8 @@ import type { SharedBatch } from "@justus/core";
 import { gateway } from "../gateway";
 
 /** Photos other apps shared to Justus wait in the inbox. Lists them at start and on every
- * `justus:shared` nudge from the host. A nudge during a list runs one more list after it. */
-export function listenForSharedPhotos(onBatch: (batch: SharedBatch) => void): void {
+ * `justus:shared` nudge from the host, handing each successful list (empty ones too) to `onList`. A nudge during a list runs one more list after it. */
+export function listenForSharedPhotos(onList: (batches: SharedBatch[]) => void): void {
   let running = false;
   let again = false;
 
@@ -21,7 +21,7 @@ export function listenForSharedPhotos(onBatch: (batch: SharedBatch) => void): vo
           console.warn("justus:share-in.list-failed", error?.message ?? "unknown");
           continue;
         }
-        for (const batch of result.batches) onBatch(batch);
+        onList(result.batches);
       } while (again);
     } finally {
       running = false;
