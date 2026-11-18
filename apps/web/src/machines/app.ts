@@ -12,6 +12,7 @@ import { reachMachine, wireReachToSync } from "./reach-hint-machine";
 import { requestsMachine, refresh } from "./requests-machine";
 import { routerMachine } from "./router-machine";
 import { seenMachine } from "./seen-machine";
+import { sharedPhotosMachine } from "./shared-photos-machine";
 import { addFriendMachine } from "./sharing/add-friend-machine";
 import { friendOfferMachine } from "./sharing/friend-offer-machine";
 import { inviteLinkMachine } from "./sharing/invite-link-machine";
@@ -48,6 +49,7 @@ export const justusMachine = machine("justus", {
       prefs: prefsMachine.create(),
       reach,
       seen: seenMachine.create({}),
+      sharedPhotos: sharedPhotosMachine.create({}),
       requests,
       sync,
       addFriend: addFriendMachine.create(),
