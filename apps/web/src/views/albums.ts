@@ -153,8 +153,9 @@ foldersActor.on("change", {
 function followRouteAlbum() {
   const page = currentPage();
   const id = page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
-  const { activeId, folders: list } = foldersActor.snapshot().context;
+  const { activeId, folders: shown, archived } = foldersActor.snapshot().context;
   if (!id || id === activeId || !foldersViewModel(foldersActor.snapshot()).settled) return;
+  const list = page?.route === "album" ? [...shown, ...archived] : shown;
   if (list.some((f) => f.id === id)) folders.switchTo(id);
 }
 onStateChange(foldersActor, FOLDERS_STATES, followRouteAlbum);
@@ -246,10 +247,11 @@ function archivedSection(view: FoldersViewModel) {
             class="flex items-center gap-3 rounded-2xl border border-line p-4"
             data-motion-key=${"archived:" + f.id}
           >
-            <span class="min-w-0 flex-1">
+            <a class="ui-focus min-w-0 flex-1" href=${"/sharing/" + f.id}>
               <span class="block truncate text-lg font-medium text-fg">${f.name}</span>
               <span class="mt-0.5 block text-xs text-muted">${roleAndCount(f)}</span>
-            </span>
+            </a>
+            ${waitingChip(f, q.context.requests)}
             <button
               class="ui-btn-ghost shrink-0"
               aria-label=${copy("albums.restore", { name: f.name })}
@@ -263,6 +265,16 @@ function archivedSection(view: FoldersViewModel) {
       </ul>
     </details>`;
   });
+}
+
+/** "1 waiting" on an archived album's row, for the Admin only. */
+function waitingChip(f: FolderSummary, list: readonly { folderId: string }[]) {
+  const waiting = f.role === "creator" ? list.filter((r) => r.folderId === f.id).length : 0;
+  if (waiting === 0) return null;
+  return html`<span
+    class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
+    >${copy("albums.n_waiting", { waiting })}</span
+  >`;
 }
 
 /** "Archived (2)", with " · 1 waiting" when the Admin has requests on archived albums. */
