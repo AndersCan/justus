@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { live } from "lit-html/directives/live.js";
 import type { FolderSummary, InvitedFriend, SyncStatus } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
@@ -476,7 +477,7 @@ function invitePanelBody(
               >
                 ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
                   (key) =>
-                    html`<option value=${key} ?selected=${view.validFor === key}>
+                    html`<option value=${key} .selected=${live(view.validFor === key)}>
                       ${VALID_FOR_LABEL[key]}
                     </option>`,
                 )}

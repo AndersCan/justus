@@ -228,6 +228,67 @@ const outputs = (actor: ReturnType<typeof setup>["actor"]) => {
   return seen;
 };
 
+/** A port whose saves wait until the test answers them, in order. */
+function heldSaves() {
+  const saved: number[] = [];
+  const answers: ((outcome: [unknown, unknown]) => void)[] = [];
+  const port: InviteLinkPort = {
+    turnOff: async () => [null, {}],
+    saveLinkTime: (_folderId, at) => {
+      saved.push(at);
+      return new Promise((resolve) => answers.push(resolve));
+    },
+  };
+  const answer = async (index: number, outcome: [unknown, unknown]) => {
+    answers[index]?.(outcome);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+  return { saved, port, answer };
+}
+const SAVED: [unknown, unknown] = [null, { ok: true }];
+
+describe("a time picked while the link's time saves", () => {
+  test("is saved after the first save, and the link works for it", async () => {
+    const { saved, port, answer } = heldSaves();
+    const { clock, actor } = setup(port);
+    const states: string[] = [];
+    actor.on("transition", { fn: (t) => t.transitioned && states.push(t.to) });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    clock.advance(2_000);
+    await answer(0, SAVED);
+    expect(actor.state.name).toBe("savingLinkTime");
+    expect(saved).toEqual([VALID_FOR_MS["1d"], 2_000 + VALID_FOR_MS["7d"]]);
+    await answer(1, SAVED);
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(2_000 + VALID_FOR_MS["7d"]);
+    expect(states).toEqual(["savingLinkTime", "savingLinkTime", "linkMade"]);
+  });
+
+  test("turning the links off while the time saves makes no link, and a late answer changes nothing", async () => {
+    const { saved, port, answer } = heldSaves();
+    const { actor } = setup(port);
+    const seen = outputs(actor);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    turnOff(actor);
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(context(actor)).toEqual({
+      folderId: FOLDER,
+      validFor: "1d",
+      offCode: CODE,
+      offFolderId: FOLDER,
+      replacedFolderId: "",
+      removedName: "",
+    });
+    expect(seen).toEqual(["linkTurnedOff"]);
+    await answer(0, SAVED);
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(saved).toHaveLength(1);
+  });
+});
+
 describe("turning off links", () => {
   const ok: InviteLinkPort = {
     ...savingPort([]),
@@ -567,6 +628,15 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
   clock.advance(VALID_FOR_MS["1h"]);
   await actor.settled();
   expect(actor.state.name).toBe("noLinkYet");
+});
+
+test("Nils taps Copy, picks 7 days while the link's time saves, and the link works for 7 days", async () => {
+  const actor = make.create({ clock: VirtualClock() });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+  expect(expiresAt(actor)).toBe(VALID_FOR_MS["7d"]);
 });
 
 test("Nils removes someone while his link is shown, and the panel offers the picker again", async () => {

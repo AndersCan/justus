@@ -64,6 +64,37 @@
       ]
     },
     {
+      "name": "Nils taps Copy, picks 7 days while the link's time saves, and the link works for 7 days",
+      "end": "linkMade",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "chooseLinkTime",
+          "payload": {
+            "validFor": "7d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkTimeSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "linkTimeSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "Nils turns off the links he sent",
       "end": "noLinkYet",
       "steps": [

@@ -63,8 +63,15 @@ const noPort: InviteLinkPort = {
 
 /** No link has been made yet; the panel shows the time picker. */
 const noLinkYet = state("noLinkYet")();
-/** The link's end time is being saved on this phone; the link is not handed out until it is. */
-const savingLinkTime = state("savingLinkTime")<{ expiresAt: number; code: string }>();
+/**
+ * The link's end time is being saved on this phone; the link is not handed out until it is.
+ * `validFor` is the choice the end time was made from.
+ */
+const savingLinkTime = state("savingLinkTime")<{
+  expiresAt: number;
+  code: string;
+  validFor: ValidFor;
+}>();
 /** A link was made with the album's code `code` and works until `expiresAt` (ms since the epoch, whole seconds). */
 const linkMade = state("linkMade")<{ expiresAt: number; code: string }>();
 /** The owner confirmed turning off the links; `before` is the link shown until then, if any. */
@@ -147,8 +154,8 @@ export const inviteLinkMachine = machine("inviteLink", {
         removedName: "",
       } as InviteLinkContext,
       setup: (m) => {
-        /** The owner picks a time; a value that is not one of the choices is ignored. */
-        m.on(noLinkYet, {
+        /** The owner picks a time in any state, the save included; a value that is not one of the choices is ignored. */
+        m.onAny({
           event: chooseLinkTime,
           handler: (e, { context }) => {
             if (e.payload.validFor in VALID_FOR_MS)
@@ -174,16 +181,13 @@ export const inviteLinkMachine = machine("inviteLink", {
             });
             const expiresAt =
               Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-            return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
-          },
-        });
-        /** The panel for another album shows the picker, so a pick still counts. */
-        m.on(linkMade, {
-          event: chooseLinkTime,
-          handler: (e, { context }) => {
-            if (e.payload.validFor in VALID_FOR_MS)
-              context.set({ ...context.get(), validFor: e.payload.validFor });
-            return {};
+            return {
+              state: savingLinkTime.create({
+                expiresAt,
+                code: e.payload.code,
+                validFor: current.validFor,
+              }),
+            };
           },
         });
         /** A link for another album, or for this album's new code, replaces the one made; the same link is kept. */
@@ -208,7 +212,13 @@ export const inviteLinkMachine = machine("inviteLink", {
             });
             const expiresAt =
               Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-            return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
+            return {
+              state: savingLinkTime.create({
+                expiresAt,
+                code: e.payload.code,
+                validFor: current.validFor,
+              }),
+            };
           },
         });
         /** A timer runs until the link's end time. */
@@ -235,13 +245,19 @@ export const inviteLinkMachine = machine("inviteLink", {
             );
           },
         });
-        /** Saved: the link can be handed out. */
+        /** Saved: the link can be handed out, unless a later pick still needs its own end time saved first. */
         m.on(savingLinkTime, {
           event: linkTimeSaved,
-          to: [linkMade],
-          handler: (_e, { state }) => ({
-            state: linkMade.create(state.payload as { expiresAt: number; code: string }),
-          }),
+          to: [linkMade, savingLinkTime],
+          handler: (_e, { context, state }) => {
+            const saving = state.payload;
+            const { validFor } = context.get();
+            if (validFor !== saving.validFor) {
+              const expiresAt = Math.floor((clock.now() + VALID_FOR_MS[validFor]) / 1000) * 1000;
+              return { state: savingLinkTime.create({ expiresAt, code: saving.code, validFor }) };
+            }
+            return { state: linkMade.create({ expiresAt: saving.expiresAt, code: saving.code }) };
+          },
         });
         /** Saving failed, so no link is shown and the owner can try again. */
         m.on(savingLinkTime, {
@@ -254,6 +270,15 @@ export const inviteLinkMachine = machine("inviteLink", {
         });
         /** The owner turns off the links before any link was made here. */
         m.on(noLinkYet, {
+          event: turnOffLink,
+          to: [turningOff],
+          handler: (e) => {
+            if (e.payload.folderId === "" || e.payload.code === "") return {};
+            return { state: turningOff.create(e.payload) };
+          },
+        });
+        /** The owner turns off the links while a link's time saves; no link is handed out. */
+        m.on(savingLinkTime, {
           event: turnOffLink,
           to: [turningOff],
           handler: (e) => {
