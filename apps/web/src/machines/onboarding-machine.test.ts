@@ -242,6 +242,48 @@ describe("onboarding App lock offer", () => {
     expect(actor.state.name).toBe("offeringAppLock");
   });
 
+  test("a name saved before the status read ends waits for it, then offers App lock once", async () => {
+    const { actor } = setup();
+    send(actor, "LOCK_READ_STARTED");
+    send(actor, "SKIP");
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
+    await actor.settled();
+    expect(actor.state.name).toBe("waitingForLockStatus");
+    expect(onboardingViewModel(actor.snapshot(), "").saving).toBe(true);
+    readLock(actor, true, false);
+    await actor.settled();
+    expect(actor.state.name).toBe("offeringAppLock");
+  });
+
+  test("a name saved while the read is pending moves on when the read gives up", async () => {
+    const { actor } = setup();
+    send(actor, "LOCK_READ_STARTED");
+    send(actor, "SKIP");
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
+    await actor.settled();
+    send(actor, "LOCK_READ_GAVE_UP");
+    await actor.settled();
+    expect(actor.state.name).toBe("choosingCreateOrJoin");
+  });
+
+  test("a status read before the name is saved does not hold the person", async () => {
+    const { actor } = setup();
+    send(actor, "LOCK_READ_STARTED");
+    readLock(actor, true, false);
+    await saveName(actor);
+    expect(actor.state.name).toBe("offeringAppLock");
+  });
+
+  test("a read that gave up before the name is saved does not hold the person", async () => {
+    const { actor } = setup();
+    send(actor, "LOCK_READ_STARTED");
+    send(actor, "LOCK_READ_GAVE_UP");
+    await saveName(actor);
+    expect(actor.state.name).toBe("choosingCreateOrJoin");
+  });
+
   test("Enable asks the phone and, once confirmed, moves on with App lock on", async () => {
     const { actor, setEnabled } = setup();
     readLock(actor, true, false);
@@ -362,6 +404,7 @@ describe("showsAppNav", () => {
     "showingIntroCards",
     "askingForName",
     "savingName",
+    "waitingForLockStatus",
     "offeringAppLock",
     "turningOnAppLock",
   ] as const)("hides the tabs on the welcome during %s", (s) =>

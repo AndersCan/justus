@@ -78,6 +78,53 @@ describe("readLockForOnboarding", () => {
     expect(lock()).toEqual({ available: true, enabled: false });
   });
 
+  it("asks again after an invoke timeout and hands over the status", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce([new Error("invoke timeout: lock.status"), null])
+      .mockResolvedValueOnce([null, { available: true, enabled: true }]);
+    await readLockForOnboarding(load);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(lock()).toEqual({ available: true, enabled: true });
+    expect(console.warn).toHaveBeenCalledWith("[welcome] lock status read timed out (attempt 1)");
+    vi.restoreAllMocks();
+  });
+
+  it("gives up after three timeouts and lets a waiting name move on", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const load = vi.fn().mockResolvedValue([new Error("invoke timeout: lock.status"), null]);
+    await readLockForOnboarding(load);
+    expect(load).toHaveBeenCalledTimes(3);
+    expect(onboardingActor.snapshot().context.lockPending).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it("reads once on any other error", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const load = vi.fn().mockResolvedValue([new Error("boom"), null]);
+    await readLockForOnboarding(load);
+    expect(load).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it("tells onboarding a read is pending until it ends", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    const pending = () => onboardingActor.snapshot().context.lockPending;
+    let answer: (v: [null, { available: boolean; enabled: boolean }]) => void = () => {};
+    const load = vi.fn(
+      () => new Promise<[null, { available: boolean; enabled: boolean }]>((r) => (answer = r)),
+    );
+    const read = readLockForOnboarding(load);
+    await vi.waitFor(() => expect(pending()).toBe(true));
+    answer([null, { available: true, enabled: false }]);
+    await read;
+    await vi.waitFor(() => expect(pending()).toBe(false));
+  });
+
   it("logs what the phone said, so a skipped offer can be told from no screen lock", async () => {
     vi.stubGlobal("window", { BareShell: true });
     const info = vi.spyOn(console, "info").mockImplementation(() => {});

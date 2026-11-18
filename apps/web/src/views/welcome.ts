@@ -96,19 +96,32 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
     toast(copy("welcome.app_lock_is_on"));
 });
 
-/** Tells onboarding whether the phone has a screen lock; elsewhere, or on any error, the card is skipped. */
+const LOCK_READ_ATTEMPTS = 3;
+
+/**
+ * Tells onboarding whether the phone has a screen lock; elsewhere, or on any error, the card is
+ * skipped. The worklet can be busy at the first boot, so a timed-out read is asked again.
+ */
 export async function readLockForOnboarding(load = gateway.lock.status) {
   if ((window as { BareShell?: boolean }).BareShell !== true) return;
-  const [err, status] = await load();
-  if (!err && isLockStatus(status)) {
-    console.info("[welcome] lock status", status.available, status.enabled);
-    onboarding.lockStatusRead(status);
-    return;
+  onboarding.lockReadStarted();
+  let reason = "malformed";
+  for (let attempt = 1; attempt <= LOCK_READ_ATTEMPTS; attempt++) {
+    const [err, status] = await load();
+    if (!err && isLockStatus(status)) {
+      console.info("[welcome] lock status", status.available, status.enabled);
+      onboarding.lockStatusRead(status);
+      return;
+    }
+    reason = err?.message ?? "malformed";
+    if (err?.message.startsWith("invoke timeout") && attempt < LOCK_READ_ATTEMPTS) {
+      console.warn(`[welcome] lock status read timed out (attempt ${attempt})`);
+      continue;
+    }
+    break;
   }
-  console.warn(
-    "[welcome] lock status unreadable, App lock offer skipped",
-    err?.message ?? "malformed",
-  );
+  console.warn("[welcome] lock status unreadable, App lock offer skipped", reason);
+  onboarding.lockReadGaveUp();
 }
 
 // Creating an album finishes onboarding: open it once the create lands, so the
