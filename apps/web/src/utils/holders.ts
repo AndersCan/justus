@@ -20,9 +20,7 @@ export function holdersLine(
     .join(", ");
   const base =
     h.here && h.others.length + h.former.length === 0 ? copy("holders.on_your_phone") : line.text;
-  const text = base.endsWith("…")
-    ? `${base} ${quiet}`
-    : copy("holders.line_and_quiet", { line: base, quiet });
+  const text = copy("holders.line_and_quiet", { line: base, quiet });
   return { text, tappable: true };
 }
 

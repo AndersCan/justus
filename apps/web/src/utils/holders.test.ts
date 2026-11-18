@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { PhotoHolders } from "@justus/core";
+import { copy } from "../copy/copy";
 import {
   deleteDetail,
   deletedMessage,
@@ -184,7 +185,10 @@ describe("holdersLine with a quiet phone", () => {
 
   it("names a quiet phone while this phone is still waiting for its copy", () => {
     expect(holdersLine(h({ here: false, quiet: [q("Ben", friday)] }), now).text).toBe(
-      "Arriving on your phone… Ben's phone last had it Friday",
+      copy("holders.line_and_quiet", {
+        line: copy("holders.arriving_on_your_phone"),
+        quiet: copy("holders.quiet_one_when", { name: "Ben's", when: "Friday" }),
+      }),
     );
     expect(
       holdersLine(h({ here: false, others: [m("Ada")], quiet: [q("Ben", friday)] }), now).text,
