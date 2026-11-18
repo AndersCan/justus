@@ -21,6 +21,7 @@ import {
   dropFormer,
   ensureHoldingMarker,
   heldPath,
+  HOLDER_QUIET_AFTER_MS,
   holdersFor,
   markFormerLeft,
   markHeld,
@@ -343,7 +344,10 @@ describe("copyHeld", () => {
   });
 });
 
+const DAY = 24 * 60 * 60 * 1000;
+
 describe("holdersFor", () => {
+  const NOW = 10 * DAY;
   const SELF = "s".repeat(64);
   const ADDER = "a".repeat(64);
   const B = "b".repeat(64);
@@ -371,12 +375,15 @@ describe("holdersFor", () => {
     people?: ReturnType<typeof person>[];
     held?: [string, HeldReport][];
     former?: { name: string; ids: ReadonlySet<string>; left?: true }[];
+    presence?: (key: string) => { connected: boolean; lastSeenAt?: number };
   }) {
     const result = holdersFor({
       photo: over.photo ?? photo,
       selfKey: SELF,
       held: new Map(over.held ?? []),
       album: { kind: "inAlbum", people: over.people ?? [self, adder], former: over.former ?? [] },
+      presence: over.presence ?? (() => ({ connected: true })),
+      now: NOW,
     });
     if (result.kind !== "inAlbum") throw new Error("expected an in-album result");
     return result;
@@ -409,6 +416,8 @@ describe("holdersFor", () => {
       selfKey: SELF,
       held: new Map(over.held ?? []),
       album: { kind: "removed" },
+      presence: () => ({ connected: true }),
+      now: NOW,
     });
   }
 
@@ -607,6 +616,138 @@ describe("holdersFor", () => {
     });
     expect(result.former).toEqual(["Abe"]);
     expect(result.left).toEqual(["Abe"]);
+  });
+
+  describe("quiet phones", () => {
+    const benHolds: [string, HeldReport][] = [[B, has("p1")]];
+    const people = [self, adder, ben];
+    const away = (connected: boolean, lastSeenAt?: number) => (key: string) =>
+      key === B
+        ? { connected, ...(lastSeenAt === undefined ? {} : { lastSeenAt }) }
+        : { connected: true };
+
+    it("keeps a connected holder fresh, even with an old time", () => {
+      const r = run({ people, held: benHolds, presence: away(true, NOW - 9 * DAY) });
+      expect(r.others.map((m: { name: string }) => m.name)).toEqual(["Ada", "Ben"]);
+      expect(r.quiet).toEqual([]);
+    });
+
+    it("keeps a phone away under 3 days fresh", () => {
+      const r = run({ people, held: benHolds, presence: away(false, NOW - 2 * DAY) });
+      expect(r.others.map((m: { name: string }) => m.name)).toEqual(["Ada", "Ben"]);
+      expect(r.quiet).toEqual([]);
+    });
+
+    it("moves a phone away exactly 3 days to quiet", () => {
+      const at = NOW - HOLDER_QUIET_AFTER_MS;
+      const r = run({ people, held: benHolds, presence: away(false, at) });
+      expect(r.others.map((m: { name: string }) => m.name)).toEqual(["Ada"]);
+      expect(r.quiet).toEqual([{ key: B, name: "Ben", lastSeenAt: at }]);
+    });
+
+    it("keeps a phone never seen fresh", () => {
+      const r = run({ people, held: benHolds, presence: away(false) });
+      expect(r.others.map((m: { name: string }) => m.name)).toEqual(["Ada", "Ben"]);
+      expect(r.quiet).toEqual([]);
+    });
+
+    it("keeps a phone with a time in the future fresh", () => {
+      const r = run({ people, held: benHolds, presence: away(false, NOW + DAY) });
+      expect(r.quiet).toEqual([]);
+    });
+
+    it("moves the adder to quiet like anyone", () => {
+      const at = NOW - 4 * DAY;
+      const r = run({
+        held: [],
+        presence: (k) => (k === ADDER ? { connected: false, lastSeenAt: at } : { connected: true }),
+      });
+      expect(r.others).toEqual([]);
+      expect(r.quiet).toEqual([{ key: ADDER, name: "Ada", lastSeenAt: at }]);
+    });
+
+    it("leaves a silent record in unsure", () => {
+      const r = run({ people, held: [[B, silent]], presence: away(false, NOW - 5 * DAY) });
+      expect(r.unsure.map((m: { name: string }) => m.name)).toEqual(["Ben"]);
+      expect(r.quiet).toEqual([]);
+    });
+
+    it("sorts quiet newest first, then by name", () => {
+      const t = (k: string) => (k === B ? NOW - 5 * DAY : NOW - 4 * DAY);
+      const r = run({
+        people: [self, adder, ben, cy],
+        held: [
+          [B, has("p1")],
+          [C, has("p1")],
+        ],
+        presence: (k) => ({ connected: false, lastSeenAt: t(k) }),
+      });
+      expect(r.quiet.map((m: { name: string }) => m.name)).toEqual(["Ada", "Cy", "Ben"]);
+    });
+
+    it("breaks a tie on the same time by name, whatever the member order", () => {
+      const at = NOW - 4 * DAY;
+      const r = run({
+        people: [self, adder, cy, ben],
+        held: [
+          [C, has("p1")],
+          [B, has("p1")],
+        ],
+        presence: (k) => (k === ADDER ? { connected: true } : { connected: false, lastSeenAt: at }),
+      });
+      expect(r.quiet.map((m: { name: string }) => m.name)).toEqual(["Ben", "Cy"]);
+    });
+
+    it("never loses anyone: only holders move, from others to quiet", () => {
+      const records: HeldReport[] = [has("p1"), silent, has("other"), report([], ["p1"])];
+      const times = [undefined, NOW - DAY, NOW - 3 * DAY, NOW - 8 * DAY];
+      const keysOf = (list: { key: string }[]) => list.map((m) => m.key).sort();
+      for (const adderKey of [SELF, B]) {
+        const p = { id: "p1", driveKey: adderKey, memberName: adderKey === SELF ? "Me" : "Ben" };
+        for (const rb of records) {
+          for (const rc of records) {
+            for (const connectedB of [true, false]) {
+              for (const connectedC of [true, false]) {
+                for (const tb of times) {
+                  for (const tc of times) {
+                    const ps = [self, adder, ben, cy];
+                    const held: [string, HeldReport][] = [
+                      [B, rb],
+                      [C, rc],
+                    ];
+                    const r = run({
+                      photo: p,
+                      people: ps,
+                      held,
+                      presence: (k) => {
+                        if (k === B)
+                          return {
+                            connected: connectedB,
+                            ...(tb === undefined ? {} : { lastSeenAt: tb }),
+                          };
+                        if (k === C)
+                          return {
+                            connected: connectedC,
+                            ...(tc === undefined ? {} : { lastSeenAt: tc }),
+                          };
+                        return { connected: true };
+                      },
+                    });
+                    const base = run({ photo: p, people: ps, held });
+                    expect(keysOf([...r.others, ...r.quiet])).toEqual(keysOf(base.others));
+                    expect(keysOf(r.previews)).toEqual(keysOf(base.previews));
+                    expect(keysOf(r.unsure)).toEqual(keysOf(base.unsure));
+                    expect(r.here).toBe(base.here);
+                    const inOthers = new Set(r.others.map((m: { key: string }) => m.key));
+                    expect(r.quiet.some((q: { key: string }) => inOthers.has(q.key))).toBe(false);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
   });
 });
 
