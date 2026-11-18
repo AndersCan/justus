@@ -3165,11 +3165,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               ] as const,
           ),
       );
+      let grew = false;
       for (const [key, ids] of reads) {
         if (ids === undefined) continue;
-        const before = known.get(key);
-        known.set(key, new Set([...(before ?? []), ...ids]));
+        const before = known.get(key) ?? new Set<string>();
+        const next = new Set([...before, ...ids]);
+        if (next.size > before.size) grew = true;
+        known.set(key, next);
       }
+      if (grew) deps.onChanged({ cause: "holders", folderId: rt.record.id });
       const own = rt.ownHeldRead === selfKey ? rt.held.get(selfKey) : undefined;
       await forgetHeld(
         rt,

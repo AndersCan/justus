@@ -8,7 +8,12 @@ import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { parseSpoolName } from "../src/spool-name.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import { FakeLoopbackServer, fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
+import {
+  FakeLoopbackServer,
+  fakeStoreDeps,
+  joinAsMember,
+  restarted,
+} from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -146,6 +151,74 @@ describe("dropping photos others deleted", () => {
     expect(await held()).toBe(false);
     await s.anna.close();
     await s.nils.close();
+  }, 30_000);
+
+  it("a phone ignores a Collaborator's deleted photos when his holding record is a version it does not know", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "nils.jpg", 5);
+    await until(async () => (await s.anna.list()).some((p) => p.name === "nils.jpg"));
+    const photo = await load(s.annaDeps, s.anna, "nils.jpg");
+    const own = await s.annaDeps.drives.openOwn(`folder/${s.folderId}`);
+    const held = async () => {
+      for await (const e of own.list("/held")) if (e.path.endsWith(`/${photo.id}`)) return true;
+      return false;
+    };
+    await until(held);
+    await s.anna.close();
+    await s.nils.remove(photo.id, s.nilsFolderId);
+    const nilsOwn = await s.nilsDeps.drives.openOwn(`member/${s.shareKey}`);
+    await nilsOwn.put("/holding.json", Buffer.from(JSON.stringify({ version: 2 })));
+    rmSync(join(s.annaDeps.cacheDir, "photos", s.folderId), { recursive: true, force: true });
+    const again = restarted(s.annaDeps);
+    const reopened = createPhotoStore(again);
+    await reopened.ready();
+    await reopened.setActive(s.folderId);
+    await reopened.list();
+    await sleep(3_000);
+    await reopened.list();
+    const ownAgain = await again.drives.openOwn(`folder/${s.folderId}`);
+    let kept = false;
+    for await (const e of ownAgain.list("/held")) if (e.path.endsWith(`/${photo.id}`)) kept = true;
+    expect(kept).toBe(true);
+    await reopened.close();
+    await s.nils.close();
+  }, 30_000);
+
+  it("a Collaborator whose delete record cannot be written still deletes the photo and logs it", async () => {
+    const hub = createFakeHub();
+    const annaDeps = phoneDeps(hub, "Anna");
+    const anna = createPhotoStore(annaDeps);
+    const nilsDeps = phoneDeps(hub, "Nils");
+    const logs: { event: string; fields: Record<string, unknown> }[] = [];
+    nilsDeps.log = (e: { event: string; fields: Record<string, unknown> }) => logs.push(e);
+    const openOwn = nilsDeps.drives.openOwn.bind(nilsDeps.drives);
+    nilsDeps.drives.openOwn = async (namespace?: string) => {
+      const drive = await openOwn(namespace);
+      const put = drive.put.bind(drive);
+      drive.put = (async (...args: Parameters<typeof put>) => {
+        if (String(args[0]).startsWith("/deleted-photos/")) throw new Error("disk busy");
+        return put(...args);
+      }) as typeof drive.put;
+      return drive;
+    };
+    const nils = createPhotoStore(nilsDeps);
+    await anna.ready();
+    await nils.ready();
+    const created = await anna.createFolder("Trip");
+    const folderId = created[1]!.folder.id;
+    const shareKey = created[1]!.folder.shareKey;
+    await joinAsMember(anna, folderId, nils, shareKey);
+    const nilsFolderId = (await nils.folders()).folders.find((f) => f.shareKey === shareKey)!.id;
+    await nils.setActive(nilsFolderId);
+    await addWithThumb(nils, nilsDeps, nilsFolderId, "nils.jpg", 5);
+    const photo = await load(nilsDeps, nils, "nils.jpg");
+    await nils.remove(photo.id, nilsFolderId);
+    expect((await nils.list(nilsFolderId)).some((p) => p.id === photo.id)).toBe(false);
+    expect(logs.some((l) => l.event === "error" && l.fields.where === "remove.ownDelete")).toBe(
+      true,
+    );
+    await anna.close();
+    await nils.close();
   }, 30_000);
 
   it("the Admin's delete of Nils's photo drops Cara's copy while Nils's drive still lists it", async () => {
