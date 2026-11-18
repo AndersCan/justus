@@ -3683,7 +3683,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
-  /** Photos this phone's screen stopped listing because someone deleted them: out of its record. */
+  /** Photos dropped from this phone's record: ones its screen stopped listing, or ones the drop sweep cleared. */
   async function forgetHeld(rt: FolderRuntime, ids: readonly string[]) {
     if (ids.length === 0) return;
     const drive = rt.selfDrive;

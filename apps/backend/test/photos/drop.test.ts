@@ -51,6 +51,22 @@ function run(overrides: Partial<DropInput>) {
 }
 
 describe("dropDeleted", () => {
+  it("names every photo it cleared, and not one whose cached copy it could not drop", async () => {
+    const r = run({
+      others: [{ key: "a", drive: stubDrive({ paths: [] }) }],
+      spoolNames: [
+        spoolNameFor("a", "p1", ".jpg"),
+        spoolNameFor("a", "p2", ".jpg"),
+        spoolNameFor("a", "stuck", ".jpg"),
+      ],
+      forget: (_k, id) => {
+        if (id === "stuck") throw new Error("disk busy");
+      },
+    });
+    expect((await r.result).cleared).toEqual(["p1", "p2"]);
+    expect(r.logs).toContain("error");
+  });
+
   it("forgets a spooled photo its drive no longer has, and keeps one it still has", async () => {
     const a = stubDrive({ paths: ["/photos/keep.jpg"] });
     const r = run({

@@ -1339,7 +1339,10 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
     await s.anna.store.remove(photo.id);
     expect((await nilsRow(s))?.stillToDrop).toEqual([photo.id]);
     setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: true });
+    // Anna's row can blank for a moment while Nils reconnects: it must stay clear after.
     await until(async () => (await nilsRow(s))?.stillToDrop === undefined);
+    await sleep(2_000);
+    expect((await nilsRow(s))?.stillToDrop).toBeUndefined();
     await s.close();
   }, 30_000);
 
