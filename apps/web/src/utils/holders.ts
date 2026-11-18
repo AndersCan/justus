@@ -128,32 +128,31 @@ export function lacksFullPhoto(names: readonly string[]): string {
     : copy("full_photo.names_lack", { list: nameList(names), n: names.length });
 }
 
+/** "Ben's phone stops showing it and drops its copy once it's connected."; "" for no names. */
+function dropsCopy(names: readonly string[]): string {
+  return names.length === 0
+    ? ""
+    : copy("lightbox.phones_drop_copy", {
+        list: nameList(names.map((n) => `${n}'s`)),
+        n: names.length,
+      });
+}
+
 /** "Ben was removed and keeps a copy on their phone."; "" unless exactly one removed person. */
 function removedKeeps(names: readonly string[]): string {
   return names.length === 1 ? copy("full_photo.name_removed_keeps", { name: names[0] }) : "";
 }
 
-/** The delete dialog's text: it leaves everyone's album, who has the full photo, who does not, and who was removed but keeps a copy. */
+/** The delete dialog's text: it leaves everyone's album, who still has it and drops it, who has no full photo, and who was removed but keeps a copy. */
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
   const live = h?.kind === "inAlbum" ? h : undefined;
-  const have = [...(live?.others ?? []), ...(live?.quiet ?? [])].map((m) => m.name);
-  const preview = (live?.previews ?? []).map((m) => m.name);
+  const phones = [...(live?.others ?? []), ...(live?.quiet ?? []), ...(live?.previews ?? [])].map(
+    (m) => m.name,
+  );
   const lack = (live?.waiting ?? []).map((m) => m.name);
-  const cannot =
-    have.length + preview.length === 0
-      ? ""
-      : copy("lightbox.stops_showing_can_t_erase", { n: have.length + preview.length });
   const back = copy("lightbox.deleting_can_t_take_back");
-  return [
-    gone,
-    hasFullPhoto(have),
-    previewOnly(preview),
-    cannot,
-    removedKeeps(live?.former ?? []),
-    lacksFullPhoto(lack),
-    back,
-  ]
+  return [gone, dropsCopy(phones), removedKeeps(live?.former ?? []), lacksFullPhoto(lack), back]
     .filter((x) => x !== "")
     .join(" ");
 }

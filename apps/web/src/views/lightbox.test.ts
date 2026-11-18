@@ -179,7 +179,7 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({
         detail:
-          "It will be gone from the album for everyone. Nils has the full photo. It's removed from their phone the next time they open Justus. Copies saved outside Justus can't be taken back.",
+          "It will be gone from the album for everyone. Nils's phone stops showing it and drops its copy once it's connected. Copies saved outside Justus can't be taken back.",
       }),
     );
   });

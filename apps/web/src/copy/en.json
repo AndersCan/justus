@@ -4381,8 +4381,8 @@
     "who": "People who delete a photo someone removed from the album kept",
     "screen": ""
   },
-  "lightbox.stops_showing_can_t_erase": {
-    "text": "It's removed from {n?their phone:their phones} the next time they open Justus.",
+  "lightbox.phones_drop_copy": {
+    "text": "{list} {n?phone stops showing it and drops its copy:phones stop showing it and drop their copies} once {n?it's:they're} connected.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",
