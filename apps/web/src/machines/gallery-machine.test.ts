@@ -137,7 +137,7 @@ describe("gallery factory", () => {
     });
   });
 
-  test("a batch adds every photo in order, with progress", async () => {
+  test("a batch adds the last picked first, so the first picked is newest", async () => {
     let n = 0;
     const h = build({ add: async () => [null, photo(`p${++n}`, `${n}.jpg`)] });
     await ready(h);
@@ -147,18 +147,14 @@ describe("gallery factory", () => {
     });
     await finished(h);
     expect(h.port.add.mock.calls.map((c) => c[0])).toEqual([
-      "/tmp/1.jpg",
-      "/tmp/2.jpg",
       "/tmp/3.jpg",
+      "/tmp/2.jpg",
+      "/tmp/1.jpg",
     ]);
     expect(h.port.add).toHaveBeenCalledWith("/tmp/1.jpg", "1.jpg", "f1", {});
     expect(h.ctx().batch).toMatchObject({ total: 3, done: 3, added: 3, duplicates: 0 });
-    expect(
-      h
-        .ctx()
-        .photos.map((p: { id: string }) => p.id)
-        .sort(),
-    ).toEqual(["p1", "p2", "p3"]);
+    // 1.jpg was added last, so it got id p3 and sits first (newest).
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p3", "p2", "p1"]);
   });
 
   test("one failure doesn't stop the batch, and Retry re-adds only the failed", async () => {
@@ -183,6 +179,36 @@ describe("gallery factory", () => {
     await vi.waitFor(() => expect(h.ctx().batch).toMatchObject({ running: false, added: 1 }));
     expect(h.port.add).toHaveBeenLastCalledWith("/tmp/2.jpg", "2.jpg", "f1", {});
     expect(h.ctx().batch?.failed).toEqual([]);
+  });
+
+  test("failures stay in picked order, and Retry adds them last picked first", async () => {
+    const h = build();
+    // Added in order 4, 3, 2, 1: 4.jpg succeeds, the other three fail.
+    h.port.add
+      .mockResolvedValueOnce([null, photo("p4")])
+      .mockResolvedValueOnce([new Error("x"), null])
+      .mockResolvedValueOnce([new Error("x"), null])
+      .mockResolvedValueOnce([new Error("x"), null]);
+    await ready(h);
+    h.send("ADD_MANY", {
+      sources: [path("1.jpg"), path("2.jpg"), path("3.jpg"), path("4.jpg")],
+      folderId: "f1",
+    });
+    await finished(h);
+    expect(h.ctx().batch?.failed.map((f: { source: unknown }) => f.source)).toEqual([
+      path("1.jpg"),
+      path("2.jpg"),
+      path("3.jpg"),
+    ]);
+    h.port.add.mockClear();
+    h.port.add.mockResolvedValue([null, photo("pr")]);
+    h.send("RETRY_FAILED");
+    await vi.waitFor(() => expect(h.ctx().batch).toMatchObject({ running: false }));
+    expect(h.port.add.mock.calls.map((c) => c[0])).toEqual([
+      "/tmp/3.jpg",
+      "/tmp/2.jpg",
+      "/tmp/1.jpg",
+    ]);
   });
 
   test("retrying with nothing failed does nothing", async () => {

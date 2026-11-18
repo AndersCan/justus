@@ -281,6 +281,13 @@ describe("addPhoto", () => {
     });
   });
 
+  it("keeps the stamp the caller gives", async () => {
+    const [ann] = devices(1);
+    const drive = await ann.drives.openOwn("folder/a");
+    const [, added] = await addPhoto(drive, { ...newPhoto("p1"), addedAt: 42 });
+    expect(added?.addedAt).toBe(42);
+  });
+
   it("writes the thumbnail before the photo", async () => {
     const [ann] = devices(1);
     const drive = await ann.drives.openOwn("folder/a");

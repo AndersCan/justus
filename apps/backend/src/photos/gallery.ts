@@ -58,6 +58,8 @@ export type NewPhoto = {
   mime: string;
   sha256: string;
   takenAt?: string;
+  /** When this phone added it; the caller keeps a phone's adds strictly increasing. */
+  addedAt?: number;
 };
 
 export type AddedPhoto = Omit<DerivedPhoto, "memberName">;
@@ -151,7 +153,7 @@ export async function listGallery(
 /** Writes one photo, and its thumbnail first, to this device's drive. */
 export async function addPhoto(drive: Drive, photo: NewPhoto): Promise<GalleryResult<AddedPhoto>> {
   const { id, ext, bytes, thumb, name, mime, sha256, takenAt } = photo;
-  const addedAt = Date.now();
+  const addedAt = photo.addedAt ?? Date.now();
   const metadata: PhotoMeta = {
     addedAt,
     name,
