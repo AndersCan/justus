@@ -685,3 +685,52 @@ describe("noticing photos someone else deleted", () => {
     for (const p of [anna, nils, ben]) await p.store.close();
   }, 40_000);
 });
+
+describe("a listing that misses a drive", () => {
+  it("the Collaborator is still told the Admin deleted their photo when the listing that first lacks it could not scan the Admin's drive", async () => {
+    const hub = createFakeHub();
+    const annaPushes: Push[] = [];
+    const nilsPushes: Push[] = [];
+    const annaDeps = phoneDeps(hub, "Anna", annaPushes);
+    const nilsDeps = phoneDeps(hub, "Nils", nilsPushes);
+    const gate = { fail: false };
+    const open = nilsDeps.drives.open.bind(nilsDeps.drives);
+    nilsDeps.drives.open = (async (key: string, opts: { timeoutMs: number }) => {
+      const r = await open(key, opts);
+      const drive = r[1];
+      if (drive) {
+        const list = drive.list.bind(drive);
+        drive.list = ((...args: Parameters<typeof list>) => {
+          if (gate.fail) throw new Error("BLOCK_NOT_AVAILABLE: Block is not available");
+          return list(...args);
+        }) as typeof list;
+      }
+      return r;
+    }) as typeof nilsDeps.drives.open;
+    const anna = createPhotoStore(annaDeps);
+    const nils = createPhotoStore(nilsDeps);
+    await anna.ready();
+    await nils.ready();
+    const created = await anna.createFolder("Trip");
+    const folderId = created[1]!.folder.id;
+    const shareKey = created[1]!.folder.shareKey;
+    await joinAsMember(anna, folderId, nils, shareKey);
+    const nilsFolderId = (await nils.folders()).folders.find((f) => f.shareKey === shareKey)!.id;
+    await nils.setActive(nilsFolderId);
+    await anna.setActive(folderId);
+    await nils.addBytes("mine.jpg", new Uint8Array([5, 6, 7, 8]));
+    await until(async () => (await anna.list()).some((p) => p.name === "mine.jpg"));
+    await nils.list();
+    gate.fail = true;
+    await anna.remove(await photoId(anna, "mine.jpg"));
+    await until(async () => !(await nils.list()).some((p) => p.name === "mine.jpg"));
+    gate.fail = false;
+    await nils.list();
+    await until(async () => deletedPushes(nilsPushes).length > 0);
+    expect(deletedPushes(nilsPushes).map((p) => p.deleted?.photos)).toEqual([
+      [{ name: "mine.jpg", adderName: "Nils", mine: true, held: true, deletedBy: "Anna" }],
+    ]);
+    await anna.close();
+    await nils.close();
+  });
+});

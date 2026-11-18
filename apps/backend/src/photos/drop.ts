@@ -23,7 +23,12 @@ export type DropInput = {
 };
 
 /** `cleared`: ids of other phones' photos whose cached copy was dropped because they left the album. */
-export type DropResult = { dropped: number; cleared: readonly string[] };
+export type DropResult = {
+  dropped: number;
+  cleared: readonly string[];
+  /** Keys of `others` whose latest version was read and whose deleted and tombstoned bytes this pass cleared without an error. */
+  clearedDrives: ReadonlySet<string>;
+};
 
 function message(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
@@ -38,15 +43,19 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
   const { others, selfKey, removed, spoolNames, log, timeoutMs } = input;
   let dropped = 0;
   const cleared = new Set<string>();
+  const failed = new Set<string>();
+  const have = new Map<string, ReadonlySet<string>>();
   try {
     const byKey = new Map(others.map((o) => [o.key, o.drive]));
-    const have = new Map<string, ReadonlySet<string>>();
     for (const { key, drive } of others) {
       try {
         const [e, r] = await drive.clearDeleted({ timeoutMs });
-        if (e) log("error", { where: "dropDeleted", drive: key.slice(0, 8), err: e.message });
-        else have.set(key, r.paths);
+        if (e) {
+          failed.add(key);
+          log("error", { where: "dropDeleted", drive: key.slice(0, 8), err: e.message });
+        } else have.set(key, r.paths);
       } catch (thrown: unknown) {
+        failed.add(key);
         log("error", { where: "dropDeleted", drive: key.slice(0, 8), err: message(thrown) });
       }
     }
@@ -67,6 +76,7 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
           await drive.clear(`${DRIVE_PATH_THUMBS}/${id}.jpg`).catch(() => {});
         }
       } catch (thrown: unknown) {
+        failed.add(rk);
         log("error", { where: "dropDeleted", drive: rk.slice(0, 8), err: message(thrown) });
       }
     }
@@ -122,7 +132,9 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
     }
     log("photos.dropped", { files: dropped, drives: have.size });
   } catch (thrown: unknown) {
+    have.clear();
     log("error", { where: "dropDeleted", err: message(thrown) });
   }
-  return { dropped, cleared: [...cleared] };
+  const clearedDrives = new Set([...have.keys()].filter((key) => !failed.has(key)));
+  return { dropped, cleared: [...cleared], clearedDrives };
 }

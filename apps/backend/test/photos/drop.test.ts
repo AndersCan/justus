@@ -77,7 +77,7 @@ describe("dropDeleted", () => {
         spoolNameFor("a", "keep", ".jpg"),
       ],
     });
-    expect(await r.result).toEqual({ dropped: 2, cleared: ["gone"] });
+    expect(await r.result).toMatchObject({ dropped: 2, cleared: ["gone"] });
     expect(r.forgotten).toEqual(["a:gone.jpg", "a:gone"]);
   });
 
@@ -86,7 +86,8 @@ describe("dropDeleted", () => {
       others: [{ key: "a", drive: stubDrive({ fail: true }) }],
       spoolNames: [spoolNameFor("a", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 0, cleared: [] });
+    expect((await r.result).clearedDrives.size).toBe(0);
+    expect(await r.result).toMatchObject({ dropped: 0, cleared: [] });
     expect(r.forgotten).toEqual([]);
     expect(r.logs).toContain("error");
   });
@@ -100,7 +101,22 @@ describe("dropDeleted", () => {
       ],
       spoolNames: [spoolNameFor("b", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 1, cleared: ["x"] });
+    expect(await r.result).toMatchObject({ dropped: 1, cleared: ["x"] });
+    expect([...(await r.result).clearedDrives]).toEqual(["b"]);
+    expect(r.logs).toContain("error");
+  });
+
+  it("does not count a drive whose tombstoned entry it could not clear", async () => {
+    const cara = stubDrive({ paths: [], live: ["/photos/p1.jpg"] });
+    cara.clear = () => Promise.reject(new Error("disk busy"));
+    const r = run({
+      others: [
+        { key: "cara", drive: cara },
+        { key: "b", drive: stubDrive({ paths: [] }) },
+      ],
+      removed: { "cara:p1": { removedAt: 1 } },
+    });
+    expect([...(await r.result).clearedDrives]).toEqual(["b"]);
     expect(r.logs).toContain("error");
   });
 
@@ -111,7 +127,7 @@ describe("dropDeleted", () => {
       removed: { "self:x": {} },
       spoolNames: [spoolNameFor("self", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 0, cleared: [] });
+    expect(await r.result).toMatchObject({ dropped: 0, cleared: [] });
     expect(own.cleared).toEqual([]);
   });
 
@@ -125,7 +141,7 @@ describe("dropDeleted", () => {
       removed: { "cara:p1": { removedAt: 1 } },
       spoolNames: [spoolNameFor("cara", "p1", ".jpg"), spoolNameFor("cara", "p2", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 1, cleared: ["p1"] });
+    expect(await r.result).toMatchObject({ dropped: 1, cleared: ["p1"] });
     expect(cara.cleared).toEqual(["/photos/p1.jpg", "/thumbs/p1.jpg"]);
     expect(r.forgotten).toEqual(["cara:p1.jpg"]);
   });
@@ -135,7 +151,7 @@ describe("dropDeleted", () => {
       others: [{ key: "a", drive: stubDrive({ paths: [] }) }],
       spoolNames: [`${spoolNameFor("a", "x", ".jpg")}.1.ab.tmp`, "notes.txt"],
     });
-    expect(await r.result).toEqual({ dropped: 1, cleared: [] });
+    expect(await r.result).toMatchObject({ dropped: 1, cleared: [] });
     expect(r.removedSpool).toHaveLength(1);
     expect(r.forgotten).toEqual([]);
   });

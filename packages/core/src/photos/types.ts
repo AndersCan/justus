@@ -93,9 +93,8 @@ export type SyncMember = {
   /** The person's colour seat in the album, the same on every phone: 0 for the Admin, then 1, 2, … in
    * the order people were let in. Unset until the Admin's phone has given one. */
   color?: number;
-  /** Ids of photos this album no longer shows that the person's phone still says it holds or previewed,
-   * sorted. Unset when there are none, or when this phone cannot tell (their record is silent, or the
-   * album listing is partial). Never set on this phone. */
+  /** Ids of photos the Admin deleted that the person's phone still says it holds or previewed, sorted.
+   * Unset when there are none, or when this phone cannot tell (their record is silent). Never set on this phone. */
   stillToDrop?: string[];
 };
 

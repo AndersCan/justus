@@ -2689,19 +2689,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       gallery: Gallery;
       sources: ReadonlyMap<string, object>;
       adminName: string | undefined;
-      covered: boolean;
     },
   ) {
-    const { seq, selfKey, gallery, sources, adminName, covered } = seen;
+    const { seq, selfKey, gallery, sources, adminName } = seen;
     // A listing that started before the stored one is stale: no swap, no diff.
     if (rt.listing !== undefined && seq <= rt.listing.seq) return;
+    // A listing that missed a drive keeps the last full one as the baseline, so a delete seen meanwhile is still told.
+    if (rt.listing !== undefined && !gallery.complete) return;
     const prev = rt.listing;
     rt.listing = {
       seq,
       role: rt.record.role,
       notice: rt.record.notice?.kind,
       complete: gallery.complete,
-      covered,
       sources,
       photos: new Map(
         gallery.photos.map((d) => [
@@ -2784,34 +2784,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return photos.filter((p) => !(p.sha256 && hidden.get(p.driveKey)?.has(p.sha256)));
   }
 
-  /** A never-synced copy lists nothing without an error; a closed one cannot be asked. */
-  function hasSynced(drive: Drive | undefined): boolean {
-    try {
-      return drive !== undefined && drive.stats().length > 0;
-    } catch {
-      return false;
-    }
+  /** Drives whose deleted photos a phone drops: not a kept (Viewer's) copy, not a drive that left. */
+  function liveDrives(rt: FolderRuntime, members: Readonly<Record<string, unknown>>): Set<string> {
+    const live = new Set([rt.folderDrive.key, selfKeyOf(rt), ...Object.keys(members)]);
+    for (const key of rt.keptAt.keys()) live.delete(key);
+    return live;
   }
 
-  /** Every drive a photo of this album can sit on, other than our own. */
-  function albumWriters(
-    rt: FolderRuntime,
-    members: Readonly<Record<string, unknown>>,
-  ): Set<string> {
-    const writers = new Set([...Object.keys(members), ...rt.keptAt.keys()]);
-    if (rt.record.role !== "creator") writers.add(rt.record.shareKey);
-    writers.delete(selfKeyOf(rt));
-    return writers;
+  type DeleteProof = { removed: RemovedFile["removed"]; live: ReadonlySet<string> };
+  /** The last proof read per album, for the synchronous debug snapshot. */
+  const lastProof = new WeakMap<FolderRuntime, DeleteProof>();
+
+  async function deleteProof(rt: FolderRuntime): Promise<DeleteProof> {
+    const registry = await readRegistryIn(rt.folderDrive);
+    const proof = {
+      removed: await readRemovedIn(rt.folderDrive),
+      live: liveDrives(rt, registry.members),
+    };
+    lastProof.set(rt, proof);
+    return proof;
   }
 
-  /** The ids the person's phone still says it holds that the album no longer lists. */
-  function stillToDropIn(rt: FolderRuntime, key: string): string[] {
-    const listing = rt.listing;
-    if (listing === undefined || !listing.covered || rt.record.notice !== undefined) return [];
-    return stillToDrop({
-      report: rt.held.get(key),
-      listed: new Set([...listing.photos.values()].map((p) => p.id)),
-    });
+  /** The ids the person's phone still says it holds that the Admin deleted. */
+  function stillToDropIn(rt: FolderRuntime, key: string, proof: DeleteProof | undefined): string[] {
+    if (proof === undefined || rt.record.notice !== undefined) return [];
+    return stillToDrop({ report: rt.held.get(key), ...proof });
   }
 
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
@@ -2843,9 +2840,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       gallery,
       sources: driveByKey,
       adminName: people.find((p) => p.admin)?.name,
-      covered:
-        gallery.complete &&
-        [...albumWriters(rt, registry.members)].every((key) => hasSynced(driveByKey.get(key))),
     });
     const photos: Photo[] = [];
     const now = Date.now();
@@ -3036,11 +3030,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       } catch {
         // no spool dir yet
       }
-      const { cleared } = await dropDeleted({
+      const removed = await readRemovedIn(rt.folderDrive);
+      const result = await dropDeleted({
         others,
         selfKey,
         selfDrive: rt.selfDrive,
-        removed: await readRemovedIn(rt.folderDrive),
+        removed,
         spoolNames,
         forget: (driveKey, id, ext) => {
           forgetPhoto(rt, driveKey, id, ext);
@@ -3051,7 +3046,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log: (event, fields) => log(event, { folder: short(rt.record.id), ...fields }),
         timeoutMs: 2_000,
       });
-      await forgetHeld(rt, cleared);
+      await forgetHeld(rt, result.cleared);
+      // A phone whose cache was wiped has a held mark and no cached copy: its record still goes once the bytes do.
+      await rt.holding?.done;
+      const own = rt.ownHeldRead === selfKey ? rt.held.get(selfKey) : undefined;
+      await forgetHeld(
+        rt,
+        stillToDrop({ report: own, removed, live: result.clearedDrives }).filter(
+          (id) => !rt.unheld.has(id),
+        ),
+      );
     } catch (e) {
       log("error", { where: "dropDeleted", folder: short(rt.record.id), err: errText(e) });
     }
@@ -3780,6 +3784,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const selfKey = selfKeyOf(rt);
     const photos = (await listPhotosIn(rt)).length;
+    const proof = await deleteProof(rt);
     const memberList: SyncMember[] = (await albumPeople(rt))
       .map((person) =>
         person.self
@@ -3802,7 +3807,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             },
       )
       .map((m) => {
-        const ids = m.key === selfKey ? [] : stillToDropIn(rt, m.key);
+        const ids = m.key === selfKey ? [] : stillToDropIn(rt, m.key, proof);
         return ids.length === 0 ? m : { ...m, stillToDrop: ids };
       });
     const role = rt.record.role;
@@ -5781,6 +5786,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           await selfDrive.del(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`);
           forgetPhoto(rt, selfKey, id, base.slice(id.length));
           pruneIndex(id, selfKey);
+          if (role === "creator") {
+            // The Admin's own delete is listed too, so other phones can tell it from a photo that left with its adder.
+            rt.deletedHere.add(`${selfKey}:${id}`);
+            try {
+              const removed = await readRemovedIn(rt.folderDrive);
+              removed[`${selfKey}:${id}`] = { memberKey: selfKey, removedAt: Date.now() };
+              await rt.folderDrive.put(
+                DRIVE_PATH_REMOVED,
+                Buffer.from(JSON.stringify({ version: 1, removed })),
+              );
+            } catch (e) {
+              log("error", { where: "remove.tombstone", err: errText(e) });
+            }
+          }
           watchDrop(rt, id, waiting);
           deps.onChanged({ cause: "remove", folderId: rt.record.id, memberKey: selfKey });
           return ok({ id });
@@ -6612,7 +6631,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           stillToDrop: Object.fromEntries(
             [...rt.held.keys()]
               .filter((key) => key !== selfKeyOf(rt))
-              .map((key) => [key, stillToDropIn(rt, key)] as const)
+              .map((key) => [key, stillToDropIn(rt, key, lastProof.get(rt))] as const)
               .filter(([, ids]) => ids.length > 0),
           ),
           folderOwner: {

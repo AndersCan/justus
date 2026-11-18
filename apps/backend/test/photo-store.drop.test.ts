@@ -3,7 +3,7 @@
  * Anna (Admin) and Nils (Collaborator) on the checked fakes share one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { parseSpoolName } from "../src/spool-name.ts";
@@ -30,11 +30,32 @@ function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   return deps;
 }
 
-async function album() {
+/** Makes every `clearDeleted` on a drive the phone opens fail while `fail` is set. */
+function failClearDeleted(deps: ReturnType<typeof phoneDeps>) {
+  const gate = { fail: false, failed: 0 };
+  const open = deps.drives.open.bind(deps.drives);
+  deps.drives.open = (async (key: string, opts: { timeoutMs: number }) => {
+    const r = await open(key, opts);
+    const drive = r[1];
+    if (drive) {
+      const real = drive.clearDeleted.bind(drive);
+      drive.clearDeleted = async (o: Parameters<typeof real>[0]) => {
+        if (!gate.fail) return real(o);
+        gate.failed += 1;
+        return [new Error("disk busy"), null];
+      };
+    }
+    return r;
+  }) as typeof deps.drives.open;
+  return gate;
+}
+
+async function album(opts: { failNils?: boolean } = {}) {
   const hub = createFakeHub();
   const annaDeps = phoneDeps(hub, "Anna");
   const anna = createPhotoStore(annaDeps);
   const nilsDeps = phoneDeps(hub, "Nils");
+  const gate = opts.failNils ? failClearDeleted(nilsDeps) : undefined;
   const nils = createPhotoStore(nilsDeps);
   await anna.ready();
   await nils.ready();
@@ -45,7 +66,7 @@ async function album() {
   const nilsFolderId = (await nils.folders()).folders.find((f) => f.shareKey === shareKey)!.id;
   await nils.setActive(nilsFolderId);
   await anna.setActive(folderId);
-  return { hub, anna, nils, annaDeps, nilsDeps, folderId, nilsFolderId, shareKey };
+  return { hub, anna, nils, annaDeps, nilsDeps, folderId, nilsFolderId, shareKey, gate };
 }
 
 type Store = ReturnType<typeof createPhotoStore>;
@@ -226,6 +247,50 @@ describe("thumbnail bytes leave the phone", () => {
     expect(
       await past!.readSmall(`/thumbs/${mine.id}.jpg`, 100, { timeoutMs: 200 }),
     ).toBeUndefined();
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+
+  it("a phone whose cache was wiped keeps a deleted photo in its record while it cannot clear its bytes", async () => {
+    const s = await album({ failNils: true });
+    await addWithThumb(s.anna, s.annaDeps, s.folderId, "gone.jpg", 1);
+    await until(async () => (await s.nils.list()).length === 1);
+    const gone = await load(s.nilsDeps, s.nils, "gone.jpg");
+    const shareKey = (await s.nils.folders()).folders.find(
+      (f) => f.id === s.nilsFolderId,
+    )!.shareKey;
+    const own = await s.nilsDeps.drives.openOwn(`member/${shareKey}`);
+    await until(async () => (await own.readSmall(`/held/${gone.id}`, 10)) !== undefined);
+    rmSync(join(s.nilsDeps.cacheDir, "photos", s.nilsFolderId), { recursive: true, force: true });
+    setFakeNodeConnected({ hub: s.hub, node: s.nilsDeps.node, connected: false });
+    s.gate!.fail = true;
+    await s.anna.remove(gone.id);
+    setFakeNodeConnected({ hub: s.hub, node: s.nilsDeps.node, connected: true });
+    await until(() => s.gate!.failed >= 2);
+    await sleep(500);
+    expect(await own.readSmall(`/held/${gone.id}`, 10)).toBeDefined();
+    s.gate!.fail = false;
+    await s.anna.addBytes("next.jpg", new Uint8Array([9, 9, 9]));
+    await until(async () => (await own.readSmall(`/held/${gone.id}`, 10)) === undefined);
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+
+  it("a phone whose cache was wiped still takes a photo the Admin deleted out of its record", async () => {
+    const s = await album();
+    await addWithThumb(s.anna, s.annaDeps, s.folderId, "gone.jpg", 1);
+    await until(async () => (await s.nils.list()).length === 1);
+    const gone = await load(s.nilsDeps, s.nils, "gone.jpg");
+    const shareKey = (await s.nils.folders()).folders.find(
+      (f) => f.id === s.nilsFolderId,
+    )!.shareKey;
+    const own = await s.nilsDeps.drives.openOwn(`member/${shareKey}`);
+    await until(async () => (await own.readSmall(`/held/${gone.id}`, 10)) !== undefined);
+    rmSync(join(s.nilsDeps.cacheDir, "photos", s.nilsFolderId), { recursive: true, force: true });
+    setFakeNodeConnected({ hub: s.hub, node: s.nilsDeps.node, connected: false });
+    await s.anna.remove(gone.id);
+    setFakeNodeConnected({ hub: s.hub, node: s.nilsDeps.node, connected: true });
+    await until(async () => (await own.readSmall(`/held/${gone.id}`, 10)) === undefined);
     await s.anna.close();
     await s.nils.close();
   }, 20_000);

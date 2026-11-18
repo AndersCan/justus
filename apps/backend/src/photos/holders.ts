@@ -197,14 +197,22 @@ function byNameThenKey(a: PhotoMember, b: PhotoMember): number {
   return a.name < b.name ? -1 : a.name > b.name ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
 }
 
-/** Photos the person's phone says it holds or previewed that the album no longer lists. `[]` when it cannot tell. */
+/** Photos the person's phone says it holds or previewed that the Admin's delete list names on one of `live`'s drives, sorted. `[]` for a silent or missing record. */
 export function stillToDrop(input: {
   report: HeldReport | undefined;
-  listed: ReadonlySet<string> | undefined;
+  /** Parsed `/removed.json`: "<driveKey>:<id>" -> entry. */
+  removed: Readonly<Record<string, unknown>>;
+  /** Drives whose deleted photos the phone drops: never a kept (Viewer's) copy or a drive that left. */
+  live: ReadonlySet<string>;
 }): string[] {
-  const { report, listed } = input;
-  if (report?.kind !== "reports" || listed === undefined) return [];
-  return [...new Set([...report.ids, ...report.previews])].filter((id) => !listed.has(id)).sort();
+  const { report, removed, live } = input;
+  if (report?.kind !== "reports") return [];
+  const named = new Set<string>();
+  for (const key of Object.keys(removed)) {
+    const at = key.indexOf(":");
+    if (at > 0 && live.has(key.slice(0, at))) named.add(key.slice(at + 1));
+  }
+  return [...new Set([...report.ids, ...report.previews])].filter((id) => named.has(id)).sort();
 }
 
 function holds(report: HeldReport | undefined, id: string): boolean {
