@@ -158,6 +158,10 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       sheet.getByText(words("photo_holders.off_or_wiped", { names: "Ben" })),
       "sheet · Ada's phone: the note",
     ).toBeVisible();
+    await expect(
+      sheet.locator('[data-copy-id="photo_holders.copies_outside_justus_not_listed"]'),
+      "sheet · Ada's phone: copies outside Justus line",
+    ).toHaveText(words("photo_holders.copies_outside_justus_not_listed"));
     await sheet.getByRole("button", { name: words("photo_holders.close") }).click();
     await closePhoto(a);
 

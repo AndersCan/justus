@@ -175,6 +175,7 @@ export function holdersSheet(photo: Photo, people: readonly Person[], now = Date
             : null
         }
       </div>
+      <p class="mt-3 text-sm text-muted">${t("photo_holders.copies_outside_justus_not_listed")}</p>
       <div class="mt-4 flex justify-end">
         <button class="ui-btn-ghost" data-dismiss autofocus @click=${closeHolders}>
           ${t("photo_holders.close")}

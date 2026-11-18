@@ -49,6 +49,10 @@ async function expectSheet(page, step, phone, { full, preview }) {
     sheet.locator('[data-copy-id="photo_holders.hasn_t_said_yet"]'),
     `${step} · ${phone}'s sheet: hasn't said yet`,
   ).toHaveCount(0);
+  await expect(
+    sheet.locator('[data-copy-id="photo_holders.copies_outside_justus_not_listed"]'),
+    `${step} · ${phone}'s sheet: copies outside Justus line`,
+  ).toHaveText(words("photo_holders.copies_outside_justus_not_listed"));
   await sheet.locator('[data-copy-id="photo_holders.close"]').click();
   await expect(sheet).toHaveCount(0);
   await closePhoto(page);
