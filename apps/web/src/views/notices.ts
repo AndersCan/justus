@@ -17,6 +17,11 @@ export function joinedText(albumName: string): string {
   return copy("notices.now_in_album", { albumName });
 }
 
+/** Ben's line on Your albums after he left an album. */
+export function youLeftText(albumName: string): string {
+  return copy("notices.you_left", { albumName });
+}
+
 /** The line on Your albums after the Admin deleted an album for everyone. */
 export function deletedNoticeText(d: DeletedAlbum): string {
   return copy("notices.deleted_the_album_and_its", {

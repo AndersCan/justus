@@ -47,6 +47,7 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
     folders: s.context.folders,
     archived: s.context.archived,
     deleted: s.context.deleted,
+    youLeft: s.context.youLeft,
     pendingChange: s.context.pendingChange,
     asks: s.context.asks,
     offers: s.context.offers,
@@ -129,6 +130,8 @@ const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
 const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();
 /** The person dismisses the notice about a deleted album. */
 const dismissDeletedNotice = event("DISMISS_DELETED_NOTICE")<AlbumTarget>();
+/** The person dismisses the line saying they left an album. */
+const dismissYouLeft = event("DISMISS_YOU_LEFT")();
 /** Archiving, restoring, leaving, deleting or dismissing did not work. */
 const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string }>();
 /** The album list could not be loaded. */
@@ -177,6 +180,8 @@ type FoldersContext = {
   pendingCreate: string | null;
   pendingActive: string | null;
   pendingName: string | null;
+  /** The album this person left last, until dismissed or the next leave replaces it. */
+  youLeft: AlbumTarget | undefined;
   /** The last archive, restore, leave, delete or dismiss, kept after it ends so the screen can toast it. */
   pendingChange: (AlbumTarget & { kind: AlbumChange }) | null;
 };
@@ -313,6 +318,7 @@ export const foldersMachine = machine("folders", {
         leaveAlbum,
         deleteAlbum,
         dismissDeletedNotice,
+        dismissYouLeft,
       ],
       internal: [
         loaded,
@@ -352,6 +358,7 @@ export const foldersMachine = machine("folders", {
         offers: [],
         archived: [],
         deleted: [],
+        youLeft: undefined,
         activeId: null,
         error: null,
         ...noPending,
@@ -362,6 +369,14 @@ export const foldersMachine = machine("folders", {
           event: nameSeen,
           handler: (e, opts) => {
             opts.context.set({ ...opts.context.get(), userName: e.payload.name });
+            return {};
+          },
+        });
+        /** Dismissing the line about a left album works in any state and changes no state. */
+        m.onAny({
+          event: dismissYouLeft,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), youLeft: undefined });
             return {};
           },
         });
@@ -740,8 +755,14 @@ export const foldersMachine = machine("folders", {
             event: loaded,
             to: [showingAlbums],
             handler: (e, opts) => {
+              const before = opts.context.get();
+              const left = before.pendingChange;
               opts.context.set({
-                ...opts.context.get(),
+                ...before,
+                youLeft:
+                  left?.kind === "leave" && !left.removed
+                    ? { folderId: left.folderId, name: left.name }
+                    : before.youLeft,
                 folders: e.payload.folders,
                 asks: e.payload.asks,
                 offers: e.payload.offers,
@@ -816,6 +837,7 @@ export const folders = {
     ),
   delete: (folderId: string, name: string) =>
     foldersActor.send(deleteAlbum.create({ folderId, name })),
+  dismissYouLeft: () => foldersActor.send(dismissYouLeft.create()),
   dismissNotice: (folderId: string, name: string) =>
     foldersActor.send(dismissDeletedNotice.create({ folderId, name })),
 };

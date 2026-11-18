@@ -9,7 +9,6 @@ import { requests, requestsActor } from "../machines/requests-machine";
 import { sharingView, waitingForYou } from "./sharing";
 import {
   albumVanished,
-  leaveToast,
   albumsHint,
   albumsPanel,
   archivedSummary,
@@ -27,6 +26,7 @@ const mock = vi.hoisted(() => ({
   status: vi.fn(),
   joinOffer: vi.fn(),
   createFolder: vi.fn(),
+  leaveAlbum: vi.fn(),
   ask: vi.fn(),
   linkTurnedOff: vi.fn(),
 }));
@@ -39,6 +39,7 @@ vi.mock("../gateway", () => ({
     linkTurnedOff: mock.linkTurnedOff,
     joinOffer: mock.joinOffer,
     createFolder: mock.createFolder,
+    leaveAlbum: mock.leaveAlbum,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -94,13 +95,6 @@ async function load(
 const rows = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLLIElement>("ul[aria-label='Your albums'] > li"),
 ];
-
-describe("leaveToast", () => {
-  test("a removed person deleted the album, anyone else left it", () => {
-    expect(leaveToast({ name: "Trip", removed: true })).toBe("Deleted “Trip” from this phone");
-    expect(leaveToast({ name: "Trip" })).toBe("You left “Trip”");
-  });
-});
 
 describe("albums list", () => {
   test("removing the middle album keeps the other rows, and adding one keeps every row", async () => {
@@ -925,6 +919,41 @@ describe("Your albums page motion", () => {
     await flush();
     await flush();
     expect(calls.filter((c) => host.contains(c.el))).toHaveLength(0);
+  });
+});
+
+describe("leaving an album", () => {
+  const leave = async (removed: boolean) => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    mock.folders.mockResolvedValue([null, { folders: [album("a")], activeFolderId: "a" }]);
+    mock.leaveAlbum.mockResolvedValue([null, { ok: true }]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.leave("a", "Summer", removed);
+    await vi.waitFor(() =>
+      expect(foldersActor.snapshot().context.pendingChange?.kind).toBe("leave"),
+    );
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    return host;
+  };
+
+  test("Your albums says he left, with Dismiss, and no toast", async () => {
+    const host = await leave(false);
+    await vi.waitFor(() =>
+      expect(host.querySelector("[role=status]")?.textContent?.trim()).toBe("You left “Summer”."),
+    );
+    expect(document.body.textContent).not.toContain("You left");
+    (host.querySelector("[aria-label='Dismiss notice about Summer']") as HTMLElement).click();
+    await vi.waitFor(() => expect(host.querySelector("[role=status]")).toBeNull());
+  });
+
+  test("a removed person gets the deleted toast and no line", async () => {
+    const host = await leave(true);
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Deleted “Summer” from this phone"),
+    );
+    expect(host.querySelector("[role=status]")).toBeNull();
   });
 });
 
