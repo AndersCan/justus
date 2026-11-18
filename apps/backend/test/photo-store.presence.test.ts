@@ -88,6 +88,21 @@ describe("member presence", () => {
     await store.close();
   });
 
+  it("pushes a holders change when a friend's phone connects and when it drops", async () => {
+    const changes: string[] = [];
+    const hub = createFakeHub();
+    const { store, topic } = buildStore("Maya", hub, changes);
+    await store.ready();
+    await store.createFolder("Trip");
+    const phone = peerPhone(hub, { identityKey: "9".repeat(64) });
+    phone.meet(topic());
+    await waitFor(async () => changes.includes("holders"));
+    changes.length = 0;
+    await phone.network.close();
+    await waitFor(async () => changes.includes("holders"));
+    await store.close();
+  });
+
   it("lets the Admin remove an approved member", async () => {
     const hub = createFakeHub();
     const admin = buildStore("Maya", hub);

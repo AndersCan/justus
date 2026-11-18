@@ -1223,6 +1223,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Tell the web layer who holds what may have changed: a friend's phone
+   * connecting or dropping moves it between connected and quiet. */
+  function announceHolders() {
+    const rt = activeRuntime();
+    if (rt) deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
   /** Tell the web layer presence changed; it refreshes status only. */
   function announcePresence() {
     const rt = activeRuntime();
@@ -1289,7 +1296,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * `/device.json` replicates in. */
   function refreshPresence() {
     void resolveSwarmKeys()
-      .then((learned) => learned && announcePresence())
+      .then((learned) => {
+        if (!learned) return;
+        announcePresence();
+        announceHolders();
+      })
       .catch((e) => console.error(`[justus] presence refresh failed: ${errMsg(e)}`));
   }
 
@@ -1321,6 +1332,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   function onPeerUp(peerKey: string) {
     peerConnected(presence, { peerKey, log });
     announcePresence();
+    announceHolders();
     refreshPresence();
   }
 
@@ -1329,6 +1341,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (down === "still-connected") return;
     if (down === "member-down") saveLastSeen();
     announcePresence();
+    announceHolders();
   }
 
   async function readDeviceName(drive: Drive): Promise<string> {
