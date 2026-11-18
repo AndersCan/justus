@@ -7,6 +7,7 @@ import {
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
 import {
+  DELETED_DIR,
   HELD_DIR,
   HOLDING_PATH,
   MAX_HELD,
@@ -22,12 +23,15 @@ import {
   heldPath,
   HOLDER_QUIET_AFTER_MS,
   holdersFor,
+  markDeleted,
   markFormerLeft,
   markHeld,
   markPreviewed,
+  readDeleted,
   readFormer,
   readHeld,
   stillToDrop,
+  withOwnDeletes,
   unmarkHeld,
   type HeldReport,
 } from "../../src/photos/holders.ts";
@@ -127,6 +131,58 @@ describe("markPreviewed", () => {
       kind: "write-failed",
       message: "nope",
     });
+  });
+});
+
+describe("markDeleted and readDeleted", () => {
+  it("reads back the ids written, and writes nothing for an unsafe id", async () => {
+    const [drive] = await twoDrives();
+    expect(await markDeleted(drive, "p1")).toEqual([null, true]);
+    expect(await markDeleted(drive, "../x")).toEqual([null, false]);
+    expect(await drive.readSmall(`${DELETED_DIR}/p1`, 10)).toBe("1");
+    expect(await readDeleted(drive, { timeoutMs: 100, log: () => {} })).toEqual(new Set(["p1"]));
+  });
+
+  it("returns an error value when the write fails", async () => {
+    const [drive] = await twoDrives();
+    const broken: Drive = {
+      ...drive,
+      put: async () => {
+        throw new Error("nope");
+      },
+    };
+    expect((await markDeleted(broken, "a"))[0]).toEqual({ kind: "write-failed", message: "nope" });
+  });
+
+  it("is undefined, never an empty set, when the list throws or is slow", async () => {
+    const [drive] = await twoDrives();
+    const events: string[] = [];
+    const log = (event: string, fields: Record<string, unknown>) =>
+      void events.push(`${event}:${String(fields.err)}`);
+    const broken: Drive = {
+      ...drive,
+      list: () => {
+        throw new Error("gone");
+      },
+    };
+    expect(await readDeleted(broken, { timeoutMs: 100, log })).toBeUndefined();
+    const slow: Drive = {
+      ...drive,
+      list: () => ({
+        [Symbol.asyncIterator]: () => ({ next: () => new Promise<never>(() => {}) }),
+      }),
+    };
+    expect(await readDeleted(slow, { timeoutMs: 40, log })).toBeUndefined();
+    expect(events).toEqual(["holding.read:gone", "holding.read:deleted-timeout"]);
+  });
+});
+
+describe("withOwnDeletes", () => {
+  it("adds each phone's own deletes as drive:id and keeps the Admin's entries as they are", () => {
+    const admin = { memberKey: "A" };
+    expect(
+      withOwnDeletes({ "A:p1": admin, "N:p2": admin }, new Map([["N", new Set(["p2", "p3"])]])),
+    ).toEqual({ "A:p1": admin, "N:p2": admin, "N:p3": true });
   });
 });
 

@@ -1357,6 +1357,46 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
     await s.close();
   }, 30_000);
 
+  it("lists Anna while her phone is off for a photo Nils deleted himself, also after his restart, and names her once she drops it", async () => {
+    const s = await album();
+    await s.nils.store.addBytes("mine.jpg", new Uint8Array([7, 7, 7, 7]));
+    const mine = async (store: typeof s.nils.store) =>
+      (await store.list(s.nilsFolderId)).find((p) => p.name === "mine.jpg");
+    await until(async () => (await s.anna.store.list()).some((p) => p.name === "mine.jpg"));
+    const photo = (await mine(s.nils.store))!;
+    await s.anna.server.getForTest(
+      new URL((await s.anna.store.list()).find((p) => p.name === "mine.jpg")!.url).pathname,
+    );
+    await until(async () => (await mine(s.nils.store))!.holders!.others.length === 1);
+    const annaRow = async (store: typeof s.nils.store) =>
+      (await store.status()).members.find((m: { name: string }) => m.name === "Anna");
+    setFakeNodeConnected({ hub: s.hub, node: s.anna.node, connected: false });
+    await s.nils.store.remove(photo.id, s.nilsFolderId);
+    expect((await annaRow(s.nils.store))?.stillToDrop).toEqual([photo.id]);
+    await s.nils.store.close();
+    const pushes: { cause: string; dropped?: { people: { name: string }[] } }[] = [];
+    const reopened = createPhotoStore({
+      ...restarted(s.nils.deps),
+      onChanged: (e) => pushes.push(e as (typeof pushes)[number]),
+    });
+    await reopened.ready();
+    await reopened.setActive(s.nilsFolderId);
+    await until(async () => (await annaRow(reopened))?.stillToDrop?.[0] === photo.id);
+    expect((await annaRow(reopened))?.stillToDrop).toEqual([photo.id]);
+    setFakeNodeConnected({ hub: s.hub, node: s.anna.node, connected: true });
+    await until(
+      async () => (
+        await reopened.list(s.nilsFolderId),
+        (await annaRow(reopened))?.stillToDrop === undefined
+      ),
+      15_000,
+    );
+    expect((await annaRow(reopened))?.stillToDrop).toBeUndefined();
+    expect(pushes.some((p) => p.cause === "dropped")).toBe(true);
+    await reopened.close();
+    await s.anna.store.close();
+  }, 40_000);
+
   it("the Admin's delete of her own photo gives her phone no deleted note", async () => {
     const s = await album();
     const photo = await s.annaPhoto();
