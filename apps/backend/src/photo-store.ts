@@ -5406,7 +5406,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.memberDrives.delete(key);
     rt.keptAt.delete(key);
     rt.memberNameCache.delete(key);
-    rt.pastAdmins = [...(rt.pastAdmins ?? []), rt.folderDrive];
     rt.folderDrive = hop.drive;
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
@@ -5414,8 +5413,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
     log("admin.followed", { folder: short(rt.record.id), to: short(key) });
     await refreshMembersFor(rt);
-    armFolderWatchers(rt);
-    refreshPresence();
+    await becomeViewerIfListed(rt);
+    void checkDeleteNote(rt, 2_000).catch((e) =>
+      log("error", { where: "checkDeleteNote", folder: short(rt.record.id), err: errText(e) }),
+    );
+    void checkRemovedNote(rt, 2_000).catch((e) =>
+      log("error", { where: "checkRemovedNote", folder: short(rt.record.id), err: errText(e) }),
+    );
     deps.onChanged({ cause: "enroll", folderId: rt.record.id });
   }
 

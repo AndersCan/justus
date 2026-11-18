@@ -408,4 +408,86 @@ describe("other phones follow the new Admin", () => {
     await dee.store.close();
     await s.close();
   });
+
+  it("a phone that was off takes the Viewer seat Ben gave it while it was away", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    expect((await s.ben.store.makeViewer((await trip(s.ben)).id, s.cyKey))[0]).toBeNull();
+
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
+    await until(async () => (await trip(s.cy)).role === "reader");
+    await s.close();
+  }, 40_000);
+
+  it("a phone that was off learns Ben deleted the album", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    expect((await s.ben.store.deleteAlbum((await trip(s.ben)).id))[0]).toBeNull();
+
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
+    await until(async () => (await s.cy.store.folders()).folders.length === 0, 30_000);
+    await s.close();
+  }, 40_000);
+
+  it("tells the screen when a connected phone follows Ben", async () => {
+    const s = await scene();
+    await s.cy.store.close();
+    const pushes: string[] = [];
+    const cy = createPhotoStore({
+      ...restarted(s.cy.deps),
+      onChanged: (e: { cause: string }) => pushes.push(e.cause),
+    });
+    await cy.ready();
+    await sleep(500);
+    pushes.length = 0;
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf({ store: cy }).folders[0]!.adminChain?.at(-1) === s.benKey);
+    await until(() => pushes.includes("enroll"));
+    await cy.close();
+    await s.ada.store.close();
+    await s.ben.store.close();
+  });
+
+  it("a phone that was restarted after a handover it missed follows Ben and lists only Ben's photos", async () => {
+    const s = await scene();
+    await s.ada.store.setActive(s.folderId);
+    await s.ada.store.addBytes("ada.jpg", new Uint8Array([1, 2, 3, 41]));
+    const benId = (await trip(s.ben)).id;
+    await s.ben.store.setActive(benId);
+    await s.ben.store.addBytes("ben.jpg", new Uint8Array([1, 2, 3, 42]));
+    const cyId = (await trip(s.cy)).id;
+    await s.cy.store.setActive(cyId);
+    const names = async (st: Phone["store"]) =>
+      (await st.list())
+        .map((p: { name: string }) => p.name)
+        .toSorted()
+        .join();
+    await until(async () => (await names(s.cy.store)) === "ada.jpg,ben.jpg");
+    await s.cy.store.close();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    await s.ada.store.close();
+    const cy = createPhotoStore(restarted(s.cy.deps));
+    await cy.ready();
+    await until(() => debugOf({ store: cy }).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
+    await cy.setActive((await cy.folders()).folders[0]!.id);
+    await until(async () => (await names(cy)) === "ben.jpg");
+    await cy.close();
+    await s.ben.store.close();
+  }, 60_000);
+
+  it("a connected phone hears Ben's later changes on Ben's drive", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey);
+    await until(async () => (await trip(s.ben)).role === "creator");
+    expect((await s.ben.store.makeViewer((await trip(s.ben)).id, s.cyKey))[0]).toBeNull();
+    await until(async () => (await trip(s.cy)).role === "reader");
+    await s.close();
+  }, 40_000);
 });

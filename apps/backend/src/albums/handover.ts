@@ -26,6 +26,7 @@ import {
 import { DRIVE_PATH_MEMBERS, MAX_PEER_JSON_BYTES } from "../membership/join.ts";
 import { errText, type P2pLog } from "../p2p-log.ts";
 import type { AlbumResult } from "./albums";
+import { DRIVE_PATH_DELETED } from "./lifecycle";
 
 export const DRIVE_PATH_ADMIN = "/admin.json";
 
@@ -139,11 +140,15 @@ export async function followAdmin(
     const members = await drive.readSmall(DRIVE_PATH_MEMBERS, MAX_PEER_JSON_BYTES, {
       timeoutMs: READ_MS,
     });
-    if (
-      device.status !== "verified" ||
-      device.identityKey !== note.next.identity ||
-      members === undefined
-    ) {
+    // A deleted album's drive keeps only its delete note, so that note stands for the checks.
+    const deleted =
+      (await drive.readSmall(DRIVE_PATH_DELETED, MAX_PEER_JSON_BYTES, { timeoutMs: READ_MS })) !==
+      undefined;
+    const verified =
+      device.status === "verified" &&
+      device.identityKey === note.next.identity &&
+      members !== undefined;
+    if (!verified && !deleted) {
       await ports.release(drive);
       break;
     }
