@@ -4,10 +4,19 @@
  * the request opens on the new Admin's phone. Phones share one fake hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { createPhotoStore } from "../src/photo-store.ts";
+import { inviteTopic } from "../src/membership/invite.ts";
+import type { PeerEvent } from "../src/ports/peer-network.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import { FakeLoopbackServer, fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
+import {
+  FakeLoopbackServer,
+  fakeStoreDeps,
+  joinAsMember,
+  restarted,
+} from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -95,4 +104,86 @@ describe("a request made with the old Admin's link", () => {
     expect((await s.cy.store.folders()).asks[0]!.owner).toBe(identityOf(s.ada));
     await s.close();
   }, 20_000);
+  it("an ask filed before this update (no sealedFor) is sealed again for the new Admin", async () => {
+    const s = await scene();
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ada.store.requests()).requests.length === 1);
+    // As a build without `sealedFor` saved it: drop the field, restart Cy's phone.
+    await s.cy.store.close();
+    const file = join(s.cy.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    const asks = (saved.asks ?? saved.state?.asks) as Array<Record<string, unknown>>;
+    expect(asks[0]!.sealedFor).toBe(identityOf(s.ada));
+    for (const a of asks) delete a.sealedFor;
+    writeFileSync(file, JSON.stringify(saved));
+    const cy = { ...s.cy, store: createPhotoStore(restarted(s.cy.deps)) };
+    await cy.store.ready();
+    s.cy.store = cy.store;
+    await s.handOver();
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    await s.close();
+  }, 40_000);
+
+  it("keeps the ask sealed for Ada when the new Admin's sealing key cannot be read", async () => {
+    const s = await scene();
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ada.store.requests()).requests.length === 1);
+    const [openErr, benDrive] = await s.cy.deps.drives.open(identityOf(s.ben), {
+      timeoutMs: 2_000,
+    });
+    expect(openErr).toBeNull();
+    const readSmall = benDrive!.readSmall.bind(benDrive!) as (
+      ...a: unknown[]
+    ) => Promise<string | null>;
+    // Only the ask's own read (no options) loses the key; identity checks read it whole.
+    benDrive!.readSmall = (async (...args: unknown[]) => {
+      const text = await readSmall(...args);
+      if (args[0] !== "/device.json" || args[2] !== undefined || text === null) return text;
+      const { boxKey: _dropped, ...rest } = JSON.parse(text);
+      return JSON.stringify(rest);
+    }) as typeof benDrive.readSmall;
+    await s.handOver();
+    await until(async () => (await s.cy.store.folders()).asks[0]?.owner === identityOf(s.ben));
+    await sleep(500);
+    const [err, outbox] = await s.cy.deps.drives.open(identityOf(s.cy), { timeoutMs: 1_000 });
+    expect(err).toBeNull();
+    const text = (await outbox!.readSmall("/requests.json", 1 << 20)) ?? "";
+    expect(JSON.parse(text).requests[`invite:${s.code}`].sealedKey).toBeTypeOf("string");
+    await s.close();
+  }, 40_000);
+
+  it("is not re-pointed by a handover whose chain a phone signed itself", async () => {
+    const s = await scene();
+    const dan = phone(s.hub, "Dan");
+    const events: PeerEvent[] = [];
+    const start = dan.deps.network.start.bind(dan.deps.network);
+    dan.deps.network.start = (...[identity, onEvent, protocol]: Parameters<typeof start>) =>
+      start(identity, (e: PeerEvent) => (events.push(e), onEvent(e)), protocol);
+    await dan.store.ready();
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ada.store.requests()).requests.length === 1);
+    dan.deps.network.join(inviteTopic(s.code, { createHash } as never).toString("hex"), {
+      server: false,
+    });
+    await until(() =>
+      events.some((e) => e.type === "identified" && e.identityKey === identityOf(s.cy)),
+    );
+    const conn = events.find(
+      (e): e is Extract<PeerEvent, { type: "identified" }> =>
+        e.type === "identified" && e.identityKey === identityOf(s.cy),
+    )!.conn;
+    const forged = {
+      from: identityOf(s.ada),
+      to: identityOf(dan),
+      publicKey: "03".repeat(32),
+      signature: "04".repeat(64),
+    };
+    expect(
+      dan.deps.network.sendAnswer(conn, { code: s.code, answer: "handedOver", chain: [forged] }),
+    ).toBe(true);
+    await sleep(1_000);
+    expect((await s.cy.store.folders()).asks[0]!.owner).toBe(identityOf(s.ada));
+    await dan.store.close();
+    await s.close();
+  }, 30_000);
 });

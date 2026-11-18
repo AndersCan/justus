@@ -4867,8 +4867,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return proven;
   }
 
-  /** The codes `identity` asked through, read from its outbox; only when some
-   * album here has turned a link off. */
   /** Marks each ask whose sealed entry this phone can open (a new Admin only: others never ask). */
   async function withOpens(text: string, asked: AskedCode[]): Promise<AskedCode[]> {
     const taken = [...runtimes.values()].some((rt) => rt.record.handoverChains);
@@ -4886,6 +4884,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return out;
   }
 
+  /** The codes `identity` asked through, read from its outbox; only when some
+   * album here has turned a link off. */
   async function askedThrough(identity: string): Promise<AskedCode[]> {
     const mayOwe =
       [...runtimes.values()].some(
@@ -4963,6 +4963,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** The ask's album now has a new Admin: the ask follows, and is sealed to it. */
   function followNewAdmin(ask: AskRecord, owner: string) {
+    // An ask saved before `sealedFor` existed was sealed to the owner it named.
+    ask.sealedFor ??= ask.owner;
     ask.owner = owner;
     if (ask.names) ask.names = { album: ask.names.album, owner: "" };
     log("answer.handedOver", { code: short(ask.code), owner: short(owner) });
