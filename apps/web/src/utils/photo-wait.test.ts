@@ -21,6 +21,7 @@ const h = (p: Partial<Extract<PhotoHolders, { kind: "inAlbum" }>>): PhotoHolders
   here: true,
   previewHere: false,
   others: [],
+  quiet: [],
   unsure: [],
   waiting: [],
   previews: [],

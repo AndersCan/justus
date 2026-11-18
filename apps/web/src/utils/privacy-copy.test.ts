@@ -8,6 +8,7 @@ describe("privacy copy states only what is true", () => {
       here: true,
       previewHere: false,
       others: [{ key: "Nils", name: "Nils" }],
+      quiet: [],
       unsure: [],
       waiting: [],
       previews: [],

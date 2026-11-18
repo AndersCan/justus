@@ -26,6 +26,7 @@ const NOT_COPY = [
   /^Internal error/,
   /^(January|February|March|April|May|June|July|August|September|October|November|December)$/,
   /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/,
+  /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)$/,
   /^hsl\(/,
   /^translate\(/,
   /^\(prefers/,

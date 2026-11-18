@@ -12,6 +12,7 @@ function holders(over: Partial<InAlbumHolders> = {}): InAlbumHolders {
     here: false,
     previewHere: false,
     others: [],
+    quiet: [],
     unsure: [],
     waiting: [],
     previews: [],

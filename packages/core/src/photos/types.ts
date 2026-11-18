@@ -7,6 +7,9 @@ export type PhotoMember = {
   name: string;
 };
 
+/** A phone that has a full copy but has not been connected for a while: when it last was (ms epoch, this phone's clock). */
+export type QuietHolder = PhotoMember & { lastSeenAt: number };
+
 /** Who has a full copy of a photo, as their phones last told this one, on a phone still in the album. */
 export type InAlbumHolders = {
   kind: "inAlbum";
@@ -16,6 +19,8 @@ export type InAlbumHolders = {
   previewHere: boolean;
   /** Current album people other than this phone with a full copy, the adder always included. Sorted by name, then key. */
   others: PhotoMember[];
+  /** Holders not connected now and last connected 3 days ago or more. Never in `others`. Newest `lastSeenAt` first, then name, then key. */
+  quiet: QuietHolder[];
   /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */
   unsure: PhotoMember[];
   /** Current album people (not this phone, not the adder) whose phone said what it holds, without this photo or its preview. Sorted like `others`. */

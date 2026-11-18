@@ -76,6 +76,7 @@ const photo: Photo = {
     here: true,
     previewHere: false,
     others: [],
+    quiet: [],
     unsure: [],
     waiting: [],
     previews: [],

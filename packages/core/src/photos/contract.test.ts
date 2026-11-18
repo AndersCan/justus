@@ -18,6 +18,39 @@ describe("photo contract", () => {
     for (const push of fixture.pushes) expect(checkPhotoChanged(push)).toBeNull();
   });
 
+  it("accepts quiet holders and names a bad lastSeenAt", () => {
+    const photo = {
+      id: "a",
+      url: "u",
+      name: "n",
+      mime: "m",
+      size: 1,
+      addedAt: 0,
+      member: { key: "k", name: "N" },
+    };
+    const holders = (lastSeenAt: unknown) => ({
+      photos: [
+        {
+          ...photo,
+          holders: {
+            kind: "inAlbum",
+            here: true,
+            previewHere: false,
+            others: [],
+            quiet: [{ key: "b", name: "Ben", lastSeenAt }],
+            unsure: [],
+            waiting: [],
+            previews: [],
+            former: [],
+            left: [],
+          },
+        },
+      ],
+    });
+    expect(checkPhotoResult("photos.list", holders(1))).toBeNull();
+    expect(checkPhotoResult("photos.list", holders("x"))).toContain("holders.quiet[0].lastSeenAt");
+  });
+
   it("accepts removed holders and names a bad kind", () => {
     const photo = {
       id: "a",
