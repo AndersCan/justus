@@ -280,22 +280,22 @@ describe("deleteDetail", () => {
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
-      `${gone} Nils has the full photo. It's removed from their phone the next time they open Justus. Copies saved outside Justus can't be taken back.`,
+      `${gone} Nils's phone stops showing it and drops its copy once it's connected. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("names two phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
-      `${gone} Nils and Maya have the full photo. It's removed from their phones the next time they open Justus. Copies saved outside Justus can't be taken back.`,
+      `${gone} Nils's and Maya's phones stop showing it and drop their copies once they're connected. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("names three phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
-      `${gone} Nils, Maya and Ben have the full photo. It's removed from their phones the next time they open Justus. Copies saved outside Justus can't be taken back.`,
+      `${gone} Nils's, Maya's and Ben's phones stop showing it and drop their copies once they're connected. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("names who has it and who does not", () => {
     expect(deleteDetail(h({ others: [m("Ben")], waiting: [m("Cy")] }))).toBe(
-      `${gone} Ben has the full photo. It's removed from their phone the next time they open Justus. Cy doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
+      `${gone} Ben's phone stops showing it and drops its copy once it's connected. Cy doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("names only who lacks it", () => {
@@ -369,10 +369,10 @@ describe("previews", () => {
   });
   it("the dialog says who only has a preview", () => {
     expect(deleteDetail(h({ previews: [m("Ben")] }))).toBe(
-      `${gone} The photo no longer shows for Ben. It's removed from their phone the next time they open Justus. Copies saved outside Justus can't be taken back.`,
+      `${gone} Ben's phone stops showing it and drops its copy once it's connected. Copies saved outside Justus can't be taken back.`,
     );
     expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [m("Dan")] }))).toBe(
-      `${gone} Ben has the full photo. The photo no longer shows for Cy. It's removed from their phones the next time they open Justus. Dan doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
+      `${gone} Ben's and Cy's phones stop showing it and drop their copies once they're connected. Dan doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("the toast says who only has a preview, and who finds out when connected", () => {
@@ -411,7 +411,7 @@ describe("a quiet phone in the delete dialog and toast", () => {
   it("still names the phone as having the full photo, after the fresh ones", () => {
     const holders = h({ others: [m("Cy")], quiet: [q("Ben")] });
     expect(deleteDetail(holders)).toBe(deleteDetail(h({ others: [m("Cy"), m("Ben")] })));
-    expect(deleteDetail(holders)).toContain("Cy and Ben have the full photo.");
+    expect(deleteDetail(holders)).toContain("Cy's and Ben's phones stop showing it");
   });
   it("tells a quiet phone that is not connected it will see the photo gone", () => {
     const people = [{ key: "Ben", name: "Ben", connected: false }];

@@ -176,7 +176,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+ has the full photo\. It's removed from their phone the next time they open Justus\. Copies saved outside Justus can.t be taken back\./,
+    /.+'s phones? stops? showing it and drops? (its|their) cop(y|ies) once (it's|they're) connected\. Copies saved outside Justus can.t be taken back\./,
   );
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
@@ -222,7 +222,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("menuitem", { name: "Delete" }).click();
   const benDialog = b.locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` });
   await expect(benDialog).toContainText(
-    /The photo no longer shows for .+\. It's removed from their phones? the next time they open Justus\./,
+    /.+'s phones? stops? showing it and drops? (its|their) cop(y|ies) once (it's|they're) connected\./,
   );
   await benDialog.getByRole("button", { name: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
@@ -367,7 +367,7 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       hasText: words("lightbox.delete", { name: GONE }),
     });
     await expect(dialog, "Ben off · Ada's dialog names Ben").toContainText(
-      `${words("full_photo.names_have", { list: "Ben", n: 1 })} ${words("lightbox.stops_showing_can_t_erase", { n: 1 })}`,
+      words("lightbox.phones_drop_copy", { list: "Ben's", n: 1 }),
     );
     await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
     // 20 s: a local delete.
