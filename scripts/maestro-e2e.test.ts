@@ -115,39 +115,14 @@ echo "rc=0"
   return r.stdout;
 }
 
-const shared = [
-  "0.jpeg",
-  "1.png",
-  "batch.json",
-  "copy-0-display.jpg",
-  "copy-0-thumb.jpg",
-  "copy-1-display.jpg",
-  "copy-1-thumb.jpg",
-];
-
-test("one batch with both photos passes the share-in check", () => {
-  expect(shareInCheck([shared])).toContain("share-in: ok");
+test("an empty inbox passes the share-in check", () => {
+  expect(shareInCheck([])).toContain("share-in: ok");
 });
 
-test("a share staged twice fails the share-in check", () => {
-  expect(shareInCheck([shared, shared])).not.toContain("share-in: ok");
-});
-
-test("each photo in its own batch fails the share-in check", () => {
-  expect(
-    shareInCheck([
-      ["0.jpeg", "batch.json"],
-      ["0.png", "batch.json"],
-    ]),
-  ).not.toContain("share-in: ok");
-});
-
-test("a batch without the png fails the share-in check", () => {
-  expect(shareInCheck([["0.jpeg", "batch.json", "copy-0-display.jpg"]])).not.toContain(
-    "share-in: ok",
-  );
-});
-
-test("a batch whose copies were not made fails the share-in check", () => {
+test("a batch left in the inbox fails the share-in check", () => {
   expect(shareInCheck([["0.jpeg", "1.png", "batch.json"]])).not.toContain("share-in: ok");
+});
+
+test("two batches left in the inbox fail the share-in check", () => {
+  expect(shareInCheck([["batch.json"], ["batch.json"]])).not.toContain("share-in: ok");
 });
