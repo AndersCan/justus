@@ -151,6 +151,7 @@ describe("the new Admin", () => {
     const reopened = createPhotoStore(deps);
     await reopened.ready();
     expect(net.joined.has(topicOfCode(s.code))).toBe(true);
+    expect(net.joined.has(String(deps.drives.discoveryKeyOf(s.shareKey)))).toBe(true);
     expect((await reopened.folders()).folders[0]!.notice).toEqual({
       kind: "madeAdmin",
       fromName: "Ada",
@@ -185,6 +186,27 @@ describe("a handover package sent to a Viewer", () => {
     await sleep(3_000);
     expect(debugOf(s.cy.store).folders[0]!.takingOver).toBeUndefined();
     expect((await trip(s.cy)).role).not.toBe("creator");
+    for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
+  }, 30_000);
+});
+
+describe("an old Admin once /admin.json is written (more)", () => {
+  it("refuses every other album change it no longer owns", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf(s.ada.store).folders[0]!.handover?.written === true);
+    const refused = PhotoError.HANDOVER_REFUSED;
+    expect((await s.ada.store.makeMember(s.folderId, s.cyKey))[0]?.code).toBe(refused);
+    expect((await s.ada.store.respond(s.folderId, "ab".repeat(32), true))[0]?.code).toBe(refused);
+    expect((await s.ada.store.enroll("ef".repeat(32), "Zed"))[0]?.code).toBe(refused);
+    const before = new Set(s.ada.net.joined);
+    expect((await s.ada.store.turnOffInvite(s.folderId))[0]?.code).toBe(refused);
+    expect([...s.ada.net.joined].filter((t) => !before.has(t))).toEqual([]);
+    expect((await s.ada.store.saveInviteLink(s.folderId, Date.now() + 60_000))[0]?.code).toBe(
+      refused,
+    );
+    expect((await s.ada.store.offerAlbum(s.folderId, s.cyKey))[0]?.code).toBe(refused);
+    expect((await s.ada.store.takeBackOffer(s.folderId, s.cyKey))[0]?.code).toBe(refused);
     for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
   }, 30_000);
 });

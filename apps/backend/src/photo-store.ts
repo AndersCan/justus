@@ -6241,6 +6241,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can enroll members");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Drive key must be a 64-char hex key");
       if (key === rt.folderDrive.key)
         return err(PhotoError.INVALID_KEY, "You cannot enroll yourself");
@@ -6525,6 +6527,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can turn off invite links");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       const next = await withdrawInvite(invitePorts, {
         album: rt.record,
         newCode: newInviteCode(),
@@ -6583,6 +6587,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator" || !rt.record.invite)
         return err(PhotoError.NOT_CREATOR, "Only the creator can make invite links");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       const now = Date.now();
       if (!Number.isInteger(expiresAt) || expiresAt <= now || expiresAt > now + MAX_LINK_MS) {
         return err(PhotoError.INVALID_LINK_TIME, "Link end time must be in the next 7 days");
@@ -6605,6 +6611,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can invite a friend");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(identity) || identity === ownDrive.key)
         return err(PhotoError.INVALID_KEY, "Friend key must be a 64-char hex key");
       const invite = rt.record.invite;
@@ -6662,6 +6670,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can take back an invite");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(identity))
         return err(PhotoError.INVALID_KEY, "Friend key must be a 64-char hex key");
       const invite = rt.record.invite;
