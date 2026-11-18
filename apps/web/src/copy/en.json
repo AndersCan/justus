@@ -531,6 +531,20 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "holders.line_and_preview": {
+    "text": "{line}. {preview}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.preview_on_names": {
+    "text": "Preview on {names} {n?phone:phones}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "holders.on_your_phone_name_removed": {
     "text": "On your phone. {name} was removed and keeps a copy",
     "status": "draft",
@@ -4386,6 +4400,13 @@
     "status": "draft",
     "where": "Photo viewer › Who has this photo › heading",
     "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "photo_holders.preview_is_a_small_copy": {
+    "text": "A small copy. The full photo comes when they open it.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › under Has the preview",
+    "who": "People who tap the photo's holders",
     "screen": ""
   },
   "full_photo.names_preview": {

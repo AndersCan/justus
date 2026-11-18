@@ -6,22 +6,41 @@ import { formatDay } from "./time";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
 
-/** The one line on photo detail that says whose phones have a full copy. */
+/** The one line on photo detail that says whose phones have a full copy, and whose have the preview. */
 export function holdersLine(
   h: PhotoHolders | undefined,
   now = Date.now(),
 ): { text: string; tappable: boolean } {
   const line = baseLine(h);
-  if (h?.kind !== "inAlbum" || h.quiet.length === 0) return line;
-  const quiet = h.quiet
-    .map((m) =>
-      copy("holders.quiet_one_when", { name: `${m.name}'s`, when: formatDay(m.lastSeenAt, now) }),
-    )
-    .join(", ");
-  const base =
-    h.here && h.others.length + h.former.length === 0 ? copy("holders.on_your_phone") : line.text;
-  const text = copy("holders.line_and_quiet", { line: base, quiet });
+  if (h?.kind !== "inAlbum") return line;
+  const preview = h.here ? previewClause(h.previews) : "";
+  if (preview === "" && h.quiet.length === 0) return line;
+  let text =
+    h.here && h.others.length + h.former.length === 0 && (preview !== "" || h.quiet.length > 0)
+      ? copy("holders.on_your_phone")
+      : line.text;
+  if (preview !== "") text = copy("holders.line_and_preview", { line: text, preview });
+  if (h.quiet.length > 0) {
+    const quiet = h.quiet
+      .map((m) =>
+        copy("holders.quiet_one_when", { name: `${m.name}'s`, when: formatDay(m.lastSeenAt, now) }),
+      )
+      .join(", ");
+    text = copy("holders.line_and_quiet", { line: text, quiet });
+  }
   return { text, tappable: true };
+}
+
+/** "Preview on Ben's phone", or "Preview on 4 phones" when the names are many, alike or long. */
+function previewClause(previews: readonly PhotoMember[]): string {
+  if (previews.length === 0) return "";
+  const names = previews.map((m) => `${m.name}'s`);
+  const distinct = new Set(previews.map((m) => nameKey(m.name))).size === previews.length;
+  if (names.length <= 3 && distinct) {
+    const text = copy("holders.preview_on_names", { names: nameList(names), n: names.length });
+    if (text.length <= LIMIT) return text;
+  }
+  return copy("holders.preview_on_names", { names: String(previews.length), n: previews.length });
 }
 
 function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {

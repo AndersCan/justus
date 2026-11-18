@@ -1,5 +1,5 @@
 /**
- * Two real bare instances, one story: Ada adds a photo, Ben joins and opens it, Ben's phone is
+ * Two real bare instances, one story: Ada adds a photo, Ben joins, his phone has the preview, he opens it, Ben's phone is
  * taken off and back, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
  * photo" line is read on the phones that have one; a wrong line fails with the step, the phone,
  * and both texts.
@@ -81,7 +81,16 @@ async function shareAlbum(instancePages, album) {
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${FILE}` })).toBeVisible({ timeout: 60_000 });
 
-  await expectHoldersLine(a, "join", "Ada", words("holders.only_on_your_phone_so"));
+  // Ben's phone fetches the preview by itself; the full photo comes only when he opens it.
+  await expectHoldersLine(
+    a,
+    "Ben has the preview",
+    "Ada",
+    words("holders.line_and_preview", {
+      line: words("holders.on_your_phone"),
+      preview: words("holders.preview_on_names", { names: "Ben's", n: 1 }),
+    }),
+  );
   await expectHoldersLine(b, "open", "Ben", words("holders.on_and_your_phone", { names: "Ada's" }));
   await expectHoldersLine(a, "open", "Ada", words("holders.on_and_your_phone", { names: "Ben's" }));
 }
