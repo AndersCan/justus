@@ -338,6 +338,29 @@ describe("Join tab", () => {
     host.remove();
   });
 
+  test("the box clears when the link is for an album this phone is already in", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(joinPanel(), host);
+    mock.folders.mockResolvedValue([
+      null,
+      {
+        folders: [{ ...album("f1"), invite: { code: "a".repeat(64) } }],
+        asks: [],
+        offers: [],
+        activeFolderId: "f1",
+      },
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().context.folders.length).toBe(1));
+    const input = submit(host, goodLink);
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("alreadyInAlbum"));
+    expect(input.value).toBe("");
+    join.closeWaiting();
+    host.remove();
+    await load([]);
+  });
+
   test("the button reads Ask to join, Checking the link…, Asking…; box and buttons lock", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);

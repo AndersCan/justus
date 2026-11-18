@@ -678,6 +678,25 @@ describe("answers with no sheet open", () => {
     expect(s.actor.state.name).toBe("noInviteOpen");
   });
 
+  test("an answer with no row while the line shows keeps the line's album", async () => {
+    const s = await closed({ asked: () => undefined });
+    await s.send("requestAnswered", accepted);
+    await s.send("requestAnswered", { code: "other", answer: "declined" });
+    await s.send("requestAnswered", { code: "other", answer: "linkOff" });
+    await s.send("requestAnswered", { code: "other", answer: "accepted" });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.snapshot().payload).toEqual({ folderId: "f9" });
+  });
+
+  test("an accept over another open sheet names the album it opened", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.snapshot().payload).toEqual({ folderId: "f9" });
+  });
+
   test("a second accept from joinedAlbum opens a second album", async () => {
     const s = await closed();
     await s.send("requestAnswered", accepted);

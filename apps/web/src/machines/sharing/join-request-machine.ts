@@ -521,18 +521,16 @@ export const joinRequestMachine = machine("joinRequest", {
               if (e.payload.answer === "linkOff") {
                 const row = asked(e.payload.code);
                 return row === undefined
-                  ? { state: from }
+                  ? {}
                   : { state: stoppedScreen(e.payload.why, rowInvite(row)) };
               }
               if (e.payload.answer === "declined") {
                 const row = asked(e.payload.code);
-                return row === undefined
-                  ? { state: from }
-                  : { state: declinedByAdmin.create(rowInvite(row)) };
+                return row === undefined ? {} : { state: declinedByAdmin.create(rowInvite(row)) };
               }
               const folderId = e.payload.folderId;
               return folderId === undefined
-                ? { state: from }
+                ? {}
                 : {
                     state: joinedAlbum.create({ folderId }),
                     emit: [openAlbum.create({ folderId })],
