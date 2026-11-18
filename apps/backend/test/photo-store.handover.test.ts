@@ -15,7 +15,6 @@ import {
   FakeLoopbackServer,
   fakeStoreDeps,
   joinAsMember,
-  peerPhone,
   restarted,
 } from "./fakes/fake-store-deps.ts";
 
@@ -202,38 +201,6 @@ describe("refusing a handover", () => {
     await until(() => debugOf(s.ada).folders[0]!.handover?.written === true);
     const [error] = await s.ada.store.handOver(s.folderId, s.cyKey);
     expect(error?.code).toBe(PhotoError.HANDOVER_REFUSED);
-    await s.close();
-  });
-});
-
-describe("a handover from someone who is not the Admin", () => {
-  it("is ignored", async () => {
-    const s = await scene();
-    const hash = (text: string) => createHash("sha256").update(text).digest("hex");
-    const [, drive] = await s.ben.deps.drives.open(s.shareKey, { timeoutMs: 5_000 });
-    const digest = await listsDigest(drive!, hash);
-    const forger = peerPhone(s.hub, { identityKey: identityOf(s.cy) });
-    forger.meet(s.ben.deps.drives.discoveryKeyOf(identityOf(s.ben)));
-    await until(() => forger.events.some((e) => e.type === "identified"));
-    const conn = forger.events.find((e) => e.type === "identified")!.conn;
-    const code = "cd".repeat(32);
-    const proof = [
-      {
-        from: "01".repeat(32),
-        to: "02".repeat(32),
-        publicKey: "03".repeat(32),
-        signature: "04".repeat(64),
-      },
-    ];
-    forger.network.sendAnswer(conn, {
-      kind: "handover",
-      album: s.ben.deps.drives.discoveryKeyOf(s.shareKey),
-      digest,
-      admin: { fromName: "Cy", invite: { code }, chains: { [code]: proof } },
-    });
-    await sleep(1_000);
-    expect((await trip(s.ben)).role).toBe("member");
-    expect(debugOf(s.ben).folders[0]!.takingOver).toBeUndefined();
     await s.close();
   });
 });

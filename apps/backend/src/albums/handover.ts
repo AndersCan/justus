@@ -162,6 +162,16 @@ export type SavedHandover = {
   chains: Record<string, HandoverProof[]>;
 };
 
+/** The well-formed proof chains of an invite code to its links, keyed by code; malformed ones are left out. */
+export function parseChains(value: Record<string, unknown>): Record<string, HandoverProof[]> {
+  const chains: Record<string, HandoverProof[]> = {};
+  for (const [code, chain] of Object.entries(value)) {
+    const parsed = isHexKey(code) ? parseProofChain(chain) : undefined;
+    if (parsed) chains[code] = parsed;
+  }
+  return chains;
+}
+
 /** A saved handover, or undefined when any part of it is malformed. */
 export function parseSavedHandover(value: unknown): SavedHandover | undefined {
   if (!isTextJSON(value) || !isTextJSON(value.to) || !isTextJSON(value.chains)) return undefined;
@@ -169,12 +179,8 @@ export function parseSavedHandover(value: unknown): SavedHandover | undefined {
   if (typeof key !== "string" || !isHexKey(key)) return undefined;
   if (typeof identity !== "string" || !isHexKey(identity)) return undefined;
   if (typeof value.at !== "number" || !Number.isFinite(value.at)) return undefined;
-  const chains: Record<string, HandoverProof[]> = {};
-  for (const [code, chain] of Object.entries(value.chains)) {
-    const parsed = isHexKey(code) ? parseProofChain(chain) : undefined;
-    if (!parsed) return undefined;
-    chains[code] = parsed;
-  }
+  const chains = parseChains(value.chains);
+  if (Object.keys(chains).length !== Object.keys(value.chains).length) return undefined;
   return {
     to: {
       key: key.toLowerCase(),

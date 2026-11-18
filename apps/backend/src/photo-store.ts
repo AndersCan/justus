@@ -127,6 +127,7 @@ import {
   followAdmin,
   handoverCodes,
   listsDigest,
+  parseChains,
   parseSavedHandover,
   readyVerdict,
   senderIsAdmin,
@@ -1138,11 +1139,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (chain.length > 0 && chain.length <= MAX_ADMIN_CHAIN) out.adminChain = chain;
     }
     if (isTextJSON(f.handoverChains)) {
-      const chains: Record<string, HandoverProof[]> = {};
-      for (const [code, chain] of Object.entries(f.handoverChains)) {
-        const parsed = isHexKey(code) ? parseProofChain(chain) : undefined;
-        if (parsed) chains[code] = parsed;
-      }
+      const chains = parseChains(f.handoverChains);
       if (Object.keys(chains).length > 0) out.handoverChains = chains;
     }
     if (Array.isArray(f.whoLeft)) {
@@ -4304,39 +4301,32 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           record.invite = { code: newInviteCode() };
           saveState();
         }
-        serveInvite(record.invite.code);
-        serveRetiredInvites(record);
-        // People who have not followed a move, and people removed while away, still read the album's old drives.
-        for (const past of record.pastKeys ?? []) {
-          const [pastErr, pastDrive] = await deps.drives.open(past, {
-            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
-          });
-          if (pastErr) {
-            log("error", { where: "move.past", err: pastErr.message });
-            continue;
-          }
-          joinTopic(topicOf(pastDrive), { server: true });
-          rediscover(topicOf(pastDrive), pastDrive);
-        }
       } else {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = selfDrive.key;
+      // The Admin's invite codes stay served, until /admin.json is written and the new Admin takes them over.
+      if (isCreator && record.invite && !record.handover?.written) {
+        serveInvite(record.invite.code);
+        serveRetiredInvites(record);
+      }
+      // People who have not followed a move, and people removed while away, still read the album's old drives; so do the Admins before this one.
       const pastAdmins: Drive[] = [];
-      if (handedDrive) {
-        for (const past of record.adminChain?.slice(0, -1) ?? []) {
-          const [pastErr, pastDrive] = await deps.drives.open(past, {
-            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
-          });
-          if (pastErr) {
-            log("error", { where: "admin.past", err: pastErr.message });
-            continue;
-          }
-          joinTopic(topicOf(pastDrive), { server: true });
-          rediscover(topicOf(pastDrive), pastDrive);
-          pastAdmins.push(pastDrive);
+      const pastOf = handedDrive
+        ? (record.adminChain?.slice(0, -1) ?? [])
+        : (record.pastKeys ?? []);
+      for (const past of isCreator ? pastOf : []) {
+        const [pastErr, pastDrive] = await deps.drives.open(past, {
+          timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+        });
+        if (pastErr) {
+          log("error", { where: "admin.past", err: pastErr.message });
+          continue;
         }
+        joinTopic(topicOf(pastDrive), { server: true });
+        rediscover(topicOf(pastDrive), pastDrive);
+        if (handedDrive) pastAdmins.push(pastDrive);
       }
       const enrolled =
         !isCreator &&
@@ -6421,6 +6411,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
         if (rt.record.role !== "creator")
           return err(PhotoError.NOT_CREATOR, "Only the creator can respond to requests");
+        if (rt.record.handover?.written)
+          return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
         if (!isHexKey(requesterKey))
           return err(PhotoError.INVALID_KEY, "Requester key must be a 64-char hex key");
         requesterKey = requesterKey.toLowerCase();
@@ -6729,6 +6721,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the Admin can let a Viewer add photos");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
@@ -6768,6 +6762,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the Admin can make someone a Viewer");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
@@ -6805,6 +6801,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
         if (rt.record.role !== "creator")
           return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
+        if (rt.record.handover?.written)
+          return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
         if (!isHexKey(memberKey))
           return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
         memberKey = memberKey.toLowerCase();
