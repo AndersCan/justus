@@ -2694,6 +2694,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const { seq, selfKey, gallery, sources, adminName } = seen;
     // A listing that started before the stored one is stale: no swap, no diff.
     if (rt.listing !== undefined && seq <= rt.listing.seq) return;
+    // A listing that missed a drive keeps the last full one as the baseline, so a delete seen meanwhile is still told.
+    if (rt.listing !== undefined && !gallery.complete) return;
     const prev = rt.listing;
     rt.listing = {
       seq,
