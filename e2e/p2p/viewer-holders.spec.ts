@@ -79,7 +79,8 @@ test("a Viewer's sheet names what another Viewer's phone has, as the Admin's doe
   }
   const you = words("photo_holders.you");
   await expectSheet(b, "Cy previewed", "Ben", { full: [you, "Ada"], preview: ["Cy"] });
-  await expectSheet(a, "Cy previewed", "Ada", { full: [you, "Ben"], preview: ["Cy"] });
+  // join-flow's friend test saves this phone as "Sam" on Ada's phone, and a friend name wins on her sheet.
+  await expectSheet(a, "Cy previewed", "Ada", { full: [you, /^(Ben|Sam)$/], preview: ["Cy"] });
   await b.reload();
   await expectSheet(b, "Ben reloaded", "Ben", { full: [you, "Ada"], preview: ["Cy"] });
 });
