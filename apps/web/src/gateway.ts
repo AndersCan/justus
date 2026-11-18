@@ -153,6 +153,7 @@ export const gateway = {
   /** Photos other apps shared to Justus, waiting in the inbox (`justus.sharedIn`). */
   sharedIn: {
     list: () => invoke(sharedInEvents.list()),
+    remove: (ids: string[]) => invoke(sharedInEvents.remove(ids)),
   },
   seen: {
     read: () => invoke(seenEvents.read()),

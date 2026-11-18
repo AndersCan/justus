@@ -94,6 +94,34 @@ export function listSharedIn({
   return ok(listings);
 }
 
+/** Removes the named batches from the inbox. An id that is not a batch dir there is skipped. */
+export function removeSharedIn(
+  { dir, files, paths }: Deps,
+  ids: unknown,
+): [CoreError, null] | [null, number] {
+  if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+    return err(ErrorCode.PLUGIN_ERROR, "ids must be a list of batch ids");
+  }
+  let removed = 0;
+  for (const id of ids as string[]) {
+    if (!ID_RE.test(id)) {
+      skip("invalid", "bad-id");
+      continue;
+    }
+    const path = paths.join(dir, id);
+    try {
+      files.lstatSync(path);
+      files.rmSync(path, { recursive: true, force: true });
+      removed += 1;
+    } catch (e) {
+      if ((e as { code?: string }).code === "ENOENT") continue;
+      return err(ErrorCode.HOST_ERROR, `Cannot remove the shared photos: ${String(e)}`);
+    }
+  }
+  console.error(`[justus] shared-in.removed batches=${removed}`);
+  return ok(removed);
+}
+
 /** The manifest when it is a version-1 object with an items array; undefined for anything else, newer versions included (update Justus). */
 function readManifest(files: Files, file: string) {
   let parsed: unknown;

@@ -37,6 +37,12 @@ function fakeServer() {
   return { routes, server };
 }
 
+function invokeRemove(plugin: ReturnType<typeof createSharedInPlugin>, ids: unknown) {
+  const adapter = plugin.runtimes.bare;
+  if (!adapter?.invoke) throw new Error("no invoke adapter");
+  return adapter.invoke("sharedIn.remove", { ids }, { runtime: "bare", payload: new Uint8Array() });
+}
+
 function invokeList(plugin: ReturnType<typeof createSharedInPlugin>) {
   const adapter = plugin.runtimes.bare;
   if (!adapter?.invoke) throw new Error("no invoke adapter");
@@ -148,5 +154,37 @@ describe("justus.sharedIn plugin", () => {
     const [e] = (await invokeList(plugin)) as [{ code: string }, null];
     expect(e.code).toBe("HOST_ERROR");
     fs.rmSync(dir);
+  });
+
+  test("removing a listed batch empties the inbox; removing again removes nothing", async () => {
+    const d = nodePath.join(dir, fixture.id);
+    fs.mkdirSync(d);
+    fs.writeFileSync(nodePath.join(d, "batch.json"), JSON.stringify(fixture));
+    fs.writeFileSync(nodePath.join(d, "0.jpeg"), "jpeg-bytes");
+    fs.writeFileSync(nodePath.join(d, "1.png"), "png-bytes");
+    const { server } = fakeServer();
+    const plugin = createSharedInPlugin({
+      dir,
+      files,
+      paths,
+      media: createLazyMedia(server, files),
+    });
+    const [, listed] = (await invokeList(plugin)) as [null, { batches: { id: string }[] }];
+    expect(listed.batches).toHaveLength(1);
+    expect(await invokeRemove(plugin, [fixture.id])).toEqual([null, { removed: 1 }]);
+    expect(await invokeList(plugin)).toEqual([null, { batches: [] }]);
+    expect(await invokeRemove(plugin, [fixture.id])).toEqual([null, { removed: 0 }]);
+  });
+
+  test("removing with a bad list is a PLUGIN_ERROR", async () => {
+    const { server } = fakeServer();
+    const plugin = createSharedInPlugin({
+      dir,
+      files,
+      paths,
+      media: createLazyMedia(server, files),
+    });
+    const [e] = (await invokeRemove(plugin, "x")) as [{ code: string }, null];
+    expect(e.code).toBe("PLUGIN_ERROR");
   });
 });

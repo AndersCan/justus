@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 import { MAX_PICK } from "@justus/core";
-import { listSharedIn, cleanSharedName } from "./inbox";
+import { listSharedIn, removeSharedIn, cleanSharedName } from "./inbox";
 import type { Files, Paths } from "../ports/files";
 
 const files = fs as unknown as Files;
@@ -305,5 +305,60 @@ describe("cleanSharedName", () => {
     ["a".repeat(300), "a".repeat(255)],
   ])("%j → %j", (raw, out) => {
     expect(cleanSharedName(raw)).toBe(out);
+  });
+});
+
+describe("removeSharedIn", () => {
+  const remove = (ids: unknown) => removeSharedIn({ dir, files, paths }, ids);
+
+  test("removes the named batch dir and keeps other batches", () => {
+    const d = batch(ID, fixture, fixtureFiles);
+    const other = batch("other", { ...fixture, id: "other" });
+    expect(remove([ID])).toEqual([null, 1]);
+    expect(fs.existsSync(d)).toBe(false);
+    expect(fs.existsSync(other)).toBe(true);
+    expect(console.error).toHaveBeenCalledWith("[justus] shared-in.removed batches=1");
+  });
+
+  test("an id that is already gone is skipped, so removing twice is fine", () => {
+    batch(ID, fixture);
+    expect(remove([ID, "gone"])).toEqual([null, 1]);
+    expect(remove([ID])).toEqual([null, 0]);
+  });
+
+  test("a gone or bad id does not stop the batches after it", () => {
+    const d = batch(ID, fixture);
+    const other = batch("other", { ...fixture, id: "other" });
+    expect(remove(["gone", ID, "../x", "other"])).toEqual([null, 2]);
+    expect(fs.existsSync(d)).toBe(false);
+    expect(fs.existsSync(other)).toBe(false);
+  });
+
+  test("a bad id is skipped and never reaches a path", () => {
+    const outside = nodePath.join(nodePath.dirname(dir), `outside-${nodePath.basename(dir)}`);
+    fs.mkdirSync(outside);
+    expect(remove(["../" + nodePath.basename(outside), ".tmp-a", ""])).toEqual([null, 0]);
+    expect(fs.existsSync(outside)).toBe(true);
+    expect(console.error).toHaveBeenCalledWith("[justus] shared-in.skip id=invalid reason=bad-id");
+    fs.rmSync(outside, { recursive: true });
+  });
+
+  test.each([undefined, "abc", [1], [null]])("ids %j is refused", (ids) => {
+    const [e] = remove(ids);
+    expect(e?.code).toBe("PLUGIN_ERROR");
+    expect(e?.message).toBe("ids must be a list of batch ids");
+  });
+
+  test("a failing delete is a HOST_ERROR", () => {
+    batch(ID, fixture);
+    const failing = {
+      ...fs,
+      rmSync: () => {
+        throw Object.assign(new Error("denied"), { code: "EACCES" });
+      },
+    } as unknown as Files;
+    const [e] = removeSharedIn({ dir, files: failing, paths }, [ID]);
+    expect(e?.code).toBe("HOST_ERROR");
+    expect(e?.message).toBe("Cannot remove the shared photos: Error: denied");
   });
 });

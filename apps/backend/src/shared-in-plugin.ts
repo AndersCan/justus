@@ -2,7 +2,7 @@ import { definePlugin, ok } from "@ekrooh/bare/core";
 import { sharedInSpecs } from "@justus/core";
 import type { LazyMedia } from "./lazy-media";
 import type { Files, Paths } from "./ports/files";
-import { listSharedIn } from "./shared-in/inbox";
+import { listSharedIn, removeSharedIn } from "./shared-in/inbox";
 
 /** The `justus.sharedIn` plugin: photos other apps shared to Justus, waiting in the inbox. */
 export function createSharedInPlugin(deps: {
@@ -27,6 +27,10 @@ export function createSharedInPlugin(deps: {
         const photos = batches.reduce((n, b) => n + b.photos.length, 0);
         console.error(`[justus] shared-in.listed batches=${batches.length} photos=${photos}`);
         return ok({ batches });
+      },
+      remove: async (args) => {
+        const [e, removed] = removeSharedIn(deps, args.ids);
+        return e ? [e, null] : ok({ removed });
       },
     },
   });
