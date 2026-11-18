@@ -490,4 +490,34 @@ describe("other phones follow the new Admin", () => {
     await until(async () => (await trip(s.cy)).role === "reader");
     await s.close();
   }, 40_000);
+
+  for (const what of ["removed", "deleted"] as const) {
+    it(`a phone restarted after Ben ${what} it while it was off, Ada gone`, async () => {
+      const s = await scene();
+      await s.cy.store.close();
+      expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+      await until(async () => (await trip(s.ben)).role === "creator");
+      const benId = (await trip(s.ben)).id;
+      if (what === "removed")
+        expect((await s.ben.store.removeMember(benId, s.cyKey))[0]).toBeNull();
+      else expect((await s.ben.store.deleteAlbum(benId))[0]).toBeNull();
+      await sleep(500);
+      await s.ada.store.close();
+      const cy = createPhotoStore(restarted(s.cy.deps));
+      await cy.ready();
+      if (what === "removed")
+        await until(
+          () => debugOf({ store: cy }).folders[0]?.adminChain?.at(-1) === s.benKey,
+          30_000,
+        );
+      if (what === "removed")
+        await until(
+          async () => (await cy.folders()).folders[0]?.notice?.kind === "removed",
+          15_000,
+        );
+      else await until(async () => (await cy.folders()).folders.length === 0, 15_000);
+      await cy.close();
+      await s.ben.store.close();
+    }, 90_000);
+  }
 });
