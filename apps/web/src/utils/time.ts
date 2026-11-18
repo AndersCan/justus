@@ -47,6 +47,24 @@ export function sameMonth(a: number, b: number): boolean {
   return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth();
 }
 
+const WEEKDAYS_LONG = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** "2 hr ago" under a day, "Monday" for 1-6 days, else the full date. */
+export function formatDay(ts: number, now = Date.now()): string {
+  const days = Math.floor(Math.max(0, now - ts) / 86_400_000);
+  if (days < 1) return formatRelative(ts, now);
+  if (days < 7) return WEEKDAYS_LONG[new Date(ts).getDay()];
+  return formatFullDate(ts);
+}
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTHS_SHORT = [
   "Jan",

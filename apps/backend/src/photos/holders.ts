@@ -248,6 +248,7 @@ export function holdersFor(input: {
     here,
     previewHere: !here && previewed(held.get(selfKey), photo.id),
     others: [...others.values()].sort(byNameThenKey),
+    quiet: [],
     unsure: [...unsure.values()].sort(byNameThenKey),
     waiting: [...waiting.values()].sort(byNameThenKey),
     previews: [...previews.values()].sort(byNameThenKey),

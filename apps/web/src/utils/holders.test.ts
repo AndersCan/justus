@@ -16,6 +16,7 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   here: true,
   previewHere: false,
   others: [],
+  quiet: [],
   unsure: [],
   waiting: [],
   previews: [],
@@ -145,6 +146,50 @@ describe("holdersLine", () => {
   });
   it("not here and nobody else", () => {
     expect(holdersLine(h({ here: false })).text).toBe("Arriving on your phone…");
+  });
+});
+
+describe("holdersLine with a quiet phone", () => {
+  const now = new Date(2026, 10, 18, 9, 0).getTime();
+  const q = (name: string, lastSeenAt: number) => ({ key: name, name, lastSeenAt });
+  const friday = new Date(2026, 10, 13, 20, 0).getTime();
+  const nov9 = new Date(2026, 10, 9, 20, 0).getTime();
+
+  it("names the day a quiet phone last had it, with this phone as the base", () => {
+    expect(holdersLine(h({ quiet: [q("Ben", friday)] }), now).text).toBe(
+      "On your phone. Ben's phone last had it Friday",
+    );
+    expect(holdersLine(h({ quiet: [q("Ben", nov9)] }), now).text).toBe(
+      "On your phone. Ben's phone last had it November 9, 2026",
+    );
+  });
+
+  it("keeps the fresh holders in the base", () => {
+    expect(holdersLine(h({ others: [m("Ada")], quiet: [q("Ben", friday)] }), now).text).toBe(
+      "On Ada's and your phone. Ben's phone last had it Friday",
+    );
+  });
+
+  it("lists every quiet phone", () => {
+    expect(holdersLine(h({ quiet: [q("Ben", friday), q("Cy", nov9)] }), now).text).toBe(
+      "On your phone. Ben's phone last had it Friday, Cy's phone last had it November 9, 2026",
+    );
+  });
+
+  it("keeps a removed-person line as the base", () => {
+    expect(holdersLine(h({ former: ["Ola"], quiet: [q("Ben", friday)] }), now).text).toBe(
+      "On your phone. Ola was removed and keeps a copy. Ben's phone last had it Friday",
+    );
+  });
+
+  it("leaves the line alone while this phone is still waiting for its copy", () => {
+    expect(holdersLine(h({ here: false, quiet: [q("Ben", friday)] }), now).text).toBe(
+      "Arriving on your phone…",
+    );
+  });
+
+  it("is today's line with nobody quiet", () => {
+    expect(holdersLine(h({ others: [m("Ada")] }), now).text).toBe("On Ada's and your phone");
   });
 });
 

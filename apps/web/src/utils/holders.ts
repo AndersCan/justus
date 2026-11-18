@@ -2,11 +2,27 @@ import type { PhotoHolders, PhotoMember } from "@justus/core";
 
 import { copy } from "../copy/copy";
 import { nameList } from "./people";
+import { formatDay } from "./time";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
 
 /** The one line on photo detail that says whose phones have a full copy. */
-export function holdersLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
+export function holdersLine(
+  h: PhotoHolders | undefined,
+  now = Date.now(),
+): { text: string; tappable: boolean } {
+  const line = baseLine(h);
+  if (h?.kind !== "inAlbum" || !h.here || h.quiet.length === 0) return line;
+  const quiet = h.quiet
+    .map((m) =>
+      copy("holders.quiet_one_when", { name: `${m.name}'s`, when: formatDay(m.lastSeenAt, now) }),
+    )
+    .join(", ");
+  const base = h.others.length + h.former.length === 0 ? copy("holders.on_your_phone") : line.text;
+  return { text: copy("holders.line_and_quiet", { line: base, quiet }), tappable: true };
+}
+
+function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
   if (!h) return { text: copy("holders.can_t_tell_who_has"), tappable: false };
   if (h.kind === "removed") {
     return {

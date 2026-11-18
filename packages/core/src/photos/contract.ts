@@ -97,11 +97,14 @@ export const s = {
 
 export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 
+const quietHolderSchema = s.object({ key: s.string, name: s.string, lastSeenAt: s.number });
+
 const inAlbumHoldersSchema = s.object({
   kind: s.oneOf("inAlbum"),
   here: s.boolean,
   previewHere: s.boolean,
   others: s.array(photoMemberSchema),
+  quiet: s.array(quietHolderSchema),
   unsure: s.array(photoMemberSchema),
   waiting: s.array(photoMemberSchema),
   previews: s.array(photoMemberSchema),
