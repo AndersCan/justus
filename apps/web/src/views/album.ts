@@ -28,6 +28,8 @@ import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
+import { memberHoldings, memberPhotosLine, type MemberHolding } from "../utils/holders";
+import { photosInScope } from "../utils/photo-scope";
 import { formatRelative, linkEndText } from "../utils/time";
 import { linkKindOf, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
 import { memberBadge } from "./avatar";
@@ -440,7 +442,12 @@ export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "no
   }
 }
 
-function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
+function memberRow(
+  vm: PeopleVm,
+  p: PeopleVm["people"][number],
+  holding: MemberHolding | undefined,
+) {
+  const photosLine = memberPhotosLine(holding);
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${memberBadge(p.name, p.color)}
@@ -450,7 +457,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${memberLine(p.role)}${p.sameName && !p.you ? html`<p class="truncate text-xs text-muted">${p.presence}</p>` : null}
+      ${memberLine(p.role)}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.sameName && !p.you ? html`<p class="truncate text-xs text-muted">${p.presence}</p>` : null}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -740,7 +747,7 @@ function acceptedCard(
   );
 }
 
-function membersSection(vm: PeopleVm, id: string) {
+function membersSection(vm: PeopleVm, id: string, holdings: Map<string, MemberHolding>) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
     <h2 class="ui-label">${t("album.members")}</h2>
     <p class="mb-2 mt-1 text-xs text-muted">${t("album.everyone_in_the_album_sees")}</p>
@@ -752,7 +759,7 @@ function membersSection(vm: PeopleVm, id: string) {
       ${repeat(
         vm.people,
         (p) => p.key,
-        (p) => memberRow(vm, p),
+        (p) => memberRow(vm, p, holdings.get(p.key)),
       )}
     </ul>
     <p class="mt-2 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>
@@ -973,7 +980,7 @@ function albumBody(
           vm.takeBackError,
         )}
       </div>`,
-      members: html`${removed ? null : membersSection(vm, id)}`,
+      members: html`${removed ? null : watch(galleryActor, (g) => membersSection(vm, id, memberHoldings(photosInScope(galleryViewModel(g, null).photos, { kind: "album", id }), vm.people)))}`,
       advanced: html`${advancedSection(status, settled, busy)}`,
       sheets: html`${friendSheetView()} ${addFriendSheetView()}
       ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}`,

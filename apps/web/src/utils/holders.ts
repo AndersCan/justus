@@ -1,4 +1,4 @@
-import type { PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
+import type { Photo, PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 
 import { copy } from "../copy/copy";
 import { nameKey, nameList } from "./people";
@@ -199,4 +199,37 @@ export function deletedMessage(
   ]
     .filter((x) => x !== "")
     .join(" ");
+}
+
+/** How many of an album's photos one member's phone holds in full and as previews. */
+export type MemberHolding = { full: number; previews: number; total: number };
+
+/** Each member's holding of `photos` (one album's), by member key, from the lists the photo sheet shows. A member on no list, or on `unsure` or `quiet`, is left out; so is everyone when there are no photos or any photo's holders are unknown. */
+export function memberHoldings(
+  photos: readonly Photo[],
+  people: readonly { key: string; you: boolean }[],
+): Map<string, MemberHolding> {
+  const out = new Map<string, MemberHolding>();
+  const lists = photos.flatMap((p) => (p.holders?.kind === "inAlbum" ? [p.holders] : []));
+  if (photos.length === 0 || lists.length < photos.length) return out;
+  const has = (ms: readonly PhotoMember[], key: string) => ms.some((m) => m.key === key);
+  for (const { key, you } of people) {
+    let full = 0;
+    let previews = 0;
+    let said = true;
+    for (const h of lists) {
+      if (you ? h.here : has(h.others, key)) full++;
+      else if (you ? h.previewHere : has(h.previews, key)) previews++;
+      else if (!you && !has(h.waiting, key)) said = false;
+    }
+    if (said) out.set(key, { full, previews, total: lists.length });
+  }
+  return out;
+}
+
+/** The Members row line: "Photos: 1 of 3, 2 as previews"; "" for no line. */
+export function memberPhotosLine(h: MemberHolding | undefined): string {
+  if (h === undefined) return "";
+  const line = copy("members.has_photos", { full: h.full, total: h.total });
+  return h.previews === 0 ? line : copy("members.and_previews", { line, n: h.previews });
 }
