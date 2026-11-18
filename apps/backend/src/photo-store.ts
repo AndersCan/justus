@@ -1299,6 +1299,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     void resolveSwarmKeys()
       .then((learned) => {
         if (!learned) return;
+        saveLastSeen();
         announcePresence();
         announceHolders();
       })
