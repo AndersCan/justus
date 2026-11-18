@@ -7,13 +7,14 @@ import { currentPage, open, type AppPage } from "../machines/router-machine";
 import { requestRowOf } from "../utils/people";
 import { toast } from "./toast";
 
-/** The ask message to show, or none. Asks for the album on screen are dropped: its page shows the row arriving. */
+/** The ask message to show, or none. Asks for the album on screen (its photos or its Invite page) are dropped: that page shows the row arriving. */
 export function askToast(
   arrived: JoinRequest[],
   page: AppPage | undefined,
   friends: Record<string, string>,
 ): { text: string; path: string } | undefined {
-  const onScreen = page?.route === "album" ? page.params.id : undefined;
+  const onScreen =
+    page?.route === "album" || page?.route === "photoAlbum" ? page.params.id : undefined;
   const asks = arrived.filter((r) => r.folderId !== onScreen);
   const [first] = asks;
   if (first === undefined) return undefined;
