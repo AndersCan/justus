@@ -1717,13 +1717,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     roleChangePush(rt, "member", "reader", adminName);
   }
 
-  /** Re-reads the Admin's Viewer list. True when it changed. */
+  /** Re-reads the Admin's Viewer list. True when it changed. A changed list re-runs presence, which opens each new Viewer's drive (their name, swarm key and holding record) and lets go of drives of people no longer listed. */
   async function refreshViewers(rt: FolderRuntime): Promise<boolean> {
     const file = await readViewers(rt.folderDrive, { log });
     const same =
       JSON.stringify(Object.entries(file.viewers).sort()) ===
       JSON.stringify(Object.entries(rt.viewers).sort());
     rt.viewers = file.viewers;
+    if (!same) refreshPresence();
     return !same;
   }
 
