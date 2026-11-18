@@ -257,8 +257,8 @@ describe("holdersSheet previews", () => {
 });
 
 describe("holdersSheet quiet phones", () => {
-  const now = new Date(2026, 10, 18, 9, 0).getTime();
-  const friday = new Date(2026, 10, 13, 20, 0).getTime();
+  const now = new Date(2025, 5, 18, 9, 0).getTime();
+  const friday = new Date(2025, 5, 13, 20, 0).getTime();
   const q = (name: string, lastSeenAt: number) => ({ key: name, name, lastSeenAt });
   const headings = (el: HTMLElement) =>
     [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
