@@ -62,7 +62,8 @@ export type Drive = {
    * `openAt` copy. Safe to run again.
    */
   clearDeleted(opts: { timeoutMs: number }): Promise<OpenResult<{ paths: ReadonlySet<string> }>>;
-  list(dir: string): AsyncIterable<DriveEntry>;
+  /** `wait: false` throws for an entry whose block is not on this device instead of waiting for a peer. */
+  list(dir: string, opts?: { wait?: boolean }): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
   onChange(cb: () => void): () => void;

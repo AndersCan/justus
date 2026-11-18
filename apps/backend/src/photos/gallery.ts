@@ -18,31 +18,6 @@ export const DRIVE_PATH_REMOVED = "/removed.json";
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
 const MAX_RECORD_BYTES = 1024 * 1024;
-/** How long one scan of a drive's photo list may wait. A copy of a phone that left mid-sync can know entries whose blocks never arrived; its list then waits for a peer for good, and so would the status that counts photos. */
-const SCAN_TIMEOUT_MS = 5_000;
-
-/** Every entry under `dir`, or undefined when the drive does not list them within `timeoutMs`. */
-async function scanWithin(drive: Drive, dir: string, timeoutMs: number) {
-  const iterator = drive.list(dir)[Symbol.asyncIterator]();
-  const entries = [];
-  const deadline = Date.now() + timeoutMs;
-  try {
-    for (;;) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const next = await Promise.race([
-        iterator.next(),
-        new Promise<"timeout">((resolve) => {
-          timer = setTimeout(() => resolve("timeout"), Math.max(0, deadline - Date.now()));
-        }),
-      ]).finally(() => clearTimeout(timer));
-      if (next === "timeout") return undefined;
-      if (next.done) return entries;
-      entries.push(next.value);
-    }
-  } finally {
-    void iterator.return?.()?.catch(() => {});
-  }
-}
 
 export type GalleryLog = P2pLog;
 
@@ -151,12 +126,8 @@ export async function listGallery(
   const scans: DriveScan[] = [];
   for (const { key, drive } of sources) {
     try {
-      const entries = await scanWithin(drive, DRIVE_PATH_PHOTOS, SCAN_TIMEOUT_MS);
-      if (entries === undefined) {
-        complete = false;
-        log("error", { where: "drive.scan", drive: short(key), err: "list timed out" });
-        continue;
-      }
+      const entries = [];
+      for await (const entry of drive.list(DRIVE_PATH_PHOTOS, { wait: false })) entries.push(entry);
       scans.push({ key, entries });
     } catch (e: unknown) {
       complete = false;

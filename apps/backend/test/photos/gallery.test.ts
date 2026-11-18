@@ -181,42 +181,42 @@ describe("listGallery", () => {
     });
   });
 
-  it("skips a drive whose list never answers, logs drive.scan, and is incomplete", async () => {
-    vi.useFakeTimers();
-    try {
-      const [a, b] = devices(2);
-      const da = await a.drives.openOwn("a");
-      const db = await b.drives.openOwn("b");
-      await photoAt(da, { id: "p1", addedAt: 1000 });
-      await photoAt(db, { id: "p2", addedAt: 2000 });
-      const never = {
-        next: () => new Promise<never>(() => {}),
-        return: async () => ({ done: true }),
-      };
-      const stuck = {
-        ...db,
-        list: () => ({ [Symbol.asyncIterator]: () => never }),
-      } as unknown as Drive;
-      const sources = [da, db].map((drive) => ({
-        key: drive.key,
-        drive: drive === db ? stuck : drive,
-      }));
-      const pending = listGallery(sources, { removedFrom: da, memberName: () => "X", log: a.log });
-      await vi.advanceTimersByTimeAsync(5_000);
-      const { photos, complete } = await pending;
-      expect({ ids: photos.map((p) => p.id), complete, events: a.events }).toEqual({
-        ids: ["p1"],
-        complete: false,
-        events: [
-          {
-            event: "error",
-            fields: { where: "drive.scan", drive: db.key.slice(0, 8), err: "list timed out" },
-          },
-        ],
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+  it("skips a drive whose photo block is not on this phone, logs drive.scan, and is incomplete", async () => {
+    const [a, b] = devices(2);
+    const da = await a.drives.openOwn("a");
+    const db = await b.drives.openOwn("b");
+    await photoAt(da, { id: "p1", addedAt: 1000 });
+    await photoAt(db, { id: "p2", addedAt: 2000 });
+    const gone = {
+      ...db,
+      list: (_dir: string, opts?: { wait?: boolean }) => ({
+        [Symbol.asyncIterator]: () => ({
+          next: () =>
+            opts?.wait === false
+              ? Promise.reject(new Error("BLOCK_NOT_AVAILABLE"))
+              : new Promise<never>(() => {}),
+        }),
+      }),
+    } as unknown as Drive;
+    const sources = [da, db].map((drive) => ({
+      key: drive.key,
+      drive: drive === db ? gone : drive,
+    }));
+    const { photos, complete } = await listGallery(sources, {
+      removedFrom: da,
+      memberName: () => "X",
+      log: a.log,
+    });
+    expect({ ids: photos.map((p) => p.id), complete, events: a.events }).toEqual({
+      ids: ["p1"],
+      complete: false,
+      events: [
+        {
+          event: "error",
+          fields: { where: "drive.scan", drive: db.key.slice(0, 8), err: "BLOCK_NOT_AVAILABLE" },
+        },
+      ],
+    });
   });
 
   it("of an empty album is empty", async () => {
