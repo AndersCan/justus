@@ -199,14 +199,15 @@ galleryActor.on("change", {
     wasRunning = batch?.running ?? false;
     if (!finished) return;
     if (pickedVia() === "shared") sharedPhotos.addEnded(batch.failed.length);
-    if (batch.failed.length > 0) return;
+    const failed = batch.failed.length > 0;
     const camera = pickedVia() === "camera";
     const scope = routeScope();
     const onAlbum = scope?.kind === "album" && scope.id === batch.folderId;
     const folderId = batch.folderId as string;
     const album = albumName(batch.folderId);
+    if (failed && onAlbum) return;
     const takeAnother =
-      camera && scope
+      camera && !failed && scope
         ? { label: copy("gallery.take_another"), run: () => void startAdd(folderId, "camera") }
         : undefined;
     const action =
@@ -224,7 +225,7 @@ galleryActor.on("change", {
         ...(batch.duplicates > 0 ? { duration: DUPLICATES_TOAST_MS } : {}),
       });
     }
-    gallery.dismissBatch();
+    if (!failed) gallery.dismissBatch();
   },
 });
 
@@ -858,7 +859,6 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   const loading =
     (state === "loadingPhotos" || state === "photosNotLoaded") && page.photos.length === 0;
   const drop = dropHandlers(scope);
-  const scopeKey = scope.kind === "album" ? `album:${scope.id}` : scope.kind;
   const photos = loading
     ? loadingGrid()
     : scope.kind === "album" && !album
@@ -873,7 +873,6 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
     <div
       class="space-y-5"
       data-vt=${scope.kind === "album" && album ? "album" : nothing}
-      ${gridMotion({ keys: [], settle: scopeKey })}
       @dragenter=${drop.enter}
       @dragover=${drop.over}
       @dragleave=${drop.leave}

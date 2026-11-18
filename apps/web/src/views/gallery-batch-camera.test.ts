@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
 import { gallery, galleryActor } from "../machines/gallery-machine";
+import { open } from "../machines/router-machine";
 import { addPicked } from "./photo-picker";
 import "./gallery";
 
@@ -37,5 +38,14 @@ describe("camera batch toast keeps Take another", () => {
     const options = hoisted.toast.mock.calls[0][1];
     expect(options.action.label).toBe("Take another");
     expect(options.duration).toBe(10_000);
+  });
+
+  test("a single camera shot on its own album still offers Take another", async () => {
+    hoisted.toast.mockClear();
+    open("/albums/f1");
+    hoisted.gateway.add.mockResolvedValueOnce([null, { ...fresh, id: "p3" }]);
+    addPicked("f1", [{ kind: "path", path: "/e.jpg", name: "e.jpg" }], "camera");
+    await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
+    expect(hoisted.toast.mock.calls[0][1].action.label).toBe("Take another");
   });
 });
