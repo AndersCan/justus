@@ -3709,6 +3709,13 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "photo_holders.copies_outside_justus_not_listed": {
+    "text": "Copies someone saved or sent outside Justus aren't on this list.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › under the list",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "settings.couldn_t_save_the_picture": {
     "text": "Couldn't save the picture on this device",
     "status": "draft",

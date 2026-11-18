@@ -306,3 +306,16 @@ describe("holdersSheet quiet phones", () => {
     expect(el.textContent).not.toContain("Last had the full photo");
   });
 });
+
+describe("holdersSheet outside Justus", () => {
+  it("says copies outside Justus aren't listed", () => {
+    const el = draw(holdersSheet(photo(h({ others: [m("Ben")] })), []));
+    const line = el.querySelectorAll(
+      '[data-copy-id="photo_holders.copies_outside_justus_not_listed"]',
+    );
+    expect(line.length).toBe(1);
+    expect(line[0]?.textContent).toBe(
+      "Copies someone saved or sent outside Justus aren't on this list.",
+    );
+  });
+});
