@@ -4,12 +4,24 @@
  * open view closes by itself).
  *
  *   pnpm test:e2e-p2p -g "deletes only their own photo"
+ *
+ * A delete also reaches a phone that was off:
+ *
+ *   pnpm test:e2e-p2p e2e/p2p/delete-photo.spec.ts -g "while Ben's phone is off"
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
-import { askToJoin, copyInviteLink, createAlbum, skipIntro, words } from "./steps";
+import {
+  askToJoin,
+  copyInviteLink,
+  createAlbum,
+  pausePhone,
+  setName,
+  skipIntro,
+  words,
+} from "./steps";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -37,7 +49,7 @@ function spoolIds(storageDir, folderId) {
     const parts = raw.split(":");
     if (parts.length >= 3) ids.add(parts[1]);
   }
-  return [...ids];
+  return [...ids].sort((x, y) => x.localeCompare(y));
 }
 
 // Every toast a page shows, each counted once.
@@ -247,4 +259,140 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     [],
   );
   expect((await bToasts()).filter((t) => /“del-ben\.png” from Delete trip/.test(t))).toEqual([]);
+});
+
+test("a photo the Admin deletes while Ben's phone is off leaves his phone when it comes back", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  const AWAY_ALBUM = "Away trip";
+  const KEEP = "away-keep.png";
+  const GONE = "away-gone.png";
+  const view = (name) => a.getByRole("button", { name: words("gallery.view", { name }) });
+  const viewB = (name) => b.getByRole("button", { name: words("gallery.view", { name }) });
+
+  await skipIntro([a, b]);
+  await setName(a, "Ada");
+  await setName(b, "Ben");
+  await createAlbum(a, AWAY_ALBUM, KEEP, 51);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, AWAY_ALBUM);
+  // 60 s: the join request travels over the hub to Ada's phone.
+  await expect(a.getByText(words("album.wants_to_join", { folderName: AWAY_ALBUM }))).toBeVisible({
+    timeout: 60_000,
+  });
+  await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
+  await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
+  // 60 s: the album and its photo sync to Ben's phone after Ada accepts.
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  await expect(viewB(KEEP)).toBeVisible({ timeout: 60_000 });
+  const benFolder = new URL(b.url()).pathname.split("/").filter(Boolean)[1];
+
+  // Ben opens each photo so his phone holds the full copy.
+  async function benOpens(name) {
+    await viewB(name).click();
+    // 60 s: the full photo can take that long to arrive on a loaded runner.
+    await expect(b.locator(".justus-holders-text"), `Ben opens ${name}`).toHaveText(
+      words("holders.on_and_your_phone", { names: "Ada's" }),
+      { timeout: 60_000 },
+    );
+    await b.getByRole("button", { name: words("lightbox.close") }).click();
+    await expect(b.locator(".justus-holders-text")).toHaveCount(0);
+  }
+  await benOpens(KEEP);
+  const keepIds = spoolIds(instances[1].storageDir, benFolder);
+  expect(keepIds, "Ben's phone holds the kept photo").toHaveLength(1);
+
+  await a.setInputFiles("input[type=file]", {
+    name: GONE,
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(53)),
+  });
+  // 60 s: the new photo syncs to Ben's phone.
+  await expect(viewB(GONE)).toBeVisible({ timeout: 60_000 });
+  await benOpens(GONE);
+  expect(
+    spoolIds(instances[1].storageDir, benFolder),
+    "Ben's phone holds both photos",
+  ).toHaveLength(2);
+
+  // Ada's phone learns Ben has the full photo before he goes off; its delete warning names him only then.
+  await view(GONE).click();
+  // 60 s: Ben's phone tells Ada's phone it holds the photo.
+  await expect(a.locator(".justus-holders-text"), "Ben on · Ada's phone: holders line").toHaveText(
+    words("holders.on_and_your_phone", { names: "Ben's" }),
+    { timeout: 60_000 },
+  );
+  await a.getByRole("button", { name: words("lightbox.close") }).click();
+  await expect(a.locator(".justus-holders-text")).toHaveCount(0);
+
+  // 60 s: Ada's phone shows Ben connected before he goes off; without this the off-wait below can pass at once.
+  await expect(
+    a.getByText(words("gallery.connected_now", { connected: 1 })),
+    "Ben on · Ada's phone: connected",
+  ).toBeVisible({ timeout: 60_000 });
+
+  const resumeBen = await pausePhone(instances[1]);
+  try {
+    // 90 s: Ada's phone drops a gone peer when its connection times out, 24-34 s.
+    await expect(
+      a.getByText(words("gallery.connected_now", { connected: 1 })),
+      "Ben off · Ada's phone: still connected",
+    ).toHaveCount(0, { timeout: 90_000 });
+
+    await view(GONE).click();
+    await a.getByRole("button", { name: words("lightbox.more_options") }).click();
+    await a.getByRole("menuitem", { name: words("lightbox.delete_2") }).click();
+    const dialog = a.locator("wa-dialog[open]", {
+      hasText: words("lightbox.delete", { name: GONE }),
+    });
+    await expect(dialog, "Ben off · Ada's dialog names Ben").toContainText(
+      `${words("full_photo.names_have", { list: "Ben", n: 1 })} ${words("lightbox.stops_showing_can_t_erase", { n: 1 })}`,
+    );
+    await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
+    // 20 s: a local delete.
+    await expect(view(GONE)).toHaveCount(0, { timeout: 20_000 });
+  } finally {
+    resumeBen();
+  }
+
+  // 60 s: Ben's phone reconnects (2-16 s) and drops the deleted photo's cached copy.
+  await expect
+    .poll(() => spoolIds(instances[1].storageDir, benFolder), {
+      message: "Ben back · Ben's phone: the deleted photo's cached copy is gone",
+      timeout: 60_000,
+    })
+    .toEqual(keepIds);
+
+  // Both phones read the kept photo's holders line and the other's presence dot.
+  for (const [page, name, other, names] of [
+    [a, KEEP, "Ben", "Ben's"],
+    [b, KEEP, "Ada", "Ada's"],
+  ]) {
+    const who = page === a ? "Ada" : "Ben";
+    await page.getByRole("button", { name: words("gallery.view", { name }) }).click();
+    // 60 s: the full photo can take that long to arrive.
+    await expect(page.locator(".justus-holders-text"), `${who}'s phone: holders line`).toHaveText(
+      words("holders.on_and_your_phone", { names }),
+      { timeout: 60_000 },
+    );
+    await page.getByRole("button", { name: words("lightbox.close") }).click();
+    await page
+      .getByRole("link", { name: new RegExp(words("gallery.invite_members")) })
+      .first()
+      .click();
+    // 60 s: the phones find each other again after the resume.
+    await expect(
+      page
+        .locator("li[data-member-key]", { hasText: other })
+        .getByRole("img", { name: words("people.connected"), exact: true }),
+      `${who}'s phone: ${other}'s presence dot`,
+    ).toBeVisible({ timeout: 60_000 });
+    await page
+      .getByRole("link", { name: words("album.see_photos_in_this_album") })
+      .first()
+      .click();
+  }
 });
