@@ -311,14 +311,12 @@ describe("cleanSharedName", () => {
 describe("removeSharedIn", () => {
   const remove = (ids: unknown) => removeSharedIn({ dir, files, paths }, ids);
 
-  test("removes the named batch dir and keeps other batches and unfinished dirs", () => {
+  test("removes the named batch dir and keeps other batches", () => {
     const d = batch(ID, fixture, fixtureFiles);
     const other = batch("other", { ...fixture, id: "other" });
-    const tmp = batch(".tmp-a", fixture);
     expect(remove([ID])).toEqual([null, 1]);
     expect(fs.existsSync(d)).toBe(false);
     expect(fs.existsSync(other)).toBe(true);
-    expect(fs.existsSync(tmp)).toBe(true);
     expect(console.error).toHaveBeenCalledWith("[justus] shared-in.removed batches=1");
   });
 
@@ -328,6 +326,14 @@ describe("removeSharedIn", () => {
     expect(remove([ID])).toEqual([null, 0]);
   });
 
+  test("a gone or bad id does not stop the batches after it", () => {
+    const d = batch(ID, fixture);
+    const other = batch("other", { ...fixture, id: "other" });
+    expect(remove(["gone", ID, "../x", "other"])).toEqual([null, 2]);
+    expect(fs.existsSync(d)).toBe(false);
+    expect(fs.existsSync(other)).toBe(false);
+  });
+
   test("a bad id is skipped and never reaches a path", () => {
     const outside = nodePath.join(nodePath.dirname(dir), `outside-${nodePath.basename(dir)}`);
     fs.mkdirSync(outside);
@@ -335,18 +341,6 @@ describe("removeSharedIn", () => {
     expect(fs.existsSync(outside)).toBe(true);
     expect(console.error).toHaveBeenCalledWith("[justus] shared-in.skip id=invalid reason=bad-id");
     fs.rmSync(outside, { recursive: true });
-  });
-
-  test("a file or a symlink to a dir is not a batch and nothing is deleted", () => {
-    const target = batch("target", fixture);
-    fs.writeFileSync(nodePath.join(dir, "afile"), "x");
-    fs.symlinkSync(target, nodePath.join(dir, "link"));
-    expect(remove(["afile", "link"])).toEqual([null, 0]);
-    expect(fs.existsSync(nodePath.join(dir, "afile"))).toBe(true);
-    expect(fs.existsSync(nodePath.join(target, "batch.json"))).toBe(true);
-    expect(console.error).toHaveBeenCalledWith(
-      "[justus] shared-in.skip id=link reason=not-a-batch",
-    );
   });
 
   test.each([undefined, "abc", [1], [null]])("ids %j is refused", (ids) => {

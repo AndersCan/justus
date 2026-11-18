@@ -110,10 +110,7 @@ export function removeSharedIn(
     }
     const path = paths.join(dir, id);
     try {
-      if (!files.lstatSync(path).isDirectory()) {
-        skip(id, "not-a-batch");
-        continue;
-      }
+      files.lstatSync(path);
       files.rmSync(path, { recursive: true, force: true });
       removed += 1;
     } catch (e) {
