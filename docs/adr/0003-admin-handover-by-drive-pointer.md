@@ -21,7 +21,7 @@ new Admin.
    catches up from the drives alone. A hop is taken only when the next key is a
    Collaborator in the current lists, its `/device.json` verifies to the named
    identity, its `/members.json` reads, and it is not a cycle. The chain stops
-   at 16. A hop that fails is tried again on the next change.
+   at 16; a failed hop is retried on the next change.
 3. **Links keep working through signed proofs.** For each invite code the
    leaving Admin signs `justus-handover/v1:<code>:<next identity>` with their
    identity. An asker given the proof chain (`handedOver` answer) checks
@@ -32,8 +32,7 @@ new Admin.
    `handoverReady` carries `listsDigest` of the lists as the next Admin copied
    them; the leaving Admin finishes only when it matches the digest of what it
    sent.
-5. **Version 1 only.** A note with another version is not followed
-   (`unsupported`); the phone keeps the album it has.
+5. **Version 1 only.** A note of another version is not followed.
 
 ## Consequences
 
