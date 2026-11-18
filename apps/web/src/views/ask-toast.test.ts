@@ -37,8 +37,9 @@ describe("askToast", () => {
     );
   });
 
-  test("a photo album page with the same id does not hide the ask", () => {
-    expect(askToast([ask("Maya")], parsePath("/albums/f1"), {})?.text).toBe(
+  test("the album whose photos are on screen hides its ask; another album's photos do not", () => {
+    expect(askToast([ask("Maya")], parsePath("/albums/f1"), {})).toBeUndefined();
+    expect(askToast([ask("Maya")], parsePath("/albums/f2"), {})?.text).toBe(
       "Maya wants to join “Spain”",
     );
   });

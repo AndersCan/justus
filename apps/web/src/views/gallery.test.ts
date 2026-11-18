@@ -600,14 +600,12 @@ describe("albumHeader join request line", () => {
     return { host, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
   };
 
-  test("the Admin sees who wants to join and a Review link, not the alone line", () => {
+  test("the Admin sees who wants to join and no link in that line, not the alone line", () => {
     const { host, text } = draw_({});
     expect(text).toContain("Ben wants to join");
     expect(text).not.toContain("Only you so far");
-    const link = host.querySelector("[data-request-line] a");
-    expect(link?.textContent).toBe("Review");
-    expect(link?.getAttribute("href")).toBe("/sharing/f1");
-    expect(link?.className).toBe("ui-link");
+    expect(host.querySelector("[data-request-line] a")).toBeNull();
+    expect(host.querySelectorAll('a[href="/sharing/f1"]').length).toBe(1);
   });
 
   test("the line shows without a sync status", () => {

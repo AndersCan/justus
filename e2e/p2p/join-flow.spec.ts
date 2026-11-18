@@ -181,7 +181,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await expect(b.getByText("1 connected now")).toBeVisible({ timeout: 30_000 });
 });
 
-test("A sees B's request on the album page, Review opens the card, Accept lets B in", async ({
+test("A sees B's request on the album page, Invite & members opens the card, Accept lets B in", async ({
   instancePages,
 }) => {
   test.setTimeout(150_000);
@@ -195,7 +195,7 @@ test("A sees B's request on the album page, Review opens the card, Accept lets B
   await askToJoin(b, link, LINE_ALBUM);
   const line = a.locator("[data-request-line]");
   await expect(line).toContainText("wants to join", { timeout: 60_000 });
-  await line.getByRole("link", { name: "Review" }).click();
+  await a.getByRole("link", { name: /^Invite & members/ }).click();
   await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
   await a.getByRole("button", { name: "Accept, can only look", exact: true }).click();
   await expect(b.getByRole("button", { name: `View ${LINE_PHOTO}` }).locator("img")).toBeAttached({

@@ -745,14 +745,13 @@ export function requestLineText(oldest: RequestRow, waiting: number): TemplateRe
   return t("gallery.name_wants_to_join", { name: oldest.name });
 }
 
-/** Who is waiting to join this album, with a link to the card that answers them. */
-function requestLine(album: FolderSummary, text: TemplateResult) {
+/** Who is waiting to join this album, in words. */
+function requestLine(text: TemplateResult) {
   return html`<p
     class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg"
     data-request-line
   >
     ${text}
-    <a class="ui-link" href="/sharing/${album.id}">${t("ask_toast.review")}</a>
   </p>`;
 }
 
@@ -792,7 +791,6 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
       ? null
       : oldest !== undefined
         ? requestLine(
-            album,
             requestLineText(requestRowOf(oldest, friendsActor.snapshot().context.friends), waiting),
           )
         : status
