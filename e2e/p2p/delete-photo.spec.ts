@@ -9,6 +9,11 @@
  * photo, also after her own restart, and her phone says so when it does:
  *
  *   pnpm test:e2e-p2p e2e/p2p/delete-photo.spec.ts -g "while Ben's phone is off"
+ *
+ * Ben, a Collaborator, deletes his own photo while Ada's phone is off: his album page names her phone
+ * until it drops the photo, also after his restart, and his phone says so when it does:
+ *
+ *   pnpm test:e2e-p2p e2e/p2p/delete-photo.spec.ts -g "while Ada's phone is off"
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import type { Page } from "@playwright/test";
@@ -24,7 +29,7 @@ import {
   skipIntro,
   words,
 } from "./steps";
-import { readdirSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ALBUM = "Delete trip";
@@ -473,4 +478,151 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       .first()
       .click();
   }
+});
+
+test("a photo Ben deletes while Ada's phone is off leaves her phone when it comes back, and his page says so", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  const OWN_ALBUM = "Own delete trip";
+  const KEEP = "own-keep.png";
+  const GONE = "own-gone.png";
+  const viewA = (name) => a.getByRole("button", { name: words("gallery.view", { name }) });
+  const viewB = (name) => b.getByRole("button", { name: words("gallery.view", { name }) });
+  const stillLine = b.locator('[data-copy-id="gallery.still_to_drop"]');
+  const stillWords = words("gallery.still_to_drop", { list: "Ada's", n: 1, photos: 1 });
+
+  await skipIntro([a, b]);
+  await setName(a, "Ada");
+  await setName(b, "Ben");
+  await createAlbum(a, OWN_ALBUM, KEEP, 61);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, OWN_ALBUM);
+  // 60 s: the join request travels over the hub to Ada's phone.
+  await expect(a.getByText(words("album.wants_to_join", { folderName: OWN_ALBUM }))).toBeVisible({
+    timeout: 60_000,
+  });
+  await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
+  await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
+  // 60 s: the album and its photo sync to Ben's phone after Ada accepts.
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  await expect(viewB(KEEP)).toBeVisible({ timeout: 60_000 });
+  // 60 s: Ben is a Viewer until the Admin's enrolment reaches his phone; adds before that are refused.
+  await expect(
+    b.getByRole("button", { name: words("gallery.add_photos_to", { name: OWN_ALBUM }) }),
+  ).toBeVisible({
+    timeout: 60_000,
+  });
+  const adaFolder = new URL(a.url()).pathname.split("/").filter(Boolean)[1];
+
+  await b.setInputFiles("input[type=file]", {
+    name: GONE,
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(63)),
+  });
+  // 60 s: the new photo syncs to Ada's phone.
+  await expect(viewA(GONE)).toBeVisible({ timeout: 60_000 });
+
+  // Ada opens it, so her phone holds the full copy and her record names it.
+  // Thumbnails already carry the photo's id, so count files: the full copy is one more file.
+  const cacheOf = () => {
+    try {
+      return readdirSync(join(instances[0].storageDir, "cache", "photos", adaFolder)).length;
+    } catch {
+      return 0;
+    }
+  };
+  const filesBefore = cacheOf();
+  await viewA(GONE).click();
+  // 60 s: Ben's phone tells Ada's phone it holds the photo, and the full photo arrives.
+  await expect(a.locator(".justus-holders-text"), "Ada on · Ada's phone: holders line").toHaveText(
+    words("holders.on_and_your_phone", { names: "Ben's" }),
+    { timeout: 60_000 },
+  );
+  await a.getByRole("button", { name: words("lightbox.close") }).click();
+  // 20 s: the full photo is written to Ada's cache.
+  await expect
+    .poll(cacheOf, {
+      message: "Ada's cache · Ben's full photo",
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(filesBefore);
+
+  // Ben's phone reads Ada's record naming the photo before she goes off; its delete warning and line name her only then.
+  await viewB(GONE).click();
+  // 60 s: Ada's phone tells Ben's phone it holds the full photo.
+  await expect(b.locator(".justus-holders-text"), "Ada on · Ben's phone: Ada has it").toHaveText(
+    words("holders.on_and_your_phone", { names: "Ada's" }),
+    { timeout: 60_000 },
+  );
+  await b.getByRole("button", { name: words("lightbox.close") }).click();
+
+  // 60 s: Ben's phone shows Ada connected before she goes off; without this the off-wait below can pass at once.
+  await expect(
+    b.getByText(words("gallery.connected_now", { connected: 1 })),
+    "Ada on · Ben's phone: connected",
+  ).toBeVisible({ timeout: 60_000 });
+
+  // Ada's app in the background, cache wiped as every app shutdown does: her record still names the photo, her cache no longer has it.
+  await a.goto("about:blank");
+  rmSync(join(instances[0].storageDir, "cache", "photos", adaFolder), {
+    recursive: true,
+    force: true,
+  });
+
+  let bToasts;
+  const resumeAda = await pausePhone(instances[0]);
+  try {
+    // 90 s: Ben's phone drops a gone peer when its connection times out, 24-34 s.
+    await expect(
+      b.getByText(words("gallery.connected_now", { connected: 1 })),
+      "Ada off · Ben's phone: still connected",
+    ).toHaveCount(0, { timeout: 90_000 });
+
+    await viewB(GONE).click();
+    await b.getByRole("button", { name: words("lightbox.more_options") }).click();
+    await b.getByRole("menuitem", { name: words("lightbox.delete_2") }).click();
+    const dialog = b.locator("wa-dialog[open]", {
+      hasText: words("lightbox.delete", { name: GONE }),
+    });
+    await expect(dialog, "Ada off · Ben's dialog names Ada").toContainText(
+      words("lightbox.phones_drop_copy", { list: "Ada's", n: 1 }),
+    );
+    await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
+    // 20 s: a local delete.
+    await expect(viewB(GONE)).toHaveCount(0, { timeout: 20_000 });
+    // 20 s: the status read after the delete.
+    await expect(stillLine, "Ada off · Ben's album page: Ada's phone still has it").toHaveText(
+      stillWords,
+      { timeout: 20_000 },
+    );
+
+    const albumB = new URL(b.url()).pathname;
+    await restartPhone(b, instances[1]);
+    await b.goto(albumB);
+    // 60 s: Ben's phone starts again.
+    await expect(viewB(KEEP)).toBeVisible({ timeout: 60_000 });
+    // 60 s: Ben's phone reads his own record of the delete from his drive.
+    await expect(
+      stillLine,
+      "Ben restarted · Ben's album page: Ada's phone still has it",
+    ).toHaveText(stillWords, { timeout: 60_000 });
+    bToasts = await recordToasts(b);
+  } finally {
+    resumeAda();
+  }
+
+  // 60 s: Ada's phone reconnects (2-16 s), clears the bytes, and takes the photo off her record; Ben's phone reads that.
+  await expect(stillLine, "Ada back · Ben's album page: the line is gone").toHaveCount(0, {
+    timeout: 60_000,
+  });
+  // 20 s: the toast comes with the same read; the line hides while Ada is connected, so this is what proves the sweep.
+  await expect
+    .poll(bToasts, {
+      message: "Ada back · Ben's phone: Removed from Ada's phone.",
+      timeout: 20_000,
+    })
+    .toContain(words("lightbox.removed_from_phones", { list: "Ada's", n: 1 }));
 });
