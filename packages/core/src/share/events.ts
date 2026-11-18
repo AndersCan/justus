@@ -35,10 +35,20 @@ export const sharedInSpecs = {
     args: {} as Record<string, never>,
     result: {} as { batches: SharedBatch[] },
   },
+  remove: {
+    pluginId: "justus.sharedIn",
+    name: "sharedIn.remove",
+    args: {} as { ids: string[] },
+    result: {} as { removed: number },
+  },
 } as const satisfies Record<string, EventSpec<any, any>>;
 
 export const sharedInEvents = {
   list() {
     return invokeEvent(sharedInSpecs.list, {}, null, SHARED_IN_TIMEOUT_MS);
+  },
+  /** Removes batches from the inbox once their photos are in an album. Unknown ids are skipped. */
+  remove(ids: string[]) {
+    return invokeEvent(sharedInSpecs.remove, { ids }, null, SHARED_IN_TIMEOUT_MS);
   },
 };
