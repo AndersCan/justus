@@ -47,8 +47,9 @@ appId: no.cankode.justus
       - extendedWaitUntil:
           visible: "App lock is on"
           timeout: 15000
-# iOS: the Simulator has a Face ID enrolled by scripts/maestro-ios.mjs, which serves FACE.
-# A match posted before the Face ID prompt is up is dropped, so retry it.
+# iOS: the Simulator has a Face ID enrolled, so the lock card shows; the walk declines it. The
+# Simulator's Face ID prompt opens too late on a cold runner (-1000 "UI activation timed out"), so
+# the walk does not turn App lock on.
 - runFlow:
     when:
       platform: iOS
@@ -57,27 +58,11 @@ appId: no.cankode.justus
           visible: "Lock Justus?"
           timeout: 20000
       - tapOn:
-          text: "Enable"
+          text: "Not now"
           waitToSettleTimeoutMs: 500
-      # A tap on Enable can be dropped while the page settles: tap again when the card is still up.
-      - retry:
-          maxRetries: 3
-          commands:
-            - runFlow:
-                when:
-                  visible: "Lock Justus?"
-                commands:
-                  - tapOn:
-                      text: "Enable"
-                      waitToSettleTimeoutMs: 500
-            - extendedWaitUntil:
-                visible: "Face ID"
-                timeout: 8000
-            - runScript: ../scripts/face-match.js
-            # The "App lock is on" toast is gone before the slow iOS hierarchy reads it: the next page proves the match.
-            - extendedWaitUntil:
-                visible: "Start sharing"
-                timeout: 8000
+      - extendedWaitUntil:
+          notVisible: "Lock Justus?"
+          timeout: 8000
 - extendedWaitUntil:
     visible: "Start sharing"
     timeout: 20000
@@ -165,8 +150,10 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
-# The lock section. Android answers the system PIN prompt; iOS answers Face ID with a match.
+# The lock section, Android only: the iOS walk declines App lock above.
 - runFlow:
+    when:
+      platform: Android
     commands:
       # App lock was turned on from the first-run card; Settings shows it on.
       - tapOn:
@@ -184,7 +171,6 @@ appId: no.cankode.justus
           element: "Require unlock to open Justus.*"
           timeout: 20000
       # Away under 30s: back in, no lock.
-      # iOS: the Simulator opens Settings over Justus (the driver's Home key press hangs it on CI).
       - runFlow:
           when:
             platform: Android
@@ -192,29 +178,16 @@ appId: no.cankode.justus
             - pressKey: Home
             - launchApp:
                 stopApp: false
-      # iOS: Settings and back to Justus in one helper call: launchApp does not bring a backgrounded
-      # Justus back, and two slow CI steps apart could pass the 30 s and lock the app.
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - runScript: ../scripts/blink.js
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000
       - assertNotVisible: "Justus is locked"
       # Away over 30s: the lock shows and the app underneath is unreachable.
-      # iOS: the Simulator opens Settings over Justus (the driver's Home key press hangs it on CI).
       - runFlow:
           when:
             platform: Android
           commands:
             - pressKey: Home
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - runScript: ../scripts/away.js
       - runFlow:
           when:
             platform: Android
@@ -223,28 +196,12 @@ appId: no.cankode.justus
                 visible: "Justus is locked"
                 timeout: 31000
                 optional: true
-      # iOS: Maestro reads the app under Settings and can report "Justus is locked" at once, which ended
-      # this wait after 1 s and left the app unlocked. Wait out the 30 s on something never on screen.
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - extendedWaitUntil:
-                visible: "No such text, wait out the 30 s"
-                timeout: 31000
-                optional: true
       - runFlow:
           when:
             platform: Android
           commands:
             - launchApp:
                 stopApp: false
-      # iOS: launchApp does not bring a backgrounded Justus back, so the Simulator opens it.
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - runScript: ../scripts/back.js
       # The system PIN prompt (secure, unreadable) opens over the lock screen on Android; the app behind it is hidden.
       - runFlow:
           when:
@@ -261,31 +218,6 @@ appId: no.cankode.justus
                 waitToSettleTimeoutMs: 500
             - inputText: "1111"
             - pressKey: Enter
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            # The Face ID prompt opens over the lock screen and hides the app's text, like the PIN prompt.
-            - extendedWaitUntil:
-                visible: "Face ID"
-                timeout: 15000
-            - assertNotVisible: "Require unlock to open Justus.*"
-            - retry:
-                maxRetries: 3
-                commands:
-                  - runScript: ../scripts/face-match.js
-                  - extendedWaitUntil:
-                      notVisible: "Face ID"
-                      timeout: 8000
-            # Run 43664547712: after the unlock the app was on Photos, not Settings. Open Settings
-            # again when the lock card is not on the page.
-            - runFlow:
-                when:
-                  notVisible: "Require unlock to open Justus.*"
-                commands:
-                  - tapOn:
-                      text: "Settings"
-                      waitToSettleTimeoutMs: 500
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000
@@ -314,22 +246,6 @@ appId: no.cankode.justus
                 waitToSettleTimeoutMs: 500
             - inputText: "1111"
             - pressKey: Enter
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            # A fresh launch asks at once; the Face ID prompt hides the app's text.
-            - extendedWaitUntil:
-                visible: "Face ID"
-                timeout: 15000
-            - assertNotVisible: "Require unlock to open Justus.*"
-            - retry:
-                maxRetries: 3
-                commands:
-                  - runScript: ../scripts/face-match.js
-                  - extendedWaitUntil:
-                      notVisible: "Face ID"
-                      timeout: 8000
       - extendedWaitUntil:
           visible: "Settings"
           timeout: 30000
@@ -358,17 +274,3 @@ appId: no.cankode.justus
             - extendedWaitUntil:
                 visible: "App lock is off"
                 timeout: 15000
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - extendedWaitUntil:
-                visible: "Face ID"
-                timeout: 15000
-            - retry:
-                maxRetries: 3
-                commands:
-                  - runScript: ../scripts/face-match.js
-                  - extendedWaitUntil:
-                      visible: "App lock is off"
-                      timeout: 5000

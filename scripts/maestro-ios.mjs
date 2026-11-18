@@ -19,7 +19,6 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { helperRoute } from "./maestro-ios-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -137,8 +136,7 @@ if (invite) {
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
-// iPhone: enrol a Face ID so the first-run card offers App lock, and serve /match for the flow.
-let face = null;
+// iPhone: enrol a Face ID so the first-run card offers App lock (the walk declines it).
 if (!ipad) {
   const enrolment = "com.apple.BiometricKit.enrollmentChanged";
   const notify = (args) => run("xcrun", ["simctl", "spawn", udid, "notifyutil", ...args]);
@@ -146,34 +144,27 @@ if (!ipad) {
   notify(["-p", enrolment]);
   const state = capture("xcrun", ["simctl", "spawn", udid, "notifyutil", "-g", enrolment]);
   if (!String(state.stdout).trim().endsWith("1")) fail(`Face ID enrolment did not take on ${udid}`);
+}
+
+// --invite: serve docs/site/public under /justus/ on a local port, as GitHub Pages does.
+let pages = null;
+if (invite) {
   const publicDir = path.join(root, "docs/site/public");
   const types = { ".html": "text/html", ".js": "text/javascript" };
-  face = createServer((request, response) => {
-    // --invite: serve docs/site/public under /justus/ on this port, as GitHub Pages does.
+  pages = createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
-    if (invite && pathname.startsWith("/justus/")) {
-      const relative = pathname.slice("/justus/".length);
-      const file = path.join(
-        publicDir,
-        relative.endsWith("/") ? `${relative}index.html` : relative,
-      );
-      const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
-      const found = inside && existsSync(file) && statSync(file).isFile();
-      response.writeHead(
-        found ? 200 : 404,
-        found ? { "content-type": types[path.extname(file)] ?? "text/plain" } : {},
-      );
-      response.end(found ? readFileSync(file) : "not found");
-      return;
-    }
-    // The walk asks the Simulator, not the XCTest driver: the driver's Home key press left it
-    // waiting on a screenshot that timed out and killed the driver.
-    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId });
-    if (done) console.log(`helper: ${request.url}`);
-    response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
+    const relative = pathname.startsWith("/justus/") ? pathname.slice("/justus/".length) : "";
+    const file = path.join(publicDir, relative.endsWith("/") ? `${relative}index.html` : relative);
+    const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
+    const found = inside && existsSync(file) && statSync(file).isFile();
+    response.writeHead(
+      found ? 200 : 404,
+      found ? { "content-type": types[path.extname(file)] ?? "text/plain" } : {},
+    );
+    response.end(found ? readFileSync(file) : "not found");
   });
-  await new Promise((resolve) => face.listen(0, "127.0.0.1", resolve));
-  console.log(`Face ID enrolled, helper on port ${face.address().port}`);
+  await new Promise((resolve) => pages.listen(0, "127.0.0.1", resolve));
+  console.log(`Invite page on port ${pages.address().port}`);
 }
 
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
@@ -198,11 +189,10 @@ function maestro(log) {
   return new Promise((resolve) => {
     const file = createWriteStream(log);
     let text = "";
-    const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
-    const pageArgs = invite ? ["-e", `PAGE=http://127.0.0.1:${face.address().port}`] : [];
+    const pageArgs = pages ? ["-e", `PAGE=http://127.0.0.1:${pages.address().port}`] : [];
     const child = spawn(
       "maestro",
-      ["--device", udid, "test", ...faceArgs, ...pageArgs, "--test-output-dir", out, flow],
+      ["--device", udid, "test", ...pageArgs, "--test-output-dir", out, flow],
       {
         cwd: root,
         env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
@@ -251,7 +241,7 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log("The Maestro walk hit a driver or Safari-start failure: trying once more");
 }
 stopIosDriver();
-face?.close();
+pages?.close();
 
 // A crash during the run is a failure even when the flow passed.
 const reports = path.join(homedir(), "Library/Logs/DiagnosticReports");
