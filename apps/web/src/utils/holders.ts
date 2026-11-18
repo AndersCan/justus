@@ -1,7 +1,7 @@
 import type { PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 
 import { copy } from "../copy/copy";
-import { nameList } from "./people";
+import { nameKey, nameList } from "./people";
 import { formatDay } from "./time";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
@@ -34,7 +34,8 @@ function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolea
   }
   const k = h.others.length + h.former.length;
   const names = h.others.map((m) => `${m.name}'s`);
-  const named = h.former.length === 0 && names.length >= 1 && names.length <= 3;
+  const distinct = new Set(h.others.map((m) => nameKey(m.name))).size === h.others.length;
+  const named = h.former.length === 0 && names.length >= 1 && names.length <= 3 && distinct;
   if (h.here) {
     if (k === 0) {
       return {
