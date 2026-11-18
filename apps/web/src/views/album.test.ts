@@ -1983,9 +1983,38 @@ describe("album member status", () => {
     expect(host.querySelectorAll("[data-member-photos]").length).toBe(2);
   });
 
-  test("no photo line while a photo's holders are not known", async () => {
-    const host = await open([{ id: "a", folderId: "f1", holders: undefined }]);
-    expect(host.querySelector("[data-member-photos]")).toBeNull();
+  test("a row's photo line changes when the photos reload, with nothing else changing", async () => {
+    const kim = { key: "k1", name: "Kim" };
+    const holders = (others: unknown[], previews: unknown[]) => ({
+      kind: "inAlbum",
+      here: true,
+      previewHere: false,
+      others,
+      quiet: [],
+      unsure: [],
+      waiting: [],
+      previews,
+      former: [],
+      left: [],
+    });
+    const host = await open([
+      { id: "a", folderId: "f1", holders: holders([kim], []) },
+      { id: "b", folderId: "f1", holders: holders([], [kim]) },
+    ]);
+    const kimLine = () =>
+      memberRows(host)[1].querySelector("[data-member-photos]")?.textContent?.trim();
+    expect(kimLine()).toBe("Photos: 1 of 2, 1 as previews");
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      {
+        photos: [
+          { id: "a", folderId: "f1", holders: holders([kim], []) },
+          { id: "b", folderId: "f1", holders: holders([kim], []) },
+        ],
+      },
+    ] as never);
+    await gallery.load();
+    expect(kimLine()).toBe("Photos: 2 of 2");
   });
 });
 
