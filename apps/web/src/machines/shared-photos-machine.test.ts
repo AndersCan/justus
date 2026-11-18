@@ -95,6 +95,28 @@ describe("sharedPhotos", () => {
     expect(actor.state.name).toBe("noSharedPhotos");
   });
 
+  test("a second page of the welcome does not open the sheet over it", async () => {
+    const { actor } = setup();
+    actor.send(shown(true));
+    actor.send(listed([batch("a", 3)]));
+    actor.send(shown(true));
+    await actor.settled();
+    expect(actor.state.name).toBe("noSharedPhotos");
+  });
+
+  test("a failed add or a cleared inbox leaves nothing on the sheet", async () => {
+    const { actor } = setup();
+    actor.send(listed([batch("a", 3)]));
+    actor.send(started);
+    actor.send(ended(1));
+    await actor.settled();
+    expect(sharedPhotosViewOf(actor.snapshot())).toEqual({ asking: false, batches: [], count: 0 });
+    actor.send(listed([batch("a", 3)]));
+    actor.send(notNow);
+    await actor.settled();
+    expect(sharedPhotosViewOf(actor.snapshot())).toEqual({ asking: false, batches: [], count: 0 });
+  });
+
   test("a page shown while no welcome is up opens nothing when nothing waits", async () => {
     const { actor } = setup();
     actor.send(shown(false));
@@ -126,7 +148,7 @@ describe("sharedPhotos errors", () => {
     await actor.settled();
     expect(warn).toHaveBeenCalledWith("justus:share-in.remove-failed", "boom");
     expect(actor.state.name).toBe("noSharedPhotos");
-    expect(sharedPhotosViewOf(actor.snapshot()).asking).toBe(false);
+    expect(sharedPhotosViewOf(actor.snapshot())).toEqual({ asking: false, batches: [], count: 0 });
     warn.mockRestore();
   });
 
