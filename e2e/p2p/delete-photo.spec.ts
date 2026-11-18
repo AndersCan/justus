@@ -5,7 +5,8 @@
  *
  *   pnpm test:e2e-p2p -g "deletes only their own photo"
  *
- * A delete also reaches a phone that was off:
+ * A delete also reaches a phone that was off, and Ada's phone reads Ben's drop from his drive, also
+ * after her own restart:
  *
  *   pnpm test:e2e-p2p e2e/p2p/delete-photo.spec.ts -g "while Ben's phone is off"
  */
@@ -18,6 +19,7 @@ import {
   copyInviteLink,
   createAlbum,
   pausePhone,
+  restartPhone,
   setName,
   skipIntro,
   words,
@@ -35,6 +37,11 @@ const BEN2 = "del-ben2.png";
 // and the joiner times out. On failure the fixture attaches each instance's
 // /__state and /__logs.
 // Photo ids in one album's photo cache on an instance (spool names are base64url "driveKey:id:ext").
+async function stateOf(page, instance) {
+  const res = await page.context().request.get(new URL("/__state", instance.url).href);
+  return res.json();
+}
+
 function spoolIds(storageDir, folderId) {
   let names = [];
   try {
@@ -334,6 +341,16 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
     "Ben on · Ada's phone: connected",
   ).toBeVisible({ timeout: 60_000 });
 
+  const benState = await stateOf(b, instances[1]);
+  const benKey = benState.folders.find((f) => f.id === benFolder).selfDrive.key;
+  const adaFolder = (await stateOf(a, instances[0])).folders.find(
+    (f) => f.shareKey === benState.folders.find((x) => x.id === benFolder).shareKey,
+  ).id;
+  const stillToDropOnAda = async () =>
+    (await stateOf(a, instances[0])).folders.find((f) => f.id === adaFolder).stillToDrop[benKey] ??
+    [];
+  const goneId = spoolIds(instances[1].storageDir, benFolder).find((id) => !keepIds.includes(id));
+
   const resumeBen = await pausePhone(instances[1]);
   try {
     // 90 s: Ada's phone drops a gone peer when its connection times out, 24-34 s.
@@ -354,6 +371,25 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
     await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
     // 20 s: a local delete.
     await expect(view(GONE)).toHaveCount(0, { timeout: 20_000 });
+    // 20 s: the next listing on Ada's phone after the delete.
+    await expect
+      .poll(stillToDropOnAda, {
+        message: "Ben off · Ada's phone: Ben still has to drop it",
+        timeout: 20_000,
+      })
+      .toEqual([goneId]);
+
+    const albumA = new URL(a.url()).pathname;
+    await restartPhone(a, instances[0]);
+    await a.goto(albumA);
+    // 60 s: Ada's phone starts again and reads Ben's record from its own copy while he is off.
+    await expect(view(KEEP)).toBeVisible({ timeout: 60_000 });
+    await expect
+      .poll(stillToDropOnAda, {
+        message: "Ada restarted · Ada's phone: Ben still has to drop it",
+        timeout: 60_000,
+      })
+      .toEqual([goneId]);
   } finally {
     resumeBen();
   }
@@ -365,6 +401,14 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       timeout: 60_000,
     })
     .toEqual(keepIds);
+
+  // 60 s: Ada's phone re-reads Ben's record once his phone has dropped the photo.
+  await expect
+    .poll(stillToDropOnAda, {
+      message: "Ben back · Ada's phone: read that Ben's phone dropped it",
+      timeout: 60_000,
+    })
+    .toEqual([]);
 
   // Both phones read the kept photo's holders line and the other's presence dot.
   for (const [page, name, other, names] of [

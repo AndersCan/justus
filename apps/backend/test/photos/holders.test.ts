@@ -28,6 +28,7 @@ import {
   markPreviewed,
   readFormer,
   readHeld,
+  stillToDrop,
   unmarkHeld,
   type HeldReport,
 } from "../../src/photos/holders.ts";
@@ -127,6 +128,23 @@ describe("markPreviewed", () => {
       kind: "write-failed",
       message: "nope",
     });
+  });
+});
+
+describe("stillToDrop", () => {
+  const reports: HeldReport = {
+    kind: "reports",
+    ids: new Set(["p1", "p2"]),
+    previews: new Set(["p3"]),
+  };
+
+  it("lists what the record holds or previewed that the album no longer shows, sorted", () => {
+    expect(stillToDrop({ report: reports, listed: new Set(["p1"]) })).toEqual(["p2", "p3"]);
+  });
+
+  it("says nothing while the record is silent or the listing is partial", () => {
+    expect(stillToDrop({ report: { kind: "silent" }, listed: new Set() })).toEqual([]);
+    expect(stillToDrop({ report: reports, listed: undefined })).toEqual([]);
   });
 });
 

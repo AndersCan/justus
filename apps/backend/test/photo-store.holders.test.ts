@@ -119,7 +119,7 @@ function phone(
     };
   }
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { deps, server, pushes, heldPuts, quiet, logs, store: createPhotoStore(deps) };
+  return { deps, node, server, pushes, heldPuts, quiet, logs, store: createPhotoStore(deps) };
 }
 
 async function album(options: { viewer?: boolean; oldApp?: boolean } = {}) {
@@ -1305,6 +1305,30 @@ describe("a record write racing the unmark", () => {
     expect(await drive.readSmall(`/previewed/${thumbed.id}`, 10)).toBeUndefined();
     await s.close();
   }, 20_000);
+});
+
+describe("the phone that deletes a photo lists who still has to drop it", () => {
+  const nilsRow = async (s: Album) =>
+    (await s.anna.store.status()).members.find((m: { key: string }) => m.key === s.nilsKey);
+
+  it("lists Nils while his phone is off, and stops once his record drops the photo", async () => {
+    const s = await album();
+    const photo = await s.annaPhoto();
+    await s.nils.server.getForTest(new URL((await s.nilsPhoto())!.url).pathname);
+    await until(async () => (await s.annaPhotoNamed("sunset.jpg")).holders!.others.length === 1);
+    expect((await nilsRow(s))?.stillToDrop).toBeUndefined();
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: false });
+    await s.anna.store.remove(photo.id);
+    expect((await nilsRow(s))?.stillToDrop).toEqual([photo.id]);
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: true });
+    await until(
+      async () => (
+        await s.nils.store.list(s.nilsFolderId),
+        (await nilsRow(s))?.stillToDrop === undefined
+      ),
+    );
+    await s.close();
+  }, 30_000);
 });
 
 describe("the phone that deletes a photo hears who dropped it", () => {

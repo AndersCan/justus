@@ -197,6 +197,16 @@ function byNameThenKey(a: PhotoMember, b: PhotoMember): number {
   return a.name < b.name ? -1 : a.name > b.name ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
 }
 
+/** Photos the person's phone says it holds or previewed that the album no longer lists. `[]` when it cannot tell. */
+export function stillToDrop(input: {
+  report: HeldReport | undefined;
+  listed: ReadonlySet<string> | undefined;
+}): string[] {
+  const { report, listed } = input;
+  if (report?.kind !== "reports" || listed === undefined) return [];
+  return [...new Set([...report.ids, ...report.previews])].filter((id) => !listed.has(id)).sort();
+}
+
 function holds(report: HeldReport | undefined, id: string): boolean {
   return report?.kind === "reports" && report.ids.has(id);
 }
