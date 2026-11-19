@@ -242,7 +242,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         covered = false
-        if (::webView.isInitialized) renderLock()
+        if (::webView.isInitialized) {
+            renderLock()
+            applyRecentsScreenshot()
+        }
         Log.i("JUSTUS_ANDROID", "lock resume locked=$locked prompted=$promptShownThisLock")
         if (locked && !promptShownThisLock) {
             promptShownThisLock = true
@@ -261,6 +264,11 @@ class MainActivity : AppCompatActivity() {
         stoppedAt?.let { outState.putLong(K_STOPPED, it) }
     }
 
+    private fun applySecure(window: android.view.Window, lockEnabled: Boolean) {
+        if (lockEnabled) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     private fun renderLock() {
         val hidden = locked || covered
         findViewById<View>(R.id.lock_screen).visibility = if (hidden) View.VISIBLE else View.GONE
@@ -270,8 +278,7 @@ class MainActivity : AppCompatActivity() {
     private fun applyRecentsScreenshot() {
         // Recents opened straight from the app shows a task snapshot that setRecentsScreenshotEnabled
         // does not cover; a secure window is blank there on every API level.
-        if (lockEnabled(this)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        applySecure(window, lockEnabled(this))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setRecentsScreenshotEnabled(!lockEnabled(this))
         }
