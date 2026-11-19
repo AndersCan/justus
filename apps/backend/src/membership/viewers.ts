@@ -25,9 +25,11 @@ export async function seatViewer(
     requesterKey: string;
     requests: JoinRequest[];
     color: number;
+    /** Keeps the time they were first let in, when they are only moving. */
+    addedAt?: number;
   },
 ): Promise<ViewerResult<{ viewers: ViewersFile; viewer: ViewersFile["viewers"][string] }>> {
-  const { viewers, registry, requesterKey, requests, color } = options;
+  const { viewers, registry, requesterKey, requests, color, addedAt } = options;
   if (registry.members[requesterKey] || viewers.viewers[requesterKey]) {
     return [{ kind: "already-enrolled", message: "Member already enrolled" }, null];
   }
@@ -36,7 +38,7 @@ export async function seatViewer(
     ...viewers,
     viewers: {
       ...viewers.viewers,
-      [requesterKey]: { key: requesterKey, name, addedAt: Date.now(), color },
+      [requesterKey]: { key: requesterKey, name, addedAt: addedAt ?? Date.now(), color },
     },
   };
   try {

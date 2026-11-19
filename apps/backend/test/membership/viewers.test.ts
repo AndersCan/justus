@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Drive } from "../../src/ports/drive-store.ts";
 import type { RegistryFile, ViewersFile } from "../../src/membership/records.ts";
-import { makeMemberViewer, makeViewerMember, removeViewer } from "../../src/membership/viewers.ts";
+import {
+  makeMemberViewer,
+  makeViewerMember,
+  removeViewer,
+  seatViewer,
+} from "../../src/membership/viewers.ts";
 
 const KEY = "a".repeat(64);
 
@@ -184,5 +189,28 @@ describe("removeViewer", () => {
     const { drive } = fakeDrive("/viewers.json");
     const [err] = await removeViewer(drive, { viewers: keptViewers(), viewerKey: KEY });
     expect(err?.kind).toBe("write-failed");
+  });
+});
+
+describe("seatViewer addedAt", () => {
+  const ask = (addedAt?: number) =>
+    seatViewer(fakeDrive().drive, {
+      viewers: empty,
+      registry: { version: 1, members: {} },
+      requesterKey: KEY,
+      requests: [],
+      color: 1,
+      addedAt,
+    });
+
+  it("keeps the addedAt it is given", async () => {
+    const [, seated] = await ask(77);
+    expect(seated?.viewer.addedAt).toBe(77);
+  });
+
+  it("stamps the time now without one", async () => {
+    const before = Date.now();
+    const [, seated] = await ask();
+    expect(seated!.viewer.addedAt).toBeGreaterThanOrEqual(before);
   });
 });
