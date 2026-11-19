@@ -1,13 +1,14 @@
 /**
  * Three real bare instances: Ben's phone is off while Ada lets Cy into the album, and when it
  * is back Ben's album page says Cy joined, in place of his own "You're now in" line, until he
- * taps Dismiss. Kept in its own file, after viewer-holders: join-flow's first-run test needs the
+ * taps Dismiss, and has Cy's photos. Kept in its own file, after viewer-holders: join-flow's first-run test needs the
  * third phone untouched.
  *
- *   pnpm test:e2e-p2p -g "Ben reads that Cy joined"
+ *   pnpm test:e2e-p2p -g "Ben gets Cy's photos"
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
+import { pngOf, runColour } from "../add-photos.js";
 import {
   askToJoin,
   copyInviteLink,
@@ -33,11 +34,11 @@ async function letIn(a, joiner, button) {
   await expect(joiner).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 }
 
-test("Ben reads that Cy joined Summer in place of his own line, after his phone was off", async ({
+test("Ben gets Cy's photos and reads that Cy joined Summer in place of his own line, after his phone was off", async ({
   instancePages,
   instances,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(330_000);
   const [a, b, c] = instancePages;
   await skipIntro([a, b, c]);
   await setName(a, "Ada");
@@ -57,7 +58,40 @@ test("Ben reads that Cy joined Summer in place of his own line, after his phone 
       timeout: 90_000,
     });
     await letIn(a, c, "Accept, can add photos");
+    const files = [0, 1].map((i) => `cy-beach-${i + 1}.png`);
+    await c.setInputFiles(
+      "input[type=file]",
+      files.map((name, i) => ({
+        name,
+        mimeType: "image/png",
+        buffer: pngOf(...runColour(84 + i)),
+      })),
+    );
+    for (const name of files) {
+      const tile = (page) => page.getByRole("button", { name: `View ${name}` }).locator("img");
+      // 20 s: two adds and their listing on Cy's phone.
+      await expect(tile(c)).toBeAttached({ timeout: 20_000 });
+      // 60 s: the photos travel from Cy's phone to Ada's.
+      await expect(tile(a)).toBeAttached({ timeout: 60_000 });
+    }
+    const waits = a.locator('[data-copy-id^="gallery.photos_wait"]');
+    // 60 s: Ada's phone lists Cy's photos as waiting; without this the later count of 0 proves nothing.
+    // The count only: Ada may still show Ben's phone under a device name while he is off.
+    await expect(
+      a.locator('[data-copy-id="gallery.photos_wait_for_one"]'),
+      "Ada's line while Ben is paused",
+    ).toHaveText(/^2 photos wait for .+'s phone$/, {
+      timeout: 60_000,
+    });
     resumeBen();
+    for (const name of files) {
+      // 90 s: Ben's phone hears of Cy from Ada's lists, then opens Cy's photos.
+      await expect(b.getByRole("button", { name: `View ${name}` }).locator("img")).toBeAttached({
+        timeout: 90_000,
+      });
+    }
+    // 60 s: Ada's line goes once Ben holds the photos.
+    await expect(waits).toHaveCount(0, { timeout: 60_000 });
     const line = b
       .getByRole("status")
       .filter({ hasText: words("notices.joined_this_album", { name: "Cy" }) });
