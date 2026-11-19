@@ -3821,6 +3821,13 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "photo_holders.no_server_keeps_a_copy": {
+    "text": "No server in the middle keeps a copy.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › under the list",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "photo_holders.copies_outside_justus_not_listed": {
     "text": "Copies someone saved or sent outside Justus aren't on this list.",
     "status": "draft",
