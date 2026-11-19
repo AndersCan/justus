@@ -109,18 +109,6 @@ function peopleIn(
   return buildPeople(status, [], friendsActor.snapshot().context.friends, clock).people;
 }
 
-function albumPeople(folderId: string | undefined) {
-  return peopleIn(
-    syncActor.snapshot().context.status,
-    folderId,
-    presenceClockActor.snapshot().context,
-  );
-}
-
-function albumOthers(folderId: string | undefined) {
-  return albumPeople(folderId).filter((p) => !p.you);
-}
-
 // Only one delete is in flight; an earlier listener that never heard back (the photo was already gone) must not toast again.
 let stopListening = () => {};
 
@@ -136,14 +124,16 @@ export async function deleteFromLightbox(photo: Photo) {
     tone: "danger",
   });
   if (!ok) return;
-  const others = albumOthers(photo.folderId);
+  const now = Date.now(); // who was off when the person confirmed
   // The view stays open until the album answers: success drops the photo and closes it.
   stopListening();
   const off = galleryActor.on("output", {
     fn: (e) => {
       if (photoDeleted.is(e) && samePhoto(e.payload, photo)) {
         off();
-        toast(deletedMessage(photo.name, photo.holders, others));
+        toast(
+          deletedMessage(photo.name, photo.holders, friendsActor.snapshot().context.friends, now),
+        );
       } else if (photoNotDeleted.is(e) && samePhoto(e.payload, photo)) {
         off();
         toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));
@@ -300,7 +290,7 @@ export function lightboxView() {
     return watch(syncActor, (sync) =>
       watch(presenceClockActor, (pc) => {
         const people = peopleIn(sync.context.status, photo.folderId, pc.context);
-        return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone", pc.context.now)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+        return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone", pc.context.now)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, { yourName: sync.context.status?.name ?? "", friends: friendsActor.snapshot().context.friends }) : null}`;
       }),
     );
   });

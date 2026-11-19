@@ -5,7 +5,6 @@ import type { Photo, PhotoHolders } from "@justus/core";
 import { copy } from "../copy/copy";
 import { holdersRow, holdersSheet } from "./photo-holders";
 import { memberColor } from "../utils/palette";
-import type { Person } from "../utils/people";
 
 const m = (name: string) => ({ key: name, name, connected: true });
 const w = (name: string, connected = true) => ({ key: name, name, connected });
@@ -34,6 +33,7 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   left: [],
   ...p,
 });
+const nobody = { yourName: "", friends: {} };
 const draw = (t: unknown) => {
   const el = document.createElement("div");
   render(t as never, el);
@@ -63,7 +63,7 @@ describe("holdersRow", () => {
 
 describe("holdersSheet", () => {
   it("lists You first and leaves out empty sections", () => {
-    const el = draw(holdersSheet(photo(h({ others: [m("Nils")] })), []));
+    const el = draw(holdersSheet(photo(h({ others: [m("Nils")] })), nobody));
     const names = [...el.querySelectorAll("li .text-fg")].map((n) => n.textContent);
     expect(names).toEqual(["You", "Nils"]);
     expect(el.textContent).not.toContain("Hasn't said yet");
@@ -73,7 +73,7 @@ describe("holdersSheet", () => {
   });
   it("shows the unsure and former sections when they have rows", () => {
     const el = draw(
-      holdersSheet(photo(h({ here: false, unsure: [m("Jo")], former: ["Ola"] })), []),
+      holdersSheet(photo(h({ here: false, unsure: [m("Jo")], former: ["Ola"] })), nobody),
     );
     expect(el.textContent).toContain("Hasn't said yet");
     expect(el.textContent).toContain("No longer in this album");
@@ -84,7 +84,7 @@ describe("holdersSheet", () => {
 
 describe("holdersSheet dismiss", () => {
   it("Escape and a tap outside press Close", () => {
-    const el = draw(holdersSheet(photo(h({})), []));
+    const el = draw(holdersSheet(photo(h({})), nobody));
     document.body.append(el);
     const close = el.querySelector<HTMLButtonElement>("button[data-dismiss]")!;
     const pressed = vi.fn();
@@ -101,7 +101,7 @@ describe("holdersSheet dismiss", () => {
 
 describe("holdersSheet leavers", () => {
   it("says a leaver's phone deleted its copy", () => {
-    const text = draw(holdersSheet(photo(h({ left: ["Cleo"] })), [])).textContent ?? "";
+    const text = draw(holdersSheet(photo(h({ left: ["Cleo"] })), nobody)).textContent ?? "";
     expect(text).toContain("No longer in this album");
     expect(text).toContain("Cleo");
     expect(text).toContain("Their phone deleted its copy.");
@@ -110,7 +110,7 @@ describe("holdersSheet leavers", () => {
   });
   it("lists removed people before leavers, each with its own text", () => {
     const text =
-      draw(holdersSheet(photo(h({ former: ["Maya"], left: ["Cleo"] })), [])).textContent ?? "";
+      draw(holdersSheet(photo(h({ former: ["Maya"], left: ["Cleo"] })), nobody)).textContent ?? "";
     expect(text.indexOf("Maya")).toBeLessThan(text.indexOf("Cleo"));
     expect(text).toContain("Has the full photo from before they were removed.");
     expect(text).toContain("Their phone deleted its copy.");
@@ -120,7 +120,7 @@ describe("holdersSheet leavers", () => {
 
 describe("holdersSheet waiting", () => {
   it("names the phones a waiting friend gets the photo from, above Hasn't said yet", () => {
-    const el = draw(holdersSheet(photo(h({ waiting: [w("Maya")], unsure: [m("Jo")] })), []));
+    const el = draw(holdersSheet(photo(h({ waiting: [w("Maya")], unsure: [m("Jo")] })), nobody));
     const text = el.textContent ?? "";
     expect(text).toContain("Maya");
     expect(text).toContain("Doesn't have the full photo");
@@ -128,7 +128,7 @@ describe("holdersSheet waiting", () => {
     expect(text.indexOf("Can still get it from you")).toBeLessThan(text.indexOf("Hasn't said yet"));
   });
   it("on a waiting phone, lists the holders and moves You under the heading", () => {
-    const el = draw(holdersSheet(photo(h({ here: false, others: [m("Ada"), m("Ben")] })), []));
+    const el = draw(holdersSheet(photo(h({ here: false, others: [m("Ada"), m("Ben")] })), nobody));
     const headings = [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
     expect(headings).toEqual(["Has the full photo", "Doesn't have the full photo"]);
     const note = el.querySelector("p.text-xs");
@@ -144,14 +144,14 @@ describe("holdersSheet waiting", () => {
   });
   it("puts you last in the list of sources", () => {
     const el = draw(
-      holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [w("Cy")] })), []),
+      holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [w("Cy")] })), nobody),
     );
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
       "Can still get it from Ben and you",
     );
   });
   it("claims no source when nobody holds a copy", () => {
-    const el = draw(holdersSheet(photo(h({ here: false, others: [] })), []));
+    const el = draw(holdersSheet(photo(h({ here: false, others: [] })), nobody));
     expect(el.querySelector("h4")?.textContent?.trim()).toBe("Doesn't have the full photo");
     expect(el.querySelector("p.text-xs")).toBeNull();
   });
@@ -164,16 +164,22 @@ describe("holdersRow live region", () => {
   });
 });
 
-const person = (key: string, name: string, color: number, you = false) =>
-  ({ key, name, color, you }) as Person;
-const people = [person("k0", "Ben", 0, true), person("k1", "Mum", 1), person("k2", "Cy", 2)];
+const ben = { yourName: "Ben", friends: { "id-1": "Mum" } };
 const fillOf = (li: Element) => li.querySelector("span[style]")?.getAttribute("style");
 const initialsOfRow = (li: Element) => li.querySelector("span[aria-hidden]")?.textContent;
+const ours = (p: Partial<PhotoHolders>) => h({ yourColor: 0, ...p });
 
 describe("holdersSheet colours", () => {
-  it("shows a keyed row with its Members name, initials and colour", () => {
+  it("shows a keyed row with the saved friend name, initials and its own colour", () => {
     const el = draw(
-      holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada", connected: true }] })), people),
+      holdersSheet(
+        photo(
+          ours({
+            others: [{ key: "k1", name: "Ada", identity: "id-1", color: 1, connected: true }],
+          }),
+        ),
+        ben,
+      ),
     );
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Mum");
@@ -181,25 +187,32 @@ describe("holdersSheet colours", () => {
     expect(fillOf(row)).toBe(`background:${memberColor(1)}`);
   });
   it("shows your own row as You with your initials and colour, here or arriving", () => {
-    const here = draw(holdersSheet(photo(h({})), people)).querySelector("li")!;
+    const here = draw(holdersSheet(photo(ours({})), ben)).querySelector("li")!;
     expect(here.querySelector(".text-fg")?.textContent).toBe("You");
     expect(initialsOfRow(here)).toBe("BE");
     expect(fillOf(here)).toBe(`background:${memberColor(0)}`);
     const arriving = draw(
       holdersSheet(
-        photo(h({ here: false, waiting: [{ key: "k2", name: "Cy", connected: true }] })),
-        people,
+        photo(
+          ours({
+            here: false,
+            waiting: [{ key: "k2", name: "Cy", color: 2, connected: true }],
+          }),
+        ),
+        ben,
       ),
     ).querySelectorAll("li");
     expect(initialsOfRow(arriving[0])).toBe("BE");
     expect(fillOf(arriving[0])).toBe(`background:${memberColor(0)}`);
     expect(fillOf(arriving[1])).toBe(`background:${memberColor(2)}`);
   });
-  it("shows a key that is not on Members, and former people, outlined", () => {
+  it("shows an entry without a colour, and former people, outlined", () => {
     const el = draw(
       holdersSheet(
-        photo(h({ unsure: [{ key: "k9", name: "Old phone", connected: true }], former: ["Ola"] })),
-        people,
+        photo(
+          ours({ unsure: [{ key: "k9", name: "Old phone", connected: true }], former: ["Ola"] }),
+        ),
+        ben,
       ),
     );
     const rows = [...el.querySelectorAll("li")];
@@ -207,30 +220,33 @@ describe("holdersSheet colours", () => {
     expect(fillOf(rows[2])).toBeUndefined();
     expect(rows[2].querySelector("span[aria-hidden]")?.className).toContain("ui-avatar-outline");
   });
-  it("shows a hasn't-said-yet keyed row with its Members name and colour", () => {
+  it("shows a hasn't-said-yet row with its colour", () => {
     const el = draw(
-      holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old", connected: true }] })), people),
+      holdersSheet(
+        photo(ours({ unsure: [{ key: "k2", name: "Cy", color: 2, connected: true }] })),
+        ben,
+      ),
     );
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Cy");
     expect(fillOf(row)).toBe(`background:${memberColor(2)}`);
   });
   it("shows a left name outlined", () => {
-    const el = draw(holdersSheet(photo(h({ left: ["Cleo"] })), people));
+    const el = draw(holdersSheet(photo(ours({ left: ["Cleo"] })), ben));
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Cleo");
     expect(fillOf(row)).toBeUndefined();
   });
-  it("names Members' name in the Can still get it from heading", () => {
+  it("names the friend name in the Can still get it from heading", () => {
     const el = draw(
       holdersSheet(
         photo(
-          h({
-            others: [{ key: "k1", name: "Ada", connected: true }],
+          ours({
+            others: [{ key: "k1", name: "Ada", identity: "id-1", connected: true }],
             waiting: [{ key: "k2", name: "Cy", connected: true }],
           }),
         ),
-        people,
+        ben,
       ),
     );
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
@@ -238,15 +254,15 @@ describe("holdersSheet colours", () => {
     );
   });
   it("has no subtitle and heads the first list", () => {
-    const el = draw(holdersSheet(photo(h({ others: [m("Nils")], former: ["Ola"] })), people));
+    const el = draw(holdersSheet(photo(h({ others: [m("Nils")], former: ["Ola"] })), ben));
     expect(el.textContent).not.toContain("as of when they last connected");
     expect(el.querySelector("h4")?.textContent?.trim()).toBe("Has the full photo");
   });
 });
 
-describe("holdersSheet without Members", () => {
-  it("shows your own row as You outlined when you are not in people", () => {
-    const row = draw(holdersSheet(photo(h({})), [])).querySelector("li")!;
+describe("holdersSheet without a colour for you", () => {
+  it("shows your own row as You outlined when the album gave you none", () => {
+    const row = draw(holdersSheet(photo(h({})), nobody)).querySelector("li")!;
     expect(row.querySelector(".text-fg")?.textContent).toBe("You");
     expect(fillOf(row)).toBeUndefined();
   });
@@ -256,14 +272,14 @@ describe("holdersSheet previews", () => {
   const headings = (el: HTMLElement) =>
     [...el.querySelectorAll("h4")].map((x) => x.firstElementChild?.getAttribute("data-copy-id"));
   it("lists a preview-only phone under its own heading, with no 'Can still get it' line", () => {
-    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), []));
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), nobody));
     expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview"]);
     expect(el.textContent).toContain("Ben");
     expect(el.textContent).not.toContain("Can still get it from");
     expect(el.textContent).not.toContain("Doesn't have the full photo");
   });
   it("keeps 'Can still get it from' under 'Doesn't have' and Ben under 'Seen, not opened'", () => {
-    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [w("Cy")] })), []));
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [w("Cy")] })), nobody));
     expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview", "full_photo.lacks"]);
     const lists = el.querySelectorAll("ul");
     expect(lists[1].textContent).toContain("Ben");
@@ -274,7 +290,7 @@ describe("holdersSheet previews", () => {
     ).toBe("Can still get it from you");
   });
   it("says what a preview is under its list", () => {
-    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), []));
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), nobody));
     const note = el.querySelectorAll('[data-copy-id="photo_holders.preview_is_a_small_copy"]');
     expect(note.length).toBe(1);
     expect(note[0].textContent?.trim()).toBe(copy("photo_holders.preview_is_a_small_copy"));
@@ -294,7 +310,7 @@ describe("holdersSheet quiet phones", () => {
     [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
 
   it("lists a quiet phone under its own heading with the day and one note", () => {
-    const el = draw(holdersSheet(photo(h({ quiet: [q("Ben", friday)] })), [], now));
+    const el = draw(holdersSheet(photo(h({ quiet: [q("Ben", friday)] })), nobody, now));
     expect(headings(el)).toEqual(["Has the full photo", "Last had the full photo"]);
     const lists = el.querySelectorAll("ul");
     expect(lists).toHaveLength(2);
@@ -308,7 +324,7 @@ describe("holdersSheet quiet phones", () => {
     const el = draw(
       holdersSheet(
         photo(h({ here: false, others: [m("Ada")], quiet: [q("Ben", friday)] })),
-        [],
+        nobody,
         now,
       ),
     );
@@ -320,26 +336,28 @@ describe("holdersSheet quiet phones", () => {
     expect(el.textContent).toContain("Can still get it from Ada");
     expect(el.textContent).not.toContain("Can still get it from Ada and Ben");
   });
-  it("names several quiet phones in the one note, with Members names", () => {
-    const people: Person[] = [
-      { key: "Ben", name: "Benny", color: memberColor(0), you: false } as unknown as Person,
-    ];
+  it("names several quiet phones in the one note, with friend names", () => {
+    const friends = { "id-ben": "Benny" };
     const el = draw(
-      holdersSheet(photo(h({ quiet: [q("Ben", friday), q("Cy", friday)] })), people, now),
+      holdersSheet(
+        photo(h({ quiet: [{ ...q("Ben", friday), identity: "id-ben" }, q("Cy", friday)] })),
+        { yourName: "", friends },
+        now,
+      ),
     );
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
       "A phone that is off or wiped can't say. Benny and Cy may still have it.",
     );
   });
   it("leaves the section out when nobody is quiet", () => {
-    const el = draw(holdersSheet(photo(h({})), [], now));
+    const el = draw(holdersSheet(photo(h({})), nobody, now));
     expect(el.textContent).not.toContain("Last had the full photo");
   });
 });
 
 describe("holdersSheet outside Justus", () => {
   it("says copies outside Justus aren't listed", () => {
-    const el = draw(holdersSheet(photo(h({ others: [m("Ben")] })), []));
+    const el = draw(holdersSheet(photo(h({ others: [m("Ben")] })), nobody));
     const line = el.querySelectorAll(
       '[data-copy-id="photo_holders.copies_outside_justus_not_listed"]',
     );

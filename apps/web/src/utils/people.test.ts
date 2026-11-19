@@ -7,6 +7,7 @@ import {
   clashFriend,
   presenceWords,
   nameList,
+  shownName,
   requestRowOf,
   requestsHint,
 } from "./people";
@@ -493,5 +494,15 @@ describe("same name", () => {
   it("the own row never matches", () => {
     const vm = buildPeople(status("creator"), [ask({ requesterName: "Nils" })], {}, { now: NOW });
     expect(vm.requests[0]!.sameNameIn).toBeUndefined();
+  });
+});
+
+describe("shownName", () => {
+  const friends = { "id-b": "Benny" };
+  it("gives the saved friend name, else their own, else Unknown device", () => {
+    expect(shownName({ name: "Ben", identity: "id-b" }, friends)).toBe("Benny");
+    expect(shownName({ name: "Ben", identity: "id-x" }, friends)).toBe("Ben");
+    expect(shownName({ name: "Ben" }, friends)).toBe("Ben");
+    expect(shownName({ name: "" }, friends)).toBe(copy("people.unknown_device"));
   });
 });
