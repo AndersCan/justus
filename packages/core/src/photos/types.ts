@@ -124,6 +124,9 @@ export type FolderNotice = {
   fromName?: string;
 };
 
+/** Who handed an album to whom, as this phone last followed it. "" = a name this phone does not know. */
+export type AdminChange = { fromName: string; toName: string };
+
 export type FolderSummary = {
   /** Local id of the folder on this device (stable across sessions). */
   id: string;
@@ -151,6 +154,8 @@ export type FolderSummary = {
   whoLeft?: string[];
   /** Names of people let in after this phone, oldest first, until dismissed. Unset when none. */
   whoJoined?: string[];
+  /** Not the Admin: the album's Admin changed while this phone was in it. Kept in memory only, so it is gone when the app restarts or `dismissWhoJoined` is called. Unset otherwise. */
+  adminChanged?: AdminChange;
   /** Admin only: the album is being handed to this person and is still the Admin's until their phone has it. `final` is true once the new Admin is written down: Stay Admin no longer works. */
   handingOver?: { key: string; name: string; final: boolean };
   /** Admin only: identity keys of friends whose invite is waiting for them to open Justus, oldest first. */

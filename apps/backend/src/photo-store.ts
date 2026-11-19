@@ -217,6 +217,7 @@ import type {
   AskSummary,
   OfferSummary,
   ChangedRole,
+  AdminChange,
   FolderNotice,
   DeletedAlbum,
   FolderSummary,
@@ -589,6 +590,8 @@ export interface PhotoStore {
   deleteAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Member or Viewer: takes the album off this phone. A Member's own drive keeps telling the Admin until the Admin's list drops it. */
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Clears the line naming who handed the album to whom. */
+  dismissAdminChanged(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the line naming who left an album (Admin). */
   dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   dismissWhoJoined(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
@@ -688,6 +691,8 @@ type FolderRuntime = {
   /** The folder's share drive (creator drive): holds members.json, removed.json,
    * folder.json + the creator's own photos. */
   folderDrive: Drive;
+  /** Who handed the album to whom when this phone followed a handover since the app started. Never saved. */
+  adminChanged?: AdminChange;
   /** The drive THIS device writes photos to inside this folder. For a creator
    * folder this is `folderDrive` itself; for a joined folder it is a drive of
    * its own, made for this album alone (#195), which only takes photos once
@@ -5740,7 +5745,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Another phone is the Admin now: its drive holds the lists this phone reads. */
   async function followHop(
     rt: FolderRuntime,
-    hop: { drive: Drive; next: { key: string; identity: string } },
+    hop: { drive: Drive; next: { key: string; identity: string; name: string } },
   ): Promise<void> {
     const key = hop.drive.key;
     // The drive stays open as the album's drive, so it is not released with the member drives.
@@ -5756,6 +5761,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.memberNameCache.set(left.key, left.name);
     }
     rt.folderDrive = hop.drive;
+    rt.adminChanged = { fromName: left?.name ?? "", toName: hop.next.name };
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
       ...(rt.record.invite ? { invite: { ...rt.record.invite, owner: hop.next.identity } } : {}),
@@ -7490,6 +7496,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async dismissAdminChanged(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
+      delete rt.adminChanged;
+      return ok({ ok: true });
+    },
+
     async dismissAlbumNotice(folderId) {
       await readyPromise;
       const found = state.gone.find(
@@ -7688,6 +7702,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     restoreAlbum: refuse,
     deleteAlbum: refuse,
     leaveAlbum: refuse,
+    dismissAdminChanged: refuse,
     dismissWhoLeft: refuse,
     dismissWhoJoined: refuse,
     dismissAlbumNotice: refuse,

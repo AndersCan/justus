@@ -4,7 +4,7 @@
  * saved records, swarm topics, invites and notifications.
  */
 import type { Drive, DriveStore } from "../ports/drive-store";
-import type { FolderNotice, FolderSummary, InvitedFriend, Role } from "@justus/core";
+import type { AdminChange, FolderNotice, FolderSummary, InvitedFriend, Role } from "@justus/core";
 import {
   parseFolderName,
   parseRegistry,
@@ -82,6 +82,8 @@ export type AlbumSummarySource = {
     handover?: { to: { name: string; key: string }; written?: boolean };
   };
   selfDrive: { key: string };
+  /** Who handed the album to whom since this app started. */
+  adminChanged?: AdminChange;
   memberDrives: ReadonlyMap<string, unknown>;
   /** People the Admin accepted as Viewers, by key. */
   viewers: Readonly<Record<string, unknown>>;
@@ -129,6 +131,9 @@ export function albumSummary(
     ...(role === "creator" && record.whoLeft?.length ? { whoLeft: record.whoLeft } : {}),
     ...(role !== "creator" && !record.notice && record.whoJoined?.length
       ? { whoJoined: record.whoJoined.map((j) => j.name) }
+      : {}),
+    ...(role !== "creator" && !record.notice && album.adminChanged
+      ? { adminChanged: album.adminChanged }
       : {}),
     ...(waitingFor.length > 0 ? { waitingFor } : {}),
     ...(role === "creator" && record.handover
