@@ -230,8 +230,8 @@ catalogs:
       specifier: ^0.0.6
       version: 0.0.6
     '@mantaq/viz':
-      specifier: ^0.41.0
-      version: 0.41.0
+      specifier: ^0.41.2
+      version: 0.41.2
     '@playwright/test':
       specifier: ^1.62.1
       version: 1.62.1
@@ -437,7 +437,7 @@ importers:
         version: 0.48.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(playwright@1.62.1)(vitest@4.1.10)
       '@mantaq/viz':
         specifier: 'catalog:'
-        version: 0.41.0
+        version: 0.41.2
       happy-dom:
         specifier: 'catalog:'
         version: 21.0.4
@@ -1160,6 +1160,9 @@ packages:
 
   '@mantaq/viz@0.41.0':
     resolution: {integrity: sha512-C31MtoY/fFJD1usk6pmx796n2sCPIjMwA/cNn0Mf/sp6l4IKAxHWLsTFCr7PjCUoYfk7XKTb7Z74lrC5LF02Mw==}
+
+  '@mantaq/viz@0.41.2':
+    resolution: {integrity: sha512-ekVyA0x8AqvivOdG+xWicZUqr19b7ywq49zL6UtWO1aqrmovZ73gAO/4qXkHjOOIFwsGnXTqBL4CZT2xfFm74w==}
 
   '@napi-rs/wasm-runtime@1.2.6':
     resolution: {integrity: sha512-mRyDmEw9/fCDXCGfL1sbgIw/GUK0PVxRW4YwgPN61F3LQ+fSyoBFarJVzgGyhF6kRzEQZ0FejDqm4WLXSeqQmw==}
@@ -4950,6 +4953,11 @@ snapshots:
   '@mantaq/utils@0.0.6': {}
 
   '@mantaq/viz@0.41.0':
+    dependencies:
+      '@dagrejs/dagre': 3.1.3
+      '@mantaq/utils': 0.0.6
+
+  '@mantaq/viz@0.41.2':
     dependencies:
       '@dagrejs/dagre': 3.1.3
       '@mantaq/utils': 0.0.6
