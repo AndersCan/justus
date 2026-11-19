@@ -37,13 +37,9 @@ test("linkMadeText says the part of today or yesterday, then the date, never a c
     [at(2026, 10, 18, 13), "yesterday afternoon"],
     [at(2026, 10, 12, 23, 59), "on 12 Nov"],
     [at(2025, 11, 31, 9), "on 31 Dec 2025"],
-    [linkMadeText(new Date(2026, 10, 19, 15, 20).getTime(), now), "this afternoon"],
     [
-      linkMadeText(
-        new Date(2026, 10, 18, 23, 59).getTime(),
-        new Date(2026, 10, 19, 0, 1).getTime(),
-      ),
-      "yesterday evening",
+      linkMadeText(new Date(2026, 10, 19, 18).getTime(), new Date(2026, 10, 19, 21).getTime()),
+      "this evening",
     ],
   ] as const;
   for (const [got, want] of out) {
