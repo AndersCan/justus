@@ -5,12 +5,14 @@ import type { PhotoScope } from "./photo-scope";
 export type TileAdder = { color: number | undefined; name: string };
 
 /** The members an album grid's dots read: the open album's. None on Photos > All and
- * Added by me (a colour is chosen per album) and before this album's status arrives. */
+ * Added by me (a colour is chosen per album) before this album's status arrives, and on a phone removed from it. */
 export function dotMembers(
   scope: PhotoScope,
   status: SyncStatus | null,
 ): readonly SyncMember[] | undefined {
-  return scope.kind === "album" && status?.folder.id === scope.id ? status.members : undefined;
+  if (scope.kind !== "album" || status?.folder.id !== scope.id) return undefined;
+  // A removed phone hides Members and the people strip, so no colour could be explained.
+  return status.folder.notice?.kind === "removed" ? undefined : status.members;
 }
 
 /** A dot tells people apart only when two or more people added photos here. */

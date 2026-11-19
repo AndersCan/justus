@@ -33,3 +33,13 @@ describe("dotMembers", () => {
     expect(dotMembers({ kind: "album", id: "f1" }, null)).toBeUndefined();
   });
 });
+
+describe("dotMembers on a removed phone", () => {
+  it("gives no members: Members and the people strip are hidden there", () => {
+    const removed = {
+      folder: { id: "f1", notice: { kind: "removed" } },
+      members: [{ key: "ka", color: 0 }],
+    } as unknown as SyncStatus;
+    expect(dotMembers({ kind: "album", id: "f1" }, removed)).toBeUndefined();
+  });
+});

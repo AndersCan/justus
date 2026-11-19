@@ -1361,6 +1361,28 @@ describe("the removed phone sees the album turn read-only", () => {
     await s.close();
   }, 40_000);
 
+  it("review923: a removed phone still has the album status with two adders and Anna's colour", async () => {
+    const s = await album();
+    const benId = (await albumOf(s.ben)).id;
+    expect((await s.ben.store.addBytes("ben.jpg", new Uint8Array([1, 2, 3]), benId))[0]).toBeNull();
+    expect((await s.admin.store.addBytes("anna.jpg", new Uint8Array([4, 5, 6])))[0]).toBeNull();
+    await until(async () => (await s.ben.store.list({ all: true })).length === 2);
+    const annas = (await s.ben.store.list({ all: true })).find((p) => p.name === "anna.jpg")!;
+    await s.ben.server.getForTest(new URL(annas.url).pathname);
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
+    const status = await s.ben.store.status();
+    const photos = await s.ben.store.list({ all: true });
+    const adders = [...new Set(photos.map((p) => p.member.key))];
+    expect(status.folder.id).toBe(benId);
+    expect(adders).toHaveLength(2);
+    // Anna's photo has her Members colour, so the web draws a dot on every tile.
+    expect(
+      status.members.find((m: { name: string; color?: number }) => m.name === "Anna")?.color,
+    ).toBe(0);
+    await s.close();
+  }, 40_000);
+
   it("a removed Viewer gets the notice", async () => {
     const s = await album();
     expect((await s.admin.store.removeMember(s.folderId, s.keys.vera))[0]).toBeNull();
