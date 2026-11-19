@@ -1626,6 +1626,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             );
         }
         if (rt) void dropIn(rt);
+        if (rt) void clearCopiedEarlier(rt);
         if (rt && drive !== rt.selfDrive) {
           void refreshHeld(rt, drive.key, drive).catch((e) =>
             log("error", { where: "refreshHeld", err: errText(e) }),
@@ -1648,6 +1649,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function armFolderWatchers(rt: FolderRuntime) {
     void dropIn(rt);
+    void clearCopiedEarlier(rt);
     void startHolding(rt).catch((e) => log("error", { where: "startHolding", err: errText(e) }));
     for (const remove of rt.watcherRemoves) {
       try {
@@ -2035,6 +2037,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
   }
 
+  const clearingEarlier = new Set<string>();
+
+  /** Deletes this phone's copy of an earlier Collaborator drive's photo bytes once his new drive holds the same files. One pass at a time per album. */
+  async function clearCopiedEarlier(rt: FolderRuntime): Promise<void> {
+    const id = rt.record.id;
+    if ((rt.record.earlier ?? []).length === 0 || rt.record.notice?.kind === "removed") return;
+    if (clearingEarlier.has(id)) return;
+    clearingEarlier.add(id);
+    try {
+      const registry = await readRegistryIn(rt.folderDrive);
+      for (const e of rt.record.earlier ?? []) {
+        if (e.keptVersion !== undefined || rt.record.formerSelf?.includes(e.key)) continue;
+        const next = successorOf(rt, registry.members, e);
+        const oldDrive = rt.memberDrives.get(e.key);
+        const newDrive = next && rt.memberDrives.get(next.key);
+        if (!oldDrive || !newDrive || rt.keptAt.has(e.key)) continue;
+        await clearOldDrive(oldDrive, { folderId: id, why: "copied", copiedTo: newDrive });
+      }
+    } catch (e) {
+      log("error", { where: "clearCopiedEarlier", folder: short(id), err: errText(e) });
+    } finally {
+      clearingEarlier.delete(id);
+    }
+  }
+
   const droppingEarlier = new Set<string>();
 
   /** Admin: a Collaborator whose new drive is enrolled and lists at least as
@@ -2145,6 +2172,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** A Collaborator's phone just enrolled in the moved album: its own old drives lose the photo bytes its current drive holds too. */
+  async function clearFormerSelf(rt: FolderRuntime): Promise<void> {
+    for (const key of rt.record.formerSelf ?? []) {
+      if (key === selfKeyOf(rt)) continue;
+      const [openErr, old] = await deps.drives.open(key, { timeoutMs: 2_000 });
+      if (openErr || !old) {
+        log("error", { where: "move.clear", folder: short(rt.record.id), drive: short(key) });
+        continue;
+      }
+      try {
+        await clearOldDrive(old, { folderId: rt.record.id, why: "own", copiedTo: rt.selfDrive });
+      } finally {
+        await deps.drives.release(old).catch(() => {});
+      }
+    }
+  }
+
   /** Re-derive a pending `reader` folder's role when the creator has since
    * approved the join: if this device is now listed in the folder's registry,
    * flip `reader` → `member` in-session and announce the upgrade (issue #52).
@@ -2172,6 +2216,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.record.pending = false;
     rt.record.driveKey = selfKey;
     await refreshMembersFor(rt);
+    void clearFormerSelf(rt).catch((e) =>
+      log("error", { where: "move.clear", folder: short(rt.record.id), err: errText(e) }),
+    );
     await pruneJoinRequests();
     if (wasViewer) roleChangePush(rt, "reader", "member", adminName);
     else deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
@@ -2487,7 +2534,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Deletes this device's copy of an old drive's photo bytes (everything, or what `copiedTo` holds too). Logged, never thrown. */
   async function clearOldDrive(
     drive: Drive,
-    options: { folderId: string; why: "moved" | "followed" | "start"; copiedTo?: Drive },
+    options: {
+      folderId: string;
+      why: "moved" | "followed" | "start" | "own" | "copied";
+      copiedTo?: Drive;
+    },
   ): Promise<void> {
     const { folderId } = options;
     const [err, cleared] = await clearMovedPhotos(drive, { copiedTo: options.copiedTo });
@@ -2957,6 +3008,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     })().catch((e) => log("error", { where: "deletedSince", err: errText(e) }));
   }
 
+  /** The drive that replaced a Collaborator's earlier drive: this phone's own current drive for its own, else the same identity, or the same name while the new drive's identity is unknown. */
+  function successorOf(
+    rt: FolderRuntime,
+    members: Record<string, { key: string; name: string }>,
+    e: { key: string; name: string },
+  ): { key: string; name: string } | undefined {
+    const identity = presence.identities.get(e.key);
+    const mine = rt.record.formerSelf?.includes(e.key) === true;
+    return Object.values(members).find(
+      (m) =>
+        m.key !== e.key &&
+        (mine
+          ? m.key === selfKeyOf(rt)
+          : (identity !== undefined && presence.identities.get(m.key) === identity) ||
+            // The new drive's identity is learned a moment after it enrols: until then the name stands in.
+            (!presence.identities.has(m.key) && m.name === e.name)),
+    );
+  }
+
   /** After a move a Collaborator's old drive is read until their new one catches up. A photo the new drive already holds (same sha256) is listed once, from the new drive. */
   function withoutCopiedEarlier<P extends { driveKey: string; sha256?: string }>(
     rt: FolderRuntime,
@@ -2965,18 +3035,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ): P[] {
     const hidden = new Map<string, Set<string>>();
     for (const e of rt.record.earlier ?? []) {
-      const identity = presence.identities.get(e.key);
-      // This phone's own old drive: its current drive replaces it, whatever the name.
-      const mine = rt.record.formerSelf?.includes(e.key) === true;
-      const next = Object.values(members).find(
-        (m) =>
-          m.key !== e.key &&
-          (mine
-            ? m.key === selfKeyOf(rt)
-            : (identity !== undefined && presence.identities.get(m.key) === identity) ||
-              // The new drive's identity is learned a moment after it enrols: until then the name stands in.
-              (!presence.identities.has(m.key) && m.name === e.name)),
-      );
+      const next = successorOf(rt, members, e);
       if (!next) continue;
       const have = new Set<string>();
       for (const p of photos) if (p.driveKey === next.key && p.sha256) have.add(p.sha256);
@@ -6360,9 +6419,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     };
     runtimes.set(folderId, rt);
     if (catchUp) {
-      void copyOwnEntries(catchUp.from, selfDrive, catchUp.removedIds).catch((e) =>
-        log("error", { where: "move.caughtup", folder: short(folderId), err: errText(e) }),
-      );
+      const { from } = catchUp;
+      void copyOwnEntries(from, selfDrive, catchUp.removedIds)
+        .then(() => clearOldDrive(from, { folderId, why: "own", copiedTo: selfDrive }))
+        .catch((e) =>
+          log("error", { where: "move.caughtup", folder: short(folderId), err: errText(e) }),
+        );
     }
 
     if (!enrolled) {
