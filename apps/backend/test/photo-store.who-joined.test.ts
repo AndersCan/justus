@@ -110,6 +110,69 @@ describe("who joined after me", () => {
     for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
   });
 
+  it("a Remove names nobody: the people who stay keep the time they were let in", async () => {
+    const s = await trip();
+    await letIn(s.anna, s.folderId, s.code, s.nils, "member");
+    await letIn(s.anna, s.folderId, s.code, s.ben, "member");
+    await letIn(s.anna, s.folderId, s.code, s.vera, "member");
+    const nilsId = (await s.nils.store.folders()).folders[0]!.id;
+    await waitFor(s.nils, ["Ben", "Vera"]);
+    expect((await s.nils.store.dismissWhoJoined(nilsId))[0]).toBeNull();
+    const benKey = (await s.anna.store.status()).members.find(
+      (m: { name: string }) => m.name === "Ben",
+    )!.key;
+    setFakeNodeConnected({ hub: s.hub, node: s.vera.node, connected: false });
+    expect((await s.anna.store.removeMember(s.folderId, benKey))[0]).toBeNull();
+    const moved = (await s.anna.store.folders()).folders[0]!.shareKey;
+    const onMoved = async (p: Phone) => (await p.store.folders()).folders[0]?.shareKey === moved;
+    await until(() => onMoved(s.nils));
+    expect(await onMoved(s.nils)).toBe(true);
+    setFakeNodeConnected({ hub: s.hub, node: s.vera.node, connected: true });
+    await until(() => onMoved(s.vera));
+    expect(await onMoved(s.vera)).toBe(true);
+    await s.nils.store.close();
+    const nils = createPhotoStore(restarted(s.nils.deps));
+    await nils.ready();
+    await sleep(300);
+    expect((await nils.folders()).folders[0]?.whoJoined, "Vera was here before").toBeUndefined();
+    expect(await joined(s.vera)).toBeUndefined();
+    await nils.close();
+    for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
+  });
+
+  it("a Remove names nobody: a Viewer who stays keeps the time she was let in", async () => {
+    const s = await trip();
+    await letIn(s.anna, s.folderId, s.code, s.nils, "member");
+    await letIn(s.anna, s.folderId, s.code, s.ben, "member");
+    await letIn(s.anna, s.folderId, s.code, s.vera, "reader");
+    const nilsId = (await s.nils.store.folders()).folders[0]!.id;
+    await waitFor(s.nils, ["Ben", "Vera"]);
+    expect((await s.nils.store.dismissWhoJoined(nilsId))[0]).toBeNull();
+    const benKey = (await s.anna.store.status()).members.find(
+      (m: { name: string }) => m.name === "Ben",
+    )!.key;
+    setFakeNodeConnected({ hub: s.hub, node: s.vera.node, connected: false });
+    expect((await s.anna.store.removeMember(s.folderId, benKey))[0]).toBeNull();
+    const moved = (await s.anna.store.folders()).folders[0]!.shareKey;
+    const onMoved = async (p: Phone) => (await p.store.folders()).folders[0]?.shareKey === moved;
+    await until(() => onMoved(s.nils));
+    expect(await onMoved(s.nils)).toBe(true);
+    setFakeNodeConnected({ hub: s.hub, node: s.vera.node, connected: true });
+    await until(() => onMoved(s.vera));
+    expect(await onMoved(s.vera)).toBe(true);
+    const annaMoving = () =>
+      (savedRecord(s.anna, s.folderId) as { moving?: object }).moving === undefined;
+    await until(annaMoving);
+    expect(annaMoving(), "Vera is seated again").toBe(true);
+    await s.nils.store.close();
+    const nils = createPhotoStore(restarted(s.nils.deps));
+    await nils.ready();
+    await sleep(300);
+    expect((await nils.folders()).folders[0]?.whoJoined, "Vera was here before").toBeUndefined();
+    await nils.close();
+    for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
+  });
+
   it("an album saved without a usable joinedUpTo starts silently", async () => {
     const s = await trip();
     await letIn(s.anna, s.folderId, s.code, s.nils, "member");

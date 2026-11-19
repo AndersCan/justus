@@ -421,9 +421,11 @@ export async function acceptJoinRequest(
     requesterKey: string;
     requests: JoinRequest[];
     color: number;
+    /** Keeps the time they were first let in, when they are only moving. */
+    addedAt?: number;
   },
 ): Promise<JoinResult<{ registry: RegistryFile; member: RegistryFile["members"][string] }>> {
-  const { registry, requesterKey, requests, color } = options;
+  const { registry, requesterKey, requests, color, addedAt } = options;
   if (registry.members[requesterKey]) {
     return [{ kind: "already-enrolled", message: "Member already enrolled" }, null];
   }
@@ -432,7 +434,7 @@ export async function acceptJoinRequest(
     ...registry,
     members: {
       ...registry.members,
-      [requesterKey]: { key: requesterKey, name, addedAt: Date.now(), color },
+      [requesterKey]: { key: requesterKey, name, addedAt: addedAt ?? Date.now(), color },
     },
   };
   try {

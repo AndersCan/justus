@@ -686,6 +686,19 @@ describe("acceptJoinRequest", () => {
     }
   });
 
+  it("keeps the addedAt it is given", async () => {
+    const [admin] = devices(1);
+    const folder = await admin.ports.drives.openOwn("folder/a");
+    const [err, accepted] = await acceptJoinRequest(folder, {
+      registry,
+      requesterKey: KEY_A,
+      requests: [asked(KEY_A, "Bo")],
+      color: 2,
+      addedAt: 77,
+    });
+    expect({ err, addedAt: accepted?.member.addedAt }).toEqual({ err: null, addedAt: 77 });
+  });
+
   it("names a requester without a request New member", async () => {
     const [admin] = devices(1);
     const folder = await admin.ports.drives.openOwn("folder/a");
