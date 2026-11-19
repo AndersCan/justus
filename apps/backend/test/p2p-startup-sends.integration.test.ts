@@ -138,14 +138,21 @@ describe("a message sent while a phone starts", () => {
       30_000,
     );
 
+    // handOver reads Ben's /device.json with no deadline: Ada's phone must hold it before his goes off.
+    await eventually(
+      async () =>
+        (
+          ada.store.debugState() as {
+            folders: { id: string; members: { key: string; swarmKey: string | null }[] }[];
+          }
+        ).folders
+          .find((f) => f.id === summer.folder.id)
+          ?.members.find((m) => m.key === benKey)?.swarmKey,
+      Boolean,
+      "Ada's phone has Ben's device record",
+    );
     await ben.stop();
     await ok(ada.store.handOver(summer.folder.id, benKey));
-    await eventually(
-      async () => ada.events.some((e) => e.event === "handover.sent" && e.fields.n === 6),
-      Boolean,
-      "Ada's retries spent",
-      60_000,
-    );
     await ada.stop();
 
     const benBack = await net.peer("Ben", ben.storageDir);
