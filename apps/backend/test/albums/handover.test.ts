@@ -12,7 +12,9 @@ import {
   fitsPackage,
   followAdmin,
   handoverCodes,
+  holdPhotos,
   listsDigest,
+  photosDigest,
   parseSavedHandover,
   readyVerdict,
   senderIsAdmin,
@@ -356,6 +358,8 @@ describe("the reply that lets the old Admin write /admin.json", () => {
     theirs: "d1",
     package: "p",
     sent: "p",
+    photos: "h1",
+    theirPhotos: "h1",
   };
   it("writes when everything agrees", () => {
     expect(readyVerdict(ok)).toBe("write");
@@ -363,6 +367,7 @@ describe("the reply that lets the old Admin write /admin.json", () => {
   it("names the first thing that disagrees", () => {
     expect(readyVerdict({ ...ok, sender: "cy" })).toBe("sender");
     expect(readyVerdict({ ...ok, own: "d2" })).toBe("lists");
+    expect(readyVerdict({ ...ok, theirPhotos: "h2" })).toBe("photos");
     expect(readyVerdict({ ...ok, theirs: "d2" })).toBe("copy");
     expect(readyVerdict({ ...ok, theirs: undefined })).toBe("copy");
     expect(readyVerdict({ ...ok, package: "q" })).toBe("package");
@@ -456,5 +461,56 @@ describe("the handover package", () => {
     expect(parseSavedHandover({ ...saved, chains: { [code]: [{ nope: 1 }] } })).toBeUndefined();
     expect(parseSavedHandover({ ...saved, chains: { nothex: [proof] } })).toBeUndefined();
     expect(parseSavedHandover(null)).toBeUndefined();
+  });
+});
+
+describe("the photos a handover carries", () => {
+  async function withPhotos(files: Record<string, number>, ns = "p") {
+    const drive = await store().openOwn(ns);
+    for (const [path, size] of Object.entries(files)) await drive.put(path, Buffer.alloc(size, 1));
+    return drive;
+  }
+
+  it("digests the same paths and sizes in any write order, and differs on a size or a path", async () => {
+    const a = await withPhotos({ "/photos/a": 3, "/thumbs/a": 2, "/photos/b": 4 });
+    const b = await withPhotos({ "/photos/b": 4, "/photos/a": 3, "/thumbs/a": 2 });
+    const size = await withPhotos({ "/photos/a": 3, "/thumbs/a": 2, "/photos/b": 5 });
+    const path = await withPhotos({ "/photos/a": 3, "/thumbs/a": 2, "/photos/c": 4 });
+    const digest = await photosDigest(a, hash);
+    expect(await photosDigest(b, hash)).toBe(digest);
+    expect(await photosDigest(size, hash)).not.toBe(digest);
+    expect(await photosDigest(path, hash)).not.toBe(digest);
+  });
+
+  it("holds every entry and gives the digest of what it fetched", async () => {
+    const drive = await withPhotos({ "/photos/a": 3, "/thumbs/a": 2 });
+    const [err, held] = await holdPhotos(drive, { hash, timeoutMs: 1_000 });
+    expect(err).toBeNull();
+    expect(held!.digest).toBe(await photosDigest(drive, hash));
+  });
+
+  it("an album with no photos holds nothing and digests the empty text", async () => {
+    const drive = await withPhotos({});
+    const [err, held] = await holdPhotos(drive, { hash, timeoutMs: 1_000 });
+    expect(err).toBeNull();
+    expect(held!.digest).toBe(hash(""));
+  });
+
+  it("names the first path that did not arrive", async () => {
+    const drive = await withPhotos({ "/photos/a": 3, "/thumbs/a": 2 });
+    const gone = { ...drive, list: drive.list.bind(drive), update: drive.update.bind(drive) };
+    gone.download = async (path: string) => (path === "/thumbs/a" ? "timedOut" : "here");
+    const [err] = await holdPhotos(gone as Drive, { hash, timeoutMs: 1_000 });
+    expect(err).toEqual({ kind: "photo-missing", message: "/thumbs/a: timedOut" });
+  });
+
+  it("turns a thrown error into photo-missing", async () => {
+    const drive = await withPhotos({ "/photos/a": 3 });
+    const broken = { ...drive, list: drive.list.bind(drive), update: drive.update.bind(drive) };
+    broken.download = async () => {
+      throw new Error("disk full");
+    };
+    const [err] = await holdPhotos(broken as Drive, { hash, timeoutMs: 1_000 });
+    expect(err).toEqual({ kind: "photo-missing", message: "disk full" });
   });
 });
