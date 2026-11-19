@@ -52,26 +52,6 @@
         },
         {
           "kind": "event",
-          "event": "LOAD_FAILED",
-          "payload": {
-            "message": "WebSocket replaced by another page holding the session; reconnects in 30 s or when this page returns to the foreground"
-          },
-          "actor": {
-            "region": "friends"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "SEEN_READ_FAILED",
-          "payload": {
-            "message": "WebSocket replaced by another page holding the session; reconnects in 30 s or when this page returns to the foreground"
-          },
-          "actor": {
-            "region": "seen"
-          }
-        },
-        {
-          "kind": "event",
           "event": "reopenRequest",
           "payload": {
             "ask": {
@@ -246,16 +226,6 @@
           "kind": "event",
           "event": "REFRESH",
           "payload": {},
-          "actor": {
-            "region": "requests"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "LOAD_FAILED",
-          "payload": {
-            "message": "WebSocket replaced by another page holding the session; reconnects in 30 s or when this page returns to the foreground"
-          },
           "actor": {
             "region": "requests"
           }
