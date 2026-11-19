@@ -159,6 +159,11 @@ class MainActivity : AppCompatActivity() {
         // content:// access, so a hostile document cannot reach them either.
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
+        // The WebView's autofill asks Google's servers about every form it sees.
+        // Off for the whole window: https://developer.android.com/identity/autofill/optimize-autofill
+        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        @Suppress("DEPRECATION")
+        webView.settings.saveFormData = false
         webView.webViewClient = webViewClient
 
         // Maestro drives WebView content via Chrome DevTools; only meaningful in debug.
