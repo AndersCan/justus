@@ -562,16 +562,14 @@ describe("memberHoldings", () => {
 
 describe("memberPhotosLine", () => {
   it("words the line", () => {
+    const line = (full: number, previews: number, waiting: number) =>
+      memberPhotosLine({ full, previews, waiting, total: full + previews + waiting });
     expect(memberPhotosLine(undefined)).toBe("");
-    expect(memberPhotosLine({ full: 3, previews: 0, waiting: 0, total: 3 })).toBe("Photos: 3 of 3");
-    expect(memberPhotosLine({ full: 1, previews: 2, waiting: 0, total: 3 })).toBe(
-      "Photos: 1 of 3, 2 as previews",
-    );
-    expect(memberPhotosLine({ full: 1, previews: 2, waiting: 1, total: 4 })).toBe(
-      "Photos: 1 of 4, 2 as previews, 1 waiting",
-    );
-    expect(memberPhotosLine({ full: 3, previews: 0, waiting: 1, total: 4 })).toBe(
-      "Photos: 3 of 4, 1 waiting",
-    );
+    expect(line(3, 0, 0)).toBe("3 in full");
+    expect(line(1, 2, 0)).toBe("1 in full, 2 previews");
+    expect(line(1, 1, 2)).toBe("1 in full, 1 preview, 2 waiting");
+    expect(line(3, 0, 1)).toBe("3 in full, 1 waiting");
+    expect(line(0, 2, 1)).toBe("2 previews, 1 waiting");
+    expect(line(0, 1, 0)).toBe("1 preview");
   });
 });

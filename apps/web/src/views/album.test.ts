@@ -2067,8 +2067,8 @@ describe("album member status", () => {
         ? role.nextElementSibling.textContent?.trim()
         : undefined;
     });
-    expect(lines[0]).toBe("Photos: 2 of 2");
-    expect(lines[1]).toBe("Photos: 1 of 2, 1 as previews");
+    expect(lines[0]).toBe("2 in full");
+    expect(lines[1]).toBe("1 in full, 1 preview");
     expect(host.querySelectorAll("[data-member-photos]").length).toBe(2);
   });
 
@@ -2092,7 +2092,7 @@ describe("album member status", () => {
     ]);
     const kimLine = () =>
       memberRows(host)[1].querySelector("[data-member-photos]")?.textContent?.trim();
-    expect(kimLine()).toBe("Photos: 1 of 2, 1 as previews");
+    expect(kimLine()).toBe("1 in full, 1 preview");
     vi.mocked(gateway.list).mockResolvedValue([
       null,
       {
@@ -2103,7 +2103,7 @@ describe("album member status", () => {
       },
     ] as never);
     await gallery.load();
-    expect(kimLine()).toBe("Photos: 2 of 2");
+    expect(kimLine()).toBe("2 in full");
   });
 });
 

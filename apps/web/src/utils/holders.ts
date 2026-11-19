@@ -256,13 +256,14 @@ export function memberHoldings(
   return out;
 }
 
-/** The Members row line: "Photos: 1 of 3, 2 as previews, 1 waiting"; "" for no line. */
+/** The Members row line: "1 in full, 2 previews, 1 waiting"; zero parts left out; "" for no line. */
 export function memberPhotosLine(h: MemberHolding | undefined): string {
   if (h === undefined) return "";
-  const line = copy("members.has_photos", { full: h.full, total: h.total });
-  const withPreviews =
-    h.previews === 0 ? line : copy("members.and_previews", { line, n: h.previews });
-  return h.waiting === 0
-    ? withPreviews
-    : copy("members.and_waiting", { line: withPreviews, n: h.waiting });
+  return [
+    h.full === 0 ? "" : copy("members.n_in_full", { n: h.full }),
+    h.previews === 0 ? "" : copy("members.n_previews", { n: h.previews }),
+    h.waiting === 0 ? "" : copy("members.n_waiting", { n: h.waiting }),
+  ]
+    .filter((p) => p !== "")
+    .join(", ");
 }
