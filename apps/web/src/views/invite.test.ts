@@ -256,7 +256,7 @@ describe("checkCodeLine", () => {
     const host = document.createElement("div");
     render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "If Anna asks which three words your phone shows, read out these: maple river stone",
+      `${copy("invite.may_ask_you_for_these", { owner: "Anna" })} maple river stone`,
     );
     expect(host.querySelector("p.text-lg")?.textContent?.trim()).toBe("maple river stone");
     const ps = [...host.querySelectorAll("p")];
@@ -276,23 +276,26 @@ describe("joinSheet waiting screen", () => {
   };
   test("shows the code stored on this invite's ask", () => {
     const shown = text([{ code: "c1", checkCode: "maple river stone" }]);
-    expect(shown).toContain("which three words your phone shows");
+    expect(shown).toContain(copy("invite.may_ask_you_for_these", { owner: "Anna" }));
     expect(shown).toContain("maple river stone");
     expect(shown.toLowerCase()).not.toContain("check code");
   });
-  test("opens with the done title, before the request text", () => {
+  test("opens with the waiting title, then the keep-open line", () => {
     const shown = text([]);
-    const title = "You're done. Waiting for Anna to let you in.";
+    const title = copy("invite.waiting_for_to_let_you_in", { owner: "Anna" });
+    const line = copy("invite.keep_justus_open_until", { owner: "Anna" });
     expect(shown.indexOf(title)).toBeGreaterThanOrEqual(0);
-    expect(shown.indexOf(title)).toBeLessThan(shown.indexOf("Request to join sent to Anna"));
+    expect(shown.indexOf(title)).toBeLessThan(shown.indexOf(line));
   });
   test("shows no code for another invite's ask", () => {
     const shown = text([{ code: "c2", checkCode: "zoo wrap cat" }]);
-    expect(shown).not.toContain("three words");
+    expect(shown).not.toContain(copy("invite.may_ask_you_for_these", { owner: "Anna" }));
     expect(shown).not.toContain("zoo wrap cat");
   });
   test("shows no code when the ask has none", () => {
-    expect(text([{ code: "c1" }])).not.toContain("three words");
+    expect(text([{ code: "c1" }])).not.toContain(
+      copy("invite.may_ask_you_for_these", { owner: "Anna" }),
+    );
   });
 });
 
@@ -452,7 +455,7 @@ describe("joinSheet update screen", () => {
     spy.mockRestore();
     const text = host.textContent?.replace(/\s+/g, " ") ?? "";
     expect(text).not.toContain("didn't accept");
-    expect(text).not.toContain("Request to join sent");
+    expect(text).not.toContain(copy("invite.keep_justus_open_until", { owner: "Anna" }));
     expect(text).toContain("Update Justus to join “Lisbon”");
     expect(text).toContain(
       "Your request is saved on this phone. It reaches Anna once both phones have the same Justus.",
@@ -570,7 +573,7 @@ describe("joinSheet update screen", () => {
     const host = document.createElement("div");
     render(joinSheet(), host);
     const text = host.textContent?.replace(/\s+/g, " ") ?? "";
-    expect(text).toContain("Request to join sent");
+    expect(text).toContain(copy("invite.keep_justus_open_until", { owner: "Anna" }));
     expect(text).not.toContain("Update Justus to join");
   });
 });
@@ -599,9 +602,13 @@ describe("pendingCard", () => {
 });
 
 describe("checkCodeLine with a request saved by an older version", () => {
-  test("reads the stored stand-in as the person who invited you", () => {
+  test.each(["the Admin", ""])("reads %j as the person who invited you, capitalised", (name) => {
     const host = document.createElement("div");
-    render(checkCodeLine("maple river stone", "the Admin"), host);
-    expect(host.textContent).toContain("If the person who invited you asks which three words");
+    render(checkCodeLine("maple river stone", name), host);
+    expect(host.querySelector("p")?.textContent).toBe(
+      copy("invite.may_ask_you_for_these", {
+        owner: copy("invite_link.the_person_who_invited_you_2"),
+      }),
+    );
   });
 });

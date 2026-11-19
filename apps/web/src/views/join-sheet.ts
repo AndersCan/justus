@@ -1,4 +1,4 @@
-import { html, type TemplateResult } from "lit-html";
+import { html, nothing, type TemplateResult } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
@@ -62,8 +62,15 @@ function stoppedSheet(
 
 const joinModal = modalDialog();
 
-function sheet(label: string, body: unknown) {
-  return html`<dialog class="ui-sheet-dialog" aria-label=${label} ${ref(joinModal)}>
+const WAITING_LINE_ID = "join-sheet-waiting-line";
+
+function sheet(label: string, body: unknown, describedBy?: string) {
+  return html`<dialog
+    class="ui-sheet-dialog"
+    aria-label=${label}
+    aria-describedby=${describedBy ?? nothing}
+    ${ref(joinModal)}
+  >
     <div class="justus-sheet ui-sheet">${body}</div>
   </dialog>`;
 }
@@ -169,7 +176,7 @@ export function renderJoinSheet(
       ? copy("invite.update_justus_to_join", {
           album: unnamed ? copy("albums.album_you_asked_to_join") : invite.album,
         })
-      : copy("invite.you_re_done", { owner });
+      : copy("invite.waiting_for_to_let_you_in", { owner });
     const warn = !update && linkNamedOtherAlbum(invite.linkAlbum, invite.album);
     return sheet(
       title,
@@ -197,13 +204,11 @@ export function renderJoinSheet(
               </div>`
             : null
         }
-        <p class="mt-3 text-sm text-fg">
+        <p id=${WAITING_LINE_ID} class="mt-3 text-sm text-fg">
           ${
             update
               ? t("invite.request_reaches_after_update", { owner })
-              : unnamed
-                ? t("invite.request_to_join_sent_to_unnamed", { owner })
-                : t("invite.request_to_join_sent_to", { owner, album: invite.album })
+              : t("invite.keep_justus_open_until", { owner })
           }
         </p>
         ${lines.checkCode}
@@ -224,6 +229,7 @@ export function renderJoinSheet(
             ${t("invite.close")}
           </button>
         </div>`,
+      WAITING_LINE_ID,
     );
   }
   const title = copy("invite.didn_t_accept_your_request", { owner: Owner });

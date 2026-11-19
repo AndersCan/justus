@@ -150,7 +150,10 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     await step(5, () =>
       ben(
         "5-ask",
-        { ASK: exact(words("invite.ask_to_join_2")), DONE: startsWith("invite.you_re_done") },
+        {
+          ASK: exact(words("invite.ask_to_join_2")),
+          DONE: startsWith("invite.waiting_for_to_let_you_in"),
+        },
         60_000,
       ),
     );

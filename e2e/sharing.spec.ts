@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { words } from "./p2p/steps.js";
 
 test("an expired invite link says so under the box and sends nothing", async ({ page }) => {
   await page.goto("/join");
@@ -37,7 +38,9 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
     await page.getByLabel("Invite link").fill(link);
     await page.getByRole("button", { name: "Ask to join", exact: true }).click();
     return page.getByRole("dialog", {
-      name: "You're done. Waiting for the person who invited you to let you in.",
+      name: words("invite.waiting_for_to_let_you_in", {
+        owner: words("invite_link.the_person_who_invited_you"),
+      }),
     });
   };
   const waiting = await ask();
