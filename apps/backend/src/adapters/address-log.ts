@@ -46,6 +46,11 @@ export function watchAddresses<U extends UdxLike>(udx: U, log: AddressLog): U {
     const stream = createStream(id, opts);
     const connect = stream.connect.bind(stream);
     const changeRemote = stream.changeRemote.bind(stream);
+    let far = "";
+    const stamp = () => {
+      if (far) log.streams[far] = Date.now();
+    };
+    stream.on("data", stamp);
     stream.connect = (
       socket: unknown,
       remoteId: number,
@@ -53,7 +58,8 @@ export function watchAddresses<U extends UdxLike>(udx: U, log: AddressLog): U {
       host: string,
       ...rest: unknown[]
     ) => {
-      log.streams[`${host}:${port}`] = Date.now();
+      far = `${host}:${port}`;
+      stamp();
       return connect(socket, remoteId, port, host, ...rest);
     };
     stream.changeRemote = (
@@ -63,7 +69,8 @@ export function watchAddresses<U extends UdxLike>(udx: U, log: AddressLog): U {
       host: string,
       ...rest: unknown[]
     ) => {
-      log.streams[`${host}:${port}`] = Date.now();
+      far = `${host}:${port}`;
+      stamp();
       return changeRemote(socket, remoteId, port, host, ...rest);
     };
     return stream;
