@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import { deflateSync } from "node:zlib";
 
 type FilePayload = { name: string; mimeType: string; buffer: Buffer };
@@ -53,6 +54,24 @@ export function pngOf(r: number, g: number, b: number): Buffer {
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
     chunk("IDAT", deflateSync(Buffer.from([0, r, g, b]))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** A real RGB PNG of random noise: every call gives different bytes, so its JPEG copies hold bytes found nowhere else. */
+export function noisePng(width: number, height: number): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // colour type: RGB
+  const rows = Array.from({ length: height }, () =>
+    Buffer.concat([Buffer.from([0]), randomBytes(width * 3)]),
+  );
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(Buffer.concat(rows))),
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
