@@ -1457,6 +1457,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function onPeerUp(peerKey: string) {
+    for (const rt of runtimes.values()) catchUpMembers(rt);
     peerConnected(presence, { peerKey, log });
     announcePresence();
     announceHolders();
@@ -1627,6 +1628,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         if (rt) void dropIn(rt);
         if (rt) void clearCopiedEarlier(rt);
+        if (rt && drive === rt.folderDrive) catchUpMembers(rt);
         if (rt && drive !== rt.selfDrive) {
           void refreshHeld(rt, drive.key, drive).catch((e) =>
             log("error", { where: "refreshHeld", err: errText(e) }),
@@ -1819,6 +1821,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (keyHex === selfKeyOf(rt)) return;
     try {
       const drive = await openDriveWithTopic(keyHex, { server: false });
+      if (rt.memberDrives.has(keyHex)) {
+        await deps.drives.release(drive);
+        return;
+      }
       rt.memberDrives.set(keyHex, drive);
       if (name) rt.memberNameCache.set(keyHex, name);
       watchDrive(drive, rt.record.id, keyHex, "add");
@@ -1923,22 +1929,54 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return true;
   }
 
+  /** The people the lists name, whose live drives this phone should have open. */
+  function listedDrives(
+    rt: FolderRuntime,
+    registry: { members: Record<string, { key: string; name: string }> },
+  ): { key: string; name: string }[] {
+    // A removed phone keeps each other drive as it was when it heard.
+    if (rt.record.notice?.kind === "removed") return [];
+    const entries = Object.values(registry.members).map((m) => ({
+      key: m.key,
+      name: m.name,
+    }));
+    for (const e of rt.record.earlier ?? []) {
+      if (e.keptVersion !== undefined) continue;
+      if (!entries.some((x) => x.key === e.key)) entries.push(e);
+    }
+    return entries;
+  }
+
+  const oneCatchUpPerAlbum = oneAtATime();
+  const catchUpWaiting = new Set<string>();
+  /** Opens any listed person's drive that is missing here. Runs when the
+   * Admin's drive changes and when a phone connects; one run in progress and
+   * one waiting per album. */
+  function catchUpMembers(rt: FolderRuntime): void {
+    const id = rt.record.id;
+    if (catchUpWaiting.has(id)) return;
+    catchUpWaiting.add(id);
+    void oneCatchUpPerAlbum(id, async () => {
+      catchUpWaiting.delete(id);
+      if (runtimes.get(id) !== rt) return;
+      if (rt.record.lifecycle === "leaving" || rt.record.lifecycle === "deleting") return;
+      const registry = await readRegistryIn(rt.folderDrive);
+      const self = selfKeyOf(rt);
+      const missing = listedDrives(rt, registry).some(
+        (e) => e.key !== self && !rt.memberDrives.has(e.key),
+      );
+      if (!missing) return;
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId: id });
+    }).catch((e) => log("error", { where: "catchUpMembers", folder: short(id), err: errText(e) }));
+  }
+
   async function refreshMembersFor(rt: FolderRuntime) {
     await refreshViewers(rt);
     await refreshEarlier(rt);
     const registry = await readRegistryIn(rt.folderDrive);
-    // A removed phone keeps each other drive as it was when it heard.
     const frozen = rt.record.notice?.kind === "removed" ? rt.record.keptUntil : undefined;
-    const entries = frozen
-      ? []
-      : Object.values(registry.members).map((m) => ({
-          key: m.key,
-          name: m.name,
-        }));
-    for (const e of frozen ? [] : (rt.record.earlier ?? [])) {
-      if (e.keptVersion !== undefined) continue;
-      if (!entries.some((x) => x.key === e.key)) entries.push(e);
-    }
+    const entries = listedDrives(rt, registry);
     const live = new Set(entries.map((e) => e.key));
     live.add(selfKeyOf(rt));
     // A Collaborator made a Viewer keeps their photos up to the version the
