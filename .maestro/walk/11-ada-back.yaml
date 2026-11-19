@@ -1,0 +1,9 @@
+appId: no.cankode.justus
+---
+# Step 11: Ada's phone runs again. Ben goes back to the album, which reads 1 connected now.
+- tapOn:
+    text: ${SEE_PHOTOS}
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: ${CONNECTED_NOW}
+    timeout: 120000

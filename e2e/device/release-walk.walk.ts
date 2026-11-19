@@ -1,7 +1,8 @@
 /**
  * The release walk: Ada (web, in Chromium) makes an album and copies her invite link. Ben (the release
  * APK on an emulator) opens it in Chrome, taps Open in Justus, asks to join, Ada accepts, and Ben sees
- * her photo, opens it, and Ada's photo says it is on Ben's phone. Run through
+ * her photo, opens it, and Ada's photo says it is on Ben's phone. Then Ada's phone goes off and Ben's
+ * Members list says so, and back. Run through
  * `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` (or the release-walk workflow).
  * Ben's words come from the copy catalogue by id, never as English written here.
  */
@@ -11,7 +12,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { expect, test } from "@playwright/test";
-import { copyInviteLink, createAlbum, skipIntro } from "../p2p/steps";
+import { copyInviteLink, createAlbum, pausePhone, resumeAll, skipIntro } from "../p2p/steps";
 
 const catalogue = JSON.parse(
   readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
@@ -22,6 +23,14 @@ const words = (id, params = {}) =>
 const exact = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // The text of an id up to its first placeholder, then anything.
 const startsWith = (id) => exact(catalogue[id].text.split("{")[0]) + ".*";
+
+const phoneOff = (when) =>
+  words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
+// Off for 30-60 s reads "just now", then "1 min ago": the two cover the first 2 minutes.
+const OFF_WORDS = [phoneOff(words("time.just_now")), phoneOff(words("time.min_ago", { min: 1 }))];
+// Never a prefix such as "Phone off.*": it would match the Members footer's "Phone off means ...".
+const PHONE_OFF = `(${OFF_WORDS.map(exact).join("|")})`;
+const CONNECTED_NOW = words("gallery.connected_now", { connected: 1 });
 
 const ALBUM = "Walk";
 const PHOTO = "walk.png";
@@ -46,6 +55,8 @@ const STEPS = [
   "Ben sees Ada's photo",
   "Ben opens Ada's photo",
   `Ada reads “${words("holders.on_and_your_phone", { names: `${BEN}'s` })}” on her photo`,
+  `Ada's phone goes off; Ben opens Members and reads “${OFF_WORDS[0]}” or “${OFF_WORDS[1]}”`,
+  `Ada's phone comes back; Ben's album reads “${CONNECTED_NOW}”`,
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
 
 function summary() {
@@ -189,7 +200,33 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         await a.screenshot({ path: join(out, "ada-9-holders.png") });
       }
     });
+    let resumeAda = () => {};
+    await step(10, async () => {
+      resumeAda = await pausePhone({ port: Number(new URL(a.url()).port) });
+      await ben(
+        "10-ada-off",
+        {
+          CLOSE: exact(words("lightbox.close")),
+          MEMBERS: exact(words("gallery.invite_members")),
+          EVERYONE: exact(words("album.everyone_in_the_album_sees")),
+          PHONE_OFF,
+        },
+        150_000,
+      );
+    });
+    await step(11, async () => {
+      resumeAda();
+      await ben(
+        "11-ada-back",
+        {
+          SEE_PHOTOS: exact(words("album.see_photos_in_this_album")),
+          CONNECTED_NOW: exact(CONNECTED_NOW),
+        },
+        120_000,
+      );
+    });
   } finally {
+    resumeAll();
     const text = summary();
     writeFileSync(join(out, "walk-summary.md"), text);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
