@@ -524,6 +524,10 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
 
   await askToJoin(b, newLink, album);
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  const card = a.locator("li.ui-request-card", { hasText: `wants to join “${album}”` });
+  await expect(card.locator('[data-copy-id="album.removed_by_you"]')).toHaveText(
+    pattern("album.removed_by_you"),
+  );
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
 
   await expect(async () => {

@@ -611,7 +611,15 @@ function askedLine(r: PeopleVm["requests"][number]): TemplateResult {
   });
 }
 
-/** Who is asking: name, Friend tag, warning, real name, when, three words and declined earlier. The card and the sheet share it. */
+/** "You removed Bo this morning", or "Ada removed Bo on 12 Nov" when an earlier Admin did it. */
+function removedLine(removed: { name: string; at: number; by?: string }): TemplateResult {
+  const when = linkMadeText(removed.at);
+  return removed.by === undefined
+    ? t("album.removed_by_you", { name: removed.name, when })
+    : t("album.removed_by", { by: removed.by, name: removed.name, when });
+}
+
+/** Who is asking: name, Friend tag, removed earlier, warning, real name, when, three words and declined earlier. The card and the sheet share it. */
 export function requestIdentity(r: PeopleVm["requests"][number], joining: TemplateResult | null) {
   return html` <p class="text-sm text-fg">
       <span class="font-semibold">${r.name}</span>
@@ -619,6 +627,7 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
         r.friend ? html`<span class="ml-1 text-xs text-muted">${t("album.friend")}</span>` : null
       }
     </p>
+    ${r.removedEarlier ? html`<p class="text-xs font-semibold text-warn-fg">${removedLine(r.removedEarlier)}</p>` : null}
     ${r.sameNameIn ? html`<p class="text-xs font-semibold text-warn-fg">${t("album.same_name_in", { name: r.name, folderName: r.folderName, presence: r.sameNameIn })}</p>` : null}
     ${r.clash ? html`<p class="text-xs font-semibold text-warn-fg">${t("album.not_your_friend", { clash: r.clash })}</p>` : null}
     ${
