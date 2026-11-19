@@ -127,6 +127,19 @@ describe("a request made with the old Admin's link", () => {
     await s.close();
   }, 40_000);
 
+  it("made with a link Ada turned off before the handover, is told the link is off once it opens on Ben", async () => {
+    const s = await scene();
+    expect((await s.ada.store.turnOffInvite(s.folderId))[0]).toBeNull();
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.cy.store.folders()).asks[0]?.status === "linkOff");
+    expect((await s.cy.store.folders()).asks[0]).toMatchObject({ owner: identityOf(s.ben) });
+    expect((await s.ben.store.requests()).requests).toEqual([]);
+    await s.close();
+  }, 40_000);
+
   it("is not re-pointed by a phone that is not the new Admin", async () => {
     const s = await scene();
     await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
