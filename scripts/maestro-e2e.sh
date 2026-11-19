@@ -76,6 +76,23 @@ done
 #    need node/pnpm on PATH — apps/android/build.gradle already handles the PATH
 #    itself, so we only need to invoke the wrapper from apps/android.
 # ----------------------------------------------------------------------------
+if [[ "$WALK" == 1 ]]; then
+  # The release before this one, built in its own folder, for the update walk.
+  if [[ -z "${JUSTUS_WALK_FROM:-}" ]]; then
+    echo
+    echo "▶ Building the release before this one ..."
+    walk_from="$(bash "$REPO_ROOT/scripts/walk-from.sh")" || exit 1
+    echo "$walk_from"
+    JUSTUS_WALK_FROM="$(sed -n 's/^JUSTUS_WALK_FROM=//p' <<<"$walk_from")"
+    JUSTUS_WALK_FROM_TAG="$(sed -n 's/^JUSTUS_WALK_FROM_TAG=//p' <<<"$walk_from")"
+  fi
+  export JUSTUS_WALK_FROM JUSTUS_WALK_FROM_TAG
+  WALK_FROM_APK="$JUSTUS_WALK_FROM/apps/android/app/build/outputs/apk/release/app-release.apk"
+  if [[ ! -f "$WALK_FROM_APK" ]]; then
+    echo "✗ no ${JUSTUS_WALK_FROM_TAG:-earlier release} APK at $WALK_FROM_APK: run bash scripts/walk-from.sh" >&2
+    exit 1
+  fi
+fi
 echo
 echo "▶ Building $VARIANT APK..."
 if ! ( cd "$REPO_ROOT/apps/android" && ./gradlew "${GRADLE_ARGS[@]}" ); then
@@ -225,6 +242,7 @@ prepare_chrome() {
 
 run_walk() {
   ( cd "$REPO_ROOT" && JUSTUS_WALK_SERIAL="$SERIAL" JUSTUS_WALK_OUT="$OUT_DIR/walk" \
+      JUSTUS_WALK_APK="$REPO_ROOT/$APK" JUSTUS_WALK_ADB="$ADB" \
       pnpm exec playwright test --config playwright.walk.config.ts )
 }
 
