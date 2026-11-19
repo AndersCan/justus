@@ -20,7 +20,7 @@ export const DRIVE_PATH_LEFT = "/left.json";
 /** Same cap as the other peer records: peers control these bytes. */
 const MAX_NOTE_BYTES = 1024 * 1024;
 /** The directories of an album's drive that hold photo bytes. */
-const PHOTO_DIRS = ["/photos", "/thumbs"];
+export const PHOTO_DIRS = ["/photos", "/thumbs"];
 
 export type LifecycleLog = (
   event: string,
