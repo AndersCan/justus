@@ -207,7 +207,6 @@ describe("old drives after a Remove", () => {
 
     await cy.stop();
     await ok(ada.store.removeMember(folderId, benKey));
-    const moved = (await ada.store.folders()).folders.find((f) => f.id === folderId)!;
     await eventually(
       async () => ada.events.some((e) => e.event === "move.cleared" && e.fields.why === "moved"),
       Boolean,
@@ -224,12 +223,6 @@ describe("old drives after a Remove", () => {
       Boolean,
       "Cy, back after the Remove, a member on the new key",
       60_000,
-    );
-    await eventually(
-      async () => (await albumIn(cyBack.store, moved.shareKey))?.role,
-      (role) => role === "member",
-      "Cy a member on the new key",
-      30_000,
     );
 
     await addPhoto(cyBack, side.folder.id, "control.jpg", 70);
