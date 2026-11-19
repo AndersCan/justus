@@ -172,6 +172,7 @@ export const folderSummarySchema = s.object({
     }),
   ),
   whoLeft: s.optional(s.array(s.string)),
+  whoJoined: s.optional(s.array(s.string)),
   handingOver: s.optional(s.object({ key: s.string, name: s.string, final: s.boolean })),
   waitingFor: s.optional(s.array(s.string)),
   invitedFriends: s.optional(
@@ -312,6 +313,7 @@ export const photoResultSchemas = {
   "photos.leaveAlbum": s.object({ ok: s.boolean }),
   "photos.dismissAlbumNotice": s.object({ ok: s.boolean }),
   "photos.dismissWhoLeft": s.object({ ok: s.boolean }),
+  "photos.dismissWhoJoined": s.object({ ok: s.boolean }),
   "photos.dismissDeclinedAsk": s.object({ ok: s.boolean }),
   "photos.cancelAsk": s.object({ ok: s.boolean }),
   "photos.linkTurnedOff": s.object({ turnedOff: s.boolean }),

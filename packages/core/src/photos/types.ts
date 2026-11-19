@@ -133,6 +133,8 @@ export type FolderSummary = {
   notice?: FolderNotice;
   /** Admin only: names of people who left on their own, in the order they left, until the Admin dismisses the line. Unset when none. */
   whoLeft?: string[];
+  /** Names of people let in after this phone, oldest first, until dismissed. Unset when none. */
+  whoJoined?: string[];
   /** Admin only: the album is being handed to this person and is still the Admin's until their phone has it. `final` is true once the new Admin is written down: Stay Admin no longer works. */
   handingOver?: { key: string; name: string; final: boolean };
   /** Admin only: identity keys of friends whose invite is waiting for them to open Justus, oldest first. */
