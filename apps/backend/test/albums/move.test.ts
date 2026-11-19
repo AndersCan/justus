@@ -6,7 +6,13 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { MAX_EARLIER, copyOwnEntries, countShownPhotos, moveAlbum } from "../../src/albums/move.ts";
+import {
+  MAX_EARLIER,
+  clearMovedPhotos,
+  copyOwnEntries,
+  countShownPhotos,
+  moveAlbum,
+} from "../../src/albums/move.ts";
 import { ensureHoldingMarker, markHeld } from "../../src/photos/holders.ts";
 import { parseEarlier } from "../../src/membership/records.ts";
 
@@ -299,5 +305,63 @@ describe("copyOwnEntries and countShownPhotos", () => {
     const { from } = await twoDrives();
     expect(await countShownPhotos(from, new Set())).toBe(3);
     expect(await countShownPhotos(from, new Set(["p1", "p3"]))).toBe(1);
+  });
+});
+
+describe("clearMovedPhotos", () => {
+  async function drivePair() {
+    const drives = phone();
+    const from = await drives.openOwn("old");
+    const to = await drives.openOwn("new");
+    await from.put("/folder.json", json({ version: 1, name: "Trip" }));
+    await from.put("/removed-people.json", json({ version: 1 }));
+    return { from, to };
+  }
+  const here = (drive: Drive, path: string) => drive.download(path, { timeoutMs: 200 });
+
+  it("clears every photo and thumbnail, and leaves the record files readable", async () => {
+    const { from } = await drivePair();
+    await from.put("/photos/a.jpg", Buffer.from("a"));
+    await from.put("/thumbs/a.jpg", Buffer.from("t"));
+    expect(await clearMovedPhotos(from)).toEqual([null, 2]);
+    expect(await here(from, "/photos/a.jpg")).toBe("timedOut");
+    expect(await here(from, "/thumbs/a.jpg")).toBe("timedOut");
+    expect(await from.readSmall("/folder.json", 1000)).toContain("Trip");
+    expect(await from.readSmall("/removed-people.json", 1000)).toContain("version");
+  });
+
+  it("with copiedTo keeps what is missing there, differs in size, or differs in sha256", async () => {
+    const { from, to } = await drivePair();
+    const meta = (sha256: string) => ({ metadata: { sha256 } });
+    await from.put("/photos/same.jpg", Buffer.from("same"), meta("h1"));
+    await from.put("/photos/missing.jpg", Buffer.from("missing"), meta("h2"));
+    await from.put("/photos/size.jpg", Buffer.from("size"), meta("h3"));
+    await from.put("/photos/hash.jpg", Buffer.from("hash"), meta("h4"));
+    await from.put("/thumbs/same.jpg", Buffer.from("thumb"));
+    await to.put("/photos/same.jpg", Buffer.from("same"), meta("h1"));
+    await to.put("/photos/size.jpg", Buffer.from("size-bigger"), meta("h3"));
+    await to.put("/photos/hash.jpg", Buffer.from("hash"), meta("other"));
+    await to.put("/thumbs/same.jpg", Buffer.from("thumb"));
+    expect(await clearMovedPhotos(from, { copiedTo: to })).toEqual([null, 2]);
+    expect(await here(from, "/photos/same.jpg")).toBe("timedOut");
+    expect(await here(from, "/thumbs/same.jpg")).toBe("timedOut");
+    expect(await here(from, "/photos/missing.jpg")).toBe("here");
+    expect(await here(from, "/photos/size.jpg")).toBe("here");
+    expect(await here(from, "/photos/hash.jpg")).toBe("here");
+  });
+
+  it("returns clear-failed when a clear throws", async () => {
+    const { from } = await drivePair();
+    await from.put("/photos/a.jpg", Buffer.from("a"));
+    const broken: Drive = {
+      ...from,
+      clear: async () => {
+        throw new Error("disk gone");
+      },
+    };
+    expect(await clearMovedPhotos(broken)).toEqual([
+      { kind: "clear-failed", message: "disk gone" },
+      null,
+    ]);
   });
 });

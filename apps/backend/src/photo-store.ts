@@ -139,7 +139,7 @@ import {
   takeAdminRecords,
 } from "./albums/handover";
 import { dropDeleted } from "./photos/drop";
-import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
+import { clearMovedPhotos, copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
   checkAsk,
   fileInviteAsk,
@@ -2484,6 +2484,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     runtimes.delete(id);
   }
 
+  /** Deletes this device's copy of an old drive's photo bytes (everything, or what `copiedTo` holds too). Logged, never thrown. */
+  async function clearOldDrive(
+    drive: Drive,
+    options: { folderId: string; why: "moved" | "followed" | "start"; copiedTo?: Drive },
+  ): Promise<void> {
+    const { folderId } = options;
+    const [err, cleared] = await clearMovedPhotos(drive, { copiedTo: options.copiedTo });
+    if (err) {
+      log("error", {
+        where: "move.clear",
+        folder: short(folderId),
+        drive: short(drive.key),
+        err: err.message,
+      });
+    } else if (cleared > 0 || options.why !== "start") {
+      log("move.cleared", {
+        folder: short(folderId),
+        drive: short(drive.key),
+        why: options.why,
+        cleared,
+      });
+    }
+  }
+
   /** This phone follows the album to its new key: the old album's drives are
    * released (never purged) and its record is replaced by the one the join
    * makes under the same local id. */
@@ -2492,7 +2516,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       await unmountRuntime(rt);
       leaveTopic(hex(topicOf(rt.folderDrive)));
-      await deps.drives.release(rt.folderDrive);
+      const old = rt.folderDrive;
+      void clearOldDrive(old, { folderId: id, why: "followed" }).finally(() => {
+        void deps.drives.release(old).catch(() => {});
+      });
     } catch (e) {
       log("error", { where: "retireMovedAlbum", folder: short(id), err: errText(e) });
     }
@@ -4450,6 +4477,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         joinTopic(topicOf(pastDrive), { server: true });
         rediscover(topicOf(pastDrive), pastDrive);
         if (handedDrive) pastAdmins.push(pastDrive);
+        else void clearOldDrive(pastDrive, { folderId: record.id, why: "start", copiedTo: fd });
       }
       const enrolled =
         !isCreator &&
@@ -5779,10 +5807,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     };
     const persisted = state.folders.find((f) => f.id === record.id);
     for (const target of persisted ? [record, persisted] : [record]) Object.assign(target, patch);
+    const oldDrive = rt.folderDrive;
     rt.folderDrive = fresh;
     rt.selfDrive = fresh;
     rt.viewers = {};
     saveState();
+    void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
     joinTopic(topicOf(fresh), { server: true });
     rediscover(topicOf(fresh), fresh);
     if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });

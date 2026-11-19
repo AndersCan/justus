@@ -26,7 +26,8 @@ export type AlbumLog = P2pLog;
 export type AlbumError =
   | { kind: "write-failed"; message: string }
   | { kind: "no-such-member"; message: string }
-  | { kind: "rotate-failed"; message: string };
+  | { kind: "rotate-failed"; message: string }
+  | { kind: "clear-failed"; message: string };
 /** The repo's error tuple (ADR 0002 decision 8). */
 export type AlbumResult<T> = [AlbumError, null] | [null, T];
 

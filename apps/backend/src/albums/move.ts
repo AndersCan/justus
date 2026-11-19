@@ -1,9 +1,10 @@
 /**
  * Moves an album to new drives when the Admin removes someone: a new own drive
  * with the Admin's photos, every remaining person's old drive kept as a source
- * in `/earlier.json`. Writes nothing to the old drive. Ports and records only.
+ * in `/earlier.json`. Writes nothing to the old drive; `clearMovedPhotos` deletes this
+ * device's copy of its photo bytes once the move is saved. Ports and records only.
  */
-import type { Drive, DriveStore } from "../ports/drive-store";
+import type { Drive, DriveEntry, DriveStore } from "../ports/drive-store";
 import {
   MAX_EARLIER_ENTRIES,
   parseRemoved,
@@ -17,6 +18,7 @@ import { copyAlbumEntries } from "../rotate-album";
 import type { AlbumPorts, AlbumResult } from "./albums";
 import { errText } from "../p2p-log.ts";
 import { readRecord } from "../membership/join.ts";
+import { PHOTO_DIRS } from "./lifecycle";
 
 /** How many earlier drives one album lists. */
 export const MAX_EARLIER = MAX_EARLIER_ENTRIES;
@@ -101,6 +103,44 @@ export async function moveAlbum(
     } catch {
       // already closed
     }
+  }
+}
+
+/**
+ * Deletes this device's copy of the bytes of the photos and thumbnails on `from`, an album
+ * drive the album moved away from. Entries and every other file stay readable. With `copiedTo`,
+ * only files it holds too (same path and size, same sha256 when both carry one). Lists only
+ * what is on this device, never waiting for a peer. Safe to run again.
+ */
+export async function clearMovedPhotos(
+  from: Drive,
+  options?: { copiedTo?: Drive },
+): Promise<AlbumResult<number>> {
+  let cleared = 0;
+  try {
+    for (const dir of PHOTO_DIRS) {
+      const kept = new Map<string, DriveEntry>();
+      if (options?.copiedTo) {
+        for await (const entry of options.copiedTo.list(dir, { wait: false })) {
+          kept.set(entry.path, entry);
+        }
+      }
+      const paths: string[] = [];
+      for await (const entry of from.list(dir, { wait: false })) {
+        const copy = kept.get(entry.path);
+        const wantHash = entry.metadata.sha256;
+        const sameHash = wantHash === undefined || copy?.metadata.sha256 === wantHash;
+        if (options?.copiedTo && (copy?.size !== entry.size || !sameHash)) continue;
+        paths.push(entry.path);
+      }
+      for (const path of paths) {
+        await from.clear(path);
+        cleared++;
+      }
+    }
+    return [null, cleared];
+  } catch (thrown: unknown) {
+    return [{ kind: "clear-failed", message: errText(thrown) }, null];
   }
 }
 
