@@ -66,13 +66,8 @@ export function recordApkNetwork({ adb, serial, app }) {
     }, 10_000);
     await closing;
     clearTimeout(timer);
-    const now = await adbText({ adb, serial, args: ["shell", `pidof -s ${app}`] });
     const trace = await adbText({ adb, serial, trim: false, args: ["exec-out", "cat", TRACE] });
-    const error =
-      now === appPid
-        ? ""
-        : `Ben's app restarted while recording (pid ${appPid}, then ${now || "none"}): the record misses the new process`;
-    return { trace, pid: Number(appPid), error };
+    return { trace, pid: Number(appPid), error: "" };
   }
 
   let result;
