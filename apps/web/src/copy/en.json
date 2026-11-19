@@ -2113,6 +2113,13 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.view_added_by": {
+    "text": "View {name}, added by {adder}",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, inside an album",
+    "screen": ""
+  },
   "gallery.sort_by": {
     "text": "Sort by",
     "status": "draft",

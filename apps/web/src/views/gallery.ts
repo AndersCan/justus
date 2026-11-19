@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit-html";
 import { arrivalFocus } from "./arrival-focus";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
-import type { FolderSummary, JoinRequest, Photo, SyncStatus } from "@justus/core";
+import type { FolderSummary, JoinRequest, Photo, SyncMember, SyncStatus } from "@justus/core";
 import {
   gallery,
   galleryActor,
@@ -26,6 +26,8 @@ import { formatRelative } from "../utils/time";
 import { unreachableMember } from "../utils/reach-hint";
 import { backTo, currentPage, open, ownLink } from "../machines/router-machine";
 import { photoWait, type PhotoWait } from "../utils/photo-wait";
+import { dotMembers, showsAdderDots, tileAdder, type TileAdder } from "../utils/adder-dot";
+import { memberColor } from "../utils/palette";
 import { newPhotosFrom } from "../utils/new-photos-from";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
@@ -323,9 +325,21 @@ function emptyIllustration() {
   </svg>`;
 }
 
+function adderDot(adder: TileAdder) {
+  const fill = memberColor(adder.color);
+  return html`<span
+    data-adder-dot=${fill === undefined ? "hollow" : "filled"}
+    aria-hidden="true"
+    class="${
+      fill === undefined ? "ui-presence-dot-none" : "ui-presence-dot"
+    } pointer-events-none absolute bottom-1.5 left-1.5"
+    style=${fill === undefined ? nothing : `background:${fill};`}
+  ></span>`;
+}
+
 /** One grid tile. `within` is the grid it sits in (the lightbox steps through
- * it). */
-export function photoTile(photo: Photo, within: Photo[]) {
+ * it). With `adder` it shows who added the photo. */
+export function photoTile(photo: Photo, within: Photo[], adder?: TileAdder) {
   return html`
     <figure
       data-motion-key=${photoKey(photo)}
@@ -333,7 +347,11 @@ export function photoTile(photo: Photo, within: Photo[]) {
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       role="button"
       tabindex="0"
-      aria-label=${copy("gallery.view", { name: photo.name })}
+      aria-label=${
+        adder === undefined
+          ? copy("gallery.view", { name: photo.name })
+          : copy("gallery.view_added_by", { name: photo.name, adder: adder.name })
+      }
       ${lookedAt(photo)}
       @click=${() => openLightbox(photo, within)}
       @keydown=${(e: KeyboardEvent) => {
@@ -350,6 +368,7 @@ export function photoTile(photo: Photo, within: Photo[]) {
         referrerpolicy="no-referrer"
         loading="lazy"
       />
+      ${adder === undefined ? nothing : adderDot(adder)}
       ${watch(seenActor, (s) =>
         isNewPhoto(s.context, photo)
           ? html`<span class="ui-new pointer-events-none absolute left-1.5 top-1.5"
@@ -391,7 +410,12 @@ function sortControl(sort: PhotoSort) {
 
 /** The timeline, newest first: by date added ("Recently added", then months)
  * or by date taken (months). */
-function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
+function photoTimeline(
+  photos: Photo[],
+  sort: PhotoSort,
+  density: Density,
+  members?: readonly SyncMember[],
+) {
   const ordered = sortPhotos(photos, sort);
   return repeat(
     groupPhotos(ordered, sort),
@@ -406,7 +430,9 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
           <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
         <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
-          ${repeat(group.photos, photoKey, (p) => photoTile(p, ordered))}
+          ${repeat(group.photos, photoKey, (p) =>
+            photoTile(p, ordered, members === undefined ? undefined : tileAdder(p, members)),
+          )}
         </div>
       </div>
     `,
@@ -418,11 +444,18 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
  * when photos arrive or leave. */
 export function scopePhotos(
   actor: GalleryActor,
-  view: { scope: PhotoScope; sort: PhotoSort; density: Density; empty: () => unknown },
+  view: {
+    scope: PhotoScope;
+    sort: PhotoSort;
+    density: Density;
+    empty: () => unknown;
+    members?: readonly SyncMember[];
+  },
 ) {
   const scopeKey = view.scope.kind === "album" ? `album:${view.scope.id}` : view.scope.kind;
   return watch(actor, (s) => {
     const photos = photosInScope(s.context.photos, view.scope);
+    const members = view.members !== undefined && showsAdderDots(photos) ? view.members : undefined;
     const keys = sortPhotos(photos, view.sort).map(photoKey);
     const settle = `${scopeKey}|${view.sort}|${view.density}`;
     return html`<div class="space-y-5" data-album-photos ${gridMotion({ keys, settle })}>
@@ -430,7 +463,7 @@ export function scopePhotos(
         photos.length === 0
           ? view.empty()
           : html`
-              ${sortControl(view.sort)} ${photoTimeline(photos, view.sort, view.density)}
+              ${sortControl(view.sort)} ${photoTimeline(photos, view.sort, view.density, members)}
               <footer class="pt-6 text-center text-xs text-muted">
                 ${t("gallery.photo", { count: photos.length })}
               </footer>
@@ -933,6 +966,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
           sort: page.sort,
           density: page.density,
           empty: () => scopeEmptyState(page, scope, album),
+          members: dotMembers(scope, page.status),
         });
   return html`
     <div
