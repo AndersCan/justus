@@ -61,6 +61,14 @@ exists (it fails on a missing run). `scripts/flows.test.ts` checks that each wal
 link carries `machine=` and `run=`, has no `step=` trace, and is named after its run. Needs Chromium; set
 `CHROMIUM_PATH` if Playwright's is not installed.
 
+## Two designs
+
+An ask for two designs of a change that crosses machines (mantaq skill, `designing.md` section 10 "Across machines") draws both whole apps on one page:
+
+- Drafts next to `app.ts`: `app.design-a.ts` (`justusDraftA`), `app.design-b.ts` (`justusDraftB`); a changed machine as `<file>.design-a.ts` (`lightbox-machine.design-a.ts`), so `app.test.ts` and the manifest test, which look for `-machine.ts`, ignore them. Copy only a machine that no other machine file imports (the roots import `lightbox-machine.ts` alone). A copy of one that others import (`sync`, `folders`, `gallery`, `requests`, `router`, `join-request`) fails `pnpm site:build` with "found in more than one file" until `@mantaq/inspect` prefers the file that exports the part's machine. A design that changes one of those six cannot be drawn on the page until then; say so in the reply. Walks: `app.design-a.test.ts`, `app.design-b.test.ts`.
+- Page `docs/site/src/content/docs/two-designs.mdx` and the manifest key `"two-designs": ["apps/web/src/machines/app.design-a.ts", "apps/web/src/machines/app.design-b.ts"]`. The page: front matter `title: "Two designs"`, `description: "Draft: <the ask>. Not built."`, the `Machine` import, then `## A: <what A chooses>`, `<Machine src="apps/web/src/machines/app.design-a.ts" />`, `## B: <what B chooses>`, `<Machine src="apps/web/src/machines/app.design-b.ts" />`. No `run` prop, no backticked `machine.state` names.
+- Link: the draft pull request's preview, `https://anderscan.github.io/justus/pr/<n>/two-designs/?machine=justusDraftA&machine=justusDraftB&run=<walk title>`. Locally: `pnpm site:build`, then `pnpm exec astro preview --config docs/site/astro.config.mjs` (runs in the background; stop it with `pnpm exec astro preview stop --config docs/site/astro.config.mjs`), and the same path on the URL it prints. `astro dev` times out on three whole-app boards.
+
 ## `pnpm flows:dev`
 
 `pnpm flows:dev [feature|file ...]` serves the live viz page for the named
