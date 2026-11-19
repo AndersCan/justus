@@ -19,6 +19,7 @@ import {
   validLinkEnd,
   type LinkTime,
   type RegistryFile,
+  type Removal,
   type RequestsFile,
   type ViewersFile,
 } from "./records";
@@ -382,6 +383,8 @@ export function pendingJoinRequests(
     viewers?: ReadonlySet<string>;
     /** Works out the check code for an identity; when absent, requests carry none. */
     checkCodeOf?: (identity: string) => string;
+    /** Who this album's Admins removed, by identity: a request from one is marked `removedEarlier`. */
+    removals?: Readonly<Record<string, Removal>>;
   },
 ): JoinRequest[] {
   const enrolled = new Set(Object.values(options.registry.members).map((m) => m.key));
@@ -402,10 +405,12 @@ export function pendingJoinRequests(
       const link = f.viaInvite && !f.held ? linkOf(f, options.linkTimes) : undefined;
       const viaInvite = f.viaInvite ? { ...withIdentity, viaInvite: true } : withIdentity;
       const base = link ? { ...viaInvite, link } : viaInvite;
+      const removal = options.removals?.[f.identity];
+      const marked = removal ? { ...base, removedEarlier: removal } : base;
       const flagged =
         f.viaInvite && options.answers?.[f.identity] === "declined"
-          ? { ...base, declinedEarlier: true }
-          : base;
+          ? { ...marked, declinedEarlier: true }
+          : marked;
       return options.checkCodeOf
         ? { ...flagged, checkCode: options.checkCodeOf(f.identity) }
         : flagged;

@@ -654,6 +654,27 @@ export const MAX_HANDOVER_CODES = 50;
 /** Most answers one handover carries. */
 export const MAX_HANDOVER_ANSWERS = 1000;
 
+/** Someone an Admin removed: the name they had in the album, when (ms since the epoch), and who removed them. `by` is absent when this phone did; a handover fills it. */
+export type Removal = { name: string; at: number; by?: string };
+
+/** Removals by phone identity off the wire or the saved state; undefined when any entry is malformed. */
+export function parseRemovals(value: unknown): Record<string, Removal> | undefined {
+  if (!isTextJSON(value)) return undefined;
+  const out: Record<string, Removal> = {};
+  for (const [id, raw] of Object.entries(value)) {
+    if (!isHexKey(id) || !isTextJSON(raw)) return undefined;
+    const name = peerName(raw.name, "");
+    if (name === "") return undefined;
+    if (typeof raw.at !== "number" || !Number.isFinite(raw.at)) return undefined;
+    if (raw.by !== undefined && typeof raw.by !== "string") return undefined;
+    out[id.toLowerCase()] =
+      raw.by === undefined
+        ? { name, at: raw.at }
+        : { name, at: raw.at, by: peerName(raw.by, DEFAULT_ASK_OWNER) };
+  }
+  return out;
+}
+
 /** Everything the next Admin needs from the Admin's phone that is not on a drive. */
 export type HandoverPackage = {
   fromName: string;
@@ -662,6 +683,8 @@ export type HandoverPackage = {
   retiredWhy?: Record<string, "turnedOff" | "replaced">;
   answers?: Record<string, "accepted" | "declined">;
   declinedAsks?: Record<string, number>;
+  /** Who the album's Admins removed; `by` is always set. */
+  removals?: Record<string, Removal>;
   /** One per code in `invite` and `retiredInvites`. */
   chains: Record<string, HandoverProof[]>;
 };
@@ -739,7 +762,7 @@ function parseLinkTimes(value: unknown): LinkTime[] | undefined {
 /** A handover package off the wire, or undefined when any part of it is malformed or over its cap. */
 export function parseHandoverPackage(value: unknown): HandoverPackage | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { invite, retiredInvites, retiredWhy, answers, declinedAsks, chains } = value;
+  const { invite, retiredInvites, retiredWhy, answers, declinedAsks, removals, chains } = value;
   if (!isTextJSON(invite) || typeof invite.code !== "string" || !isHexKey(invite.code)) {
     return undefined;
   }
@@ -799,6 +822,11 @@ export function parseHandoverPackage(value: unknown): HandoverPackage | undefine
       parsed[id.toLowerCase()] = at;
     }
     out.declinedAsks = parsed;
+  }
+  if (removals !== undefined) {
+    const parsed = parseRemovals(removals);
+    if (!parsed) return undefined;
+    out.removals = parsed;
   }
   if (!isTextJSON(chains) || Object.keys(chains).length !== codes.size) return undefined;
   for (const c of codes) {

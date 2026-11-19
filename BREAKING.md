@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 5
 
+- **A handover says who the Admin removed** (the `handover` message's package gains optional `removals`: phone identity -> name, when, who removed them). Who: testers on a protocol-5 build from before this change: a handover from or to their phone carries none, so the new Admin's request cards do not say someone was removed earlier. Do: update both phones before handing over.
 - **A handed-over album lists the leaving Admin's drive as an earlier drive** (the next Admin's `/earlier.json` gains the old Admin's drive). Who: testers on a protocol-5 build from before this change. If the next Admin's or the leaving Admin's phone is on an older build, the two photo digests never match, the handover never finishes and the leaving Admin's phone keeps re-sending. Do: update both phones.
 - **The next Admin's phone says which photos it holds when it answers a handover** (peer message `handoverReady` gains a required `photos` digest). Who: testers on a protocol-5 build from before this change: an updated Admin's phone drops their phone's reply as the next Admin, so the handover waits. Do: update Justus.
 - **A Collaborator's phone records the photos it deleted** (`/deleted-photos/<id>` on the Collaborator's album drive, read with the holding record). Who: internal testers on a protocol-5 build from before this change: a photo their phone deletes never shows on the "still has a deleted photo" line, and their phone keeps saying it has a photo an updated Collaborator deleted until its cache drops it. Do: update Justus.

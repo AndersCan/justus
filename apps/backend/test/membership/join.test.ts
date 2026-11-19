@@ -639,6 +639,34 @@ describe("pendingJoinRequests after a decline", () => {
     expect("declinedEarlier" in ask(false, { i: "declined" })).toBe(false);
   });
 
+  it("marks a request from a removed phone with when and by whom, and nothing else", () => {
+    const ask = (identity: string, viaInvite: boolean) =>
+      pendingJoinRequests(
+        [
+          {
+            request: {
+              folderId: "f1",
+              folderName: "Trip",
+              requesterKey: key,
+              requesterName: "Bo",
+              requestedAt: 200,
+            },
+            identity,
+            viaInvite,
+          },
+        ],
+        {
+          registry: { version: 1, members: {} },
+          denied: new Set(),
+          answers: undefined,
+          removals: { i: { name: "Bo", at: 5, by: "Ada" } },
+        },
+      )[0]!;
+    expect(ask("i", true).removedEarlier).toEqual({ name: "Bo", at: 5, by: "Ada" });
+    expect(ask("i", false).removedEarlier).toEqual({ name: "Bo", at: 5, by: "Ada" });
+    expect("removedEarlier" in ask("j", true)).toBe(false);
+  });
+
   it("lists a newer ask, hides the answered one, an unknown time and an accepted one", () => {
     expect(list(200, { i: "declined" }, { i: 100 })).toBe(1);
     expect(list(100, { i: "declined" }, { i: 100 })).toBe(0);

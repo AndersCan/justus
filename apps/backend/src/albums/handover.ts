@@ -23,6 +23,7 @@ import {
   type HandoverPackage,
   type HandoverProof,
   type LinkTime,
+  type Removal,
 } from "../membership/records";
 import { DRIVE_PATH_MEMBERS, MAX_PEER_JSON_BYTES } from "../membership/join.ts";
 import { errText, type P2pLog } from "../p2p-log.ts";
@@ -292,6 +293,7 @@ export function buildHandoverPackage(
     retiredWhy?: Readonly<Record<string, "turnedOff" | "replaced">>;
     answers?: Readonly<Record<string, "accepted" | "declined">>;
     declinedAsks?: Readonly<Record<string, number>>;
+    removals?: Readonly<Record<string, Removal>>;
   },
   options: { fromName: string; chains: Readonly<Record<string, HandoverProof[]>> },
 ): HandoverPackage | undefined {
@@ -318,6 +320,16 @@ export function buildHandoverPackage(
       : {}),
     ...(record.declinedAsks && Object.keys(record.declinedAsks).length > 0
       ? { declinedAsks: { ...record.declinedAsks } }
+      : {}),
+    ...(record.removals && Object.keys(record.removals).length > 0
+      ? {
+          removals: Object.fromEntries(
+            Object.entries(record.removals).map(([id, r]) => [
+              id,
+              { ...r, by: r.by ?? options.fromName },
+            ]),
+          ),
+        }
       : {}),
     chains,
   };

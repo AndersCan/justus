@@ -526,6 +526,67 @@ async function removedCarl() {
   return { s, carl, owner, oldKey, kept, now, carlFolders };
 }
 
+describe("a request from someone removed", () => {
+  it("carries the removal until they are let back in, across a decline and a restart", async () => {
+    const before = Date.now();
+    const { s, carl, owner, now } = await removedCarl();
+    const id = identityOf(carl);
+    const removals = () => s.record().removals as Record<string, { name: string; at: number }>;
+    expect(removals()[id]).toEqual({ name: "Carl", at: expect.any(Number) });
+    expect(removals()[id]!.at).toBeGreaterThanOrEqual(before);
+    expect(removals()[id]!.at).toBeLessThanOrEqual(Date.now());
+    const entry = removals()[id]!;
+
+    expect((await carl.store.ask({ code: now.invite!.code, owner }))[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length === 1, 10_000);
+    const first = (await s.admin.store.requests()).requests[0]!;
+    expect(first.removedEarlier).toEqual(entry);
+    expect(first.declinedEarlier).toBeUndefined();
+
+    expect((await s.admin.store.respond(s.folderId, first.requesterKey, false))[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length === 0, 10_000);
+    await new Promise((r) => setTimeout(r, 20));
+    expect((await carl.store.ask({ code: now.invite!.code, owner }))[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length === 1, 10_000);
+    const second = (await s.admin.store.requests()).requests[0]!;
+    expect(second.removedEarlier).toEqual(entry);
+    expect(second.declinedEarlier).toBe(true);
+    expect(removals()[id]).toEqual(entry);
+
+    const again = createPhotoStore(restarted(s.admin.deps));
+    await again.ready();
+    await until(async () => (await again.requests()).requests.length === 1, 10_000);
+    expect((await again.requests()).requests[0]!.removedEarlier).toEqual(entry);
+    await again.close();
+    await carl.store.close();
+    await s.close();
+  }, 60_000);
+
+  it("notes a removed Viewer too, under the name the album lists", async () => {
+    const s = await album();
+    const listed = ((await s.admin.store.status()).members as { key: string; name: string }[]).find(
+      (m) => m.key === s.keys.vera,
+    )!.name;
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.vera))[0]).toBeNull();
+    expect(s.record().removals?.[identityOf(s.vera)]).toEqual({
+      name: listed,
+      at: expect.any(Number),
+    });
+    await s.close();
+  });
+
+  it("is forgotten once they are accepted", async () => {
+    const { s, carl, owner, now } = await removedCarl();
+    expect((await carl.store.ask({ code: now.invite!.code, owner }))[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length === 1, 10_000);
+    const key = (await s.admin.store.requests()).requests[0]!.requesterKey;
+    expect((await s.admin.store.respond(s.folderId, key, true))[0]).toBeNull();
+    expect(s.record().removals?.[identityOf(carl)]).toBeUndefined();
+    await carl.store.close();
+    await s.close();
+  }, 40_000);
+});
+
 describe("an answer that names a kept album", () => {
   it("from another Admin never replaces a kept album", async () => {
     const { s, carl, oldKey, kept, carlFolders } = await removedCarl();

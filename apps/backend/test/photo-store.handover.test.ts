@@ -116,6 +116,28 @@ describe("handing an album to a Collaborator", () => {
     await s.close();
   });
 
+  it("tells the next Admin who Ada removed, and Ben's card names Ada", async () => {
+    const s = await scene({ holdDone: true });
+    const code = (await trip(s.ada)).invite!.code;
+    const adaIdentity = identityOf(s.ada);
+    await s.ada.store.close();
+    const file = join(s.ada.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.folders[0].removals = { [identityOf(s.cy)]: { name: "Cy", at: 1_700_000_000_000 } };
+    writeFileSync(file, JSON.stringify(saved));
+    const ada = createPhotoStore(restarted(s.ada.deps));
+    await ada.ready();
+    expect((await ada.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    await until(async () => (await s.cy.store.ask({ code, owner: adaIdentity }))[0] === null);
+    await until(async () => (await s.ben.store.requests()).requests.length === 1, 30_000);
+    const [card] = (await s.ben.store.requests()).requests;
+    expect(card!.removedEarlier).toEqual({ name: "Cy", at: 1_700_000_000_000, by: "Ada" });
+    await ada.close();
+    await s.ben.store.close();
+    await s.cy.store.close();
+  }, 60_000);
+
   it("names Ada on the Admin's row for Ben and for Cy, and on no row before", async () => {
     const s = await scene();
     expect(

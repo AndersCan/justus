@@ -100,6 +100,7 @@ import {
   parseDeviceName,
   parseEarlier,
   parseRemoved,
+  parseRemovals,
   parseRequestsFile,
   invitesAsked,
   verifiedDeviceIdentity,
@@ -123,6 +124,7 @@ import {
   type RegistryFile,
   type ViewersFile,
   type RemovedFile,
+  type Removal,
   parseFolderName,
 } from "./membership/records";
 import {
@@ -382,6 +384,8 @@ type FolderRecord = {
   answers?: Answers;
   /** Creator only: when the ask behind each "declined" answer was made. */
   declinedAsks?: Record<string, number>;
+  /** Creator only: people this album's Admins removed, by phone identity (see Removal). Cleared when they are let back in. */
+  removals?: Record<string, Removal>;
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
@@ -1019,6 +1023,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       out.declinedAsks = declinedAsks;
     }
+    const removals = parseRemovals(f.removals);
+    if (removals && Object.keys(removals).length > 0) out.removals = removals;
     if (isTextJSON(f.heldAsks)) {
       const heldAsks: Record<string, string> = {};
       for (const [id, code] of Object.entries(f.heldAsks)) {
@@ -3888,6 +3894,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Admin: this person is back in the album, so they are no longer "former". */
   async function forgetFormer(rt: FolderRuntime, identity: string | undefined) {
     if (identity === undefined) return;
+    if (rt.record.removals?.[identity]) {
+      const { [identity]: _let_back_in, ...rest } = rt.record.removals;
+      patchRecord(rt, { removals: Object.keys(rest).length > 0 ? rest : undefined });
+    }
     const [dropErr, dropped] = await dropFormer(rt.folderDrive, identity, log);
     if (dropErr) log("error", { where: "forgetFormer", err: dropErr.message });
     if (dropped) await refreshFormer(rt);
@@ -5792,6 +5802,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       retiredWhy: admin.retiredWhy,
       answers: admin.answers ?? {},
       declinedAsks: admin.declinedAsks,
+      removals: admin.removals,
       handoverChains: admin.chains,
       handedBy: { identity: taking.from, name: taking.fromName },
       notice: { kind: "madeAdmin", fromName: taking.fromName },
@@ -6880,6 +6891,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             linkTimes: rt.record.invite?.links,
             viewers: new Set(Object.keys(rt.viewers)),
             checkCodeOf: (id) => checkCode(id, crypto),
+            removals: rt.record.removals,
           }),
         );
       }
@@ -7333,6 +7345,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const isMember = Boolean(registry.members[memberKey]);
         const isViewer = Boolean(rt.viewers[memberKey]);
         const owed = (rt.record.moveOwed ?? []).includes(memberKey);
+        const removedName = registry.members[memberKey]?.name ?? rt.viewers[memberKey]?.name;
         if (!isMember && !isViewer && !stillMoving && !stillUnknown && !owed)
           return err(PhotoError.NOT_FOUND, "No such member");
         // Mark the move as owed before the removal, so a failed move can be retried.
@@ -7383,10 +7396,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
           if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
           const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
+          const identity =
+            presence.identities.get(memberKey) ?? (gone ? await identityOfDrive(gone) : undefined);
+          if (identity !== undefined && removedName !== undefined) {
+            patchRecord(rt, {
+              removals: {
+                ...rt.record.removals,
+                [identity]: { name: removedName, at: Date.now() },
+              },
+            });
+          }
           await noteFormer(
             rt,
             leaving && { ...leaving, album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
-            gone ? await identityOfDrive(gone) : undefined,
+            identity,
           );
         }
         // Stop loading their drive; a re-filed request must not resurface at once.
