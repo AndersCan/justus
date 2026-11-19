@@ -191,10 +191,7 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       benRow.locator("[data-member-photos]"),
       "Ben off, new photo · Ada's Members: Ben's count",
     ).toHaveText(
-      words("members.and_waiting", {
-        line: words("members.has_photos", { full: 1, total: 2 }),
-        n: 1,
-      }),
+      `${words("members.n_in_full", { n: 1 })}, ${words("members.n_waiting", { n: 1 })}`,
       { timeout: 60_000 },
     );
     await a.goto(albumPath);
@@ -298,10 +295,7 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
     benRow.locator("[data-member-photos]"),
     "Ben back · Ada's Members: Ben's count",
   ).toHaveText(
-    words("members.and_previews", {
-      line: words("members.has_photos", { full: 1, total: 2 }),
-      n: 1,
-    }),
+    `${words("members.n_in_full", { n: 1 })}, ${words("members.n_previews", { n: 1 })}`,
     { timeout: 60_000 },
   );
 });
@@ -334,10 +328,7 @@ test("every holders line reads right on both phones from add to delete, across a
     rows.locator("[data-member-key]", { hasText: "Ben" }).locator("[data-member-photos]"),
     "Ben has 1 photo and 2 previews · Members: Ben's row",
   ).toHaveText(
-    words("members.and_previews", {
-      line: words("members.has_photos", { full: 1, total: 3 }),
-      n: 2,
-    }),
+    `${words("members.n_in_full", { n: 1 })}, ${words("members.n_previews", { n: 2 })}`,
     {
       timeout: 60_000,
     },
@@ -345,7 +336,22 @@ test("every holders line reads right on both phones from add to delete, across a
   await expect(
     rows.locator("[data-member-key]", { hasText: "Ada" }).locator("[data-member-photos]"),
     "Ben has 1 photo and 2 previews · Members: Ada's row",
-  ).toHaveText(words("members.has_photos", { full: 3, total: 3 }));
+  ).toHaveText(words("members.n_in_full", { n: 3 }));
+  await b
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  const bRows = b.locator("section", { has: b.getByRole("heading", { name: "Members" }) });
+  await expect(
+    bRows.locator("[data-member-key]", { hasText: "Ben" }).locator("[data-member-photos]"),
+    "Ben has 1 photo and 2 previews · Ben's Members: Ben's own row",
+  ).toHaveText(
+    `${words("members.n_in_full", { n: 1 })}, ${words("members.n_previews", { n: 2 })}`,
+    {
+      timeout: 60_000,
+    },
+  );
+  await b.getByRole("link", { name: "See photos in this album" }).click();
   await a.getByRole("link", { name: "See photos in this album" }).click();
 
   const resume = await pausePhone(instances[1]);

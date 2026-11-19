@@ -4584,22 +4584,22 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "members.has_photos": {
-    "text": "Photos: {full} of {total}",
+  "members.n_in_full": {
+    "text": "{n} in full",
     "status": "draft",
     "where": "Album › Invite & members › member row",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "members.and_previews": {
-    "text": "{line}, {n} as previews",
+  "members.n_previews": {
+    "text": "{n} {n?preview:previews}",
     "status": "draft",
     "where": "Album › Invite & members › member row",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "members.and_waiting": {
-    "text": "{line}, {n} waiting",
+  "members.n_waiting": {
+    "text": "{n} waiting",
     "status": "draft",
     "where": "Album › Invite & members › member row",
     "who": "Album members, whenever they open an album's people",
