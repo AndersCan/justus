@@ -463,6 +463,24 @@ describe("other phones follow the new Admin", () => {
     await s.close();
   });
 
+  it("a phone whose new Admin lists no earlier drive for the old one still names the new Admin", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    const benDrive = await s.ben.deps.drives.openOwn(`member/${s.shareKey}`);
+    expect(benDrive.key).toBe(s.benKey);
+    await benDrive.put("/earlier.json", Buffer.from(JSON.stringify({ version: 1, earlier: [] })));
+
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
+    expect(
+      (await trip(s.cy)).adminChanged,
+      "Trip: the old Admin's name is unknown, the page falls back to 'The Admin'",
+    ).toEqual({ fromName: "", toName: "Ben" });
+    await s.close();
+  }, 40_000);
+
   it("a phone that was off takes the Viewer seat Ben gave it while it was away", async () => {
     const s = await scene();
     setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: false });

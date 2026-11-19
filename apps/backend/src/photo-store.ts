@@ -590,8 +590,9 @@ export interface PhotoStore {
   deleteAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Member or Viewer: takes the album off this phone. A Member's own drive keeps telling the Admin until the Admin's list drops it. */
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
-  /** Clears the line naming who left an album (Admin). */
+  /** Clears the line naming who handed the album to whom. */
   dismissAdminChanged(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Clears the line naming who left an album (Admin). */
   dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   dismissWhoJoined(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
@@ -5760,7 +5761,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.memberNameCache.set(left.key, left.name);
     }
     rt.folderDrive = hop.drive;
-    if (left) rt.adminChanged = { fromName: left.name, toName: hop.next.name };
+    rt.adminChanged = { fromName: left?.name ?? "", toName: hop.next.name };
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
       ...(rt.record.invite ? { invite: { ...rt.record.invite, owner: hop.next.identity } } : {}),
