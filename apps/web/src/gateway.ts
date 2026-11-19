@@ -123,6 +123,8 @@ export const gateway = {
   deleteAlbum: (folderId: string) => invoke(photoEvents.photos.deleteAlbum(folderId)),
   dismissWhoLeft: (folderId: string) => invoke(photoEvents.photos.dismissWhoLeft(folderId)),
   dismissWhoJoined: (folderId: string) => invoke(photoEvents.photos.dismissWhoJoined(folderId)),
+  dismissAdminChanged: (folderId: string) =>
+    invoke(photoEvents.photos.dismissAdminChanged(folderId)),
   dismissAlbumNotice: (folderId: string) => invoke(photoEvents.photos.dismissAlbumNotice(folderId)),
   /** Takes a declined request off this phone. */
   dismissDeclinedAsk: (code: string) => invoke(photoEvents.photos.dismissDeclinedAsk(code)),

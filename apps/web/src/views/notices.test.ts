@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  adminChangedText,
   albumNoticeText,
   deletedNoticeText,
   joinedText,
@@ -84,5 +85,22 @@ describe("joinedText", () => {
 describe("youLeftText", () => {
   it("says the person left the album", () => {
     expect(youLeftText("Summer")).toBe("You left “Summer”.");
+  });
+});
+
+describe("adminChangedText", () => {
+  it("names who handed the album to whom", () => {
+    expect(adminChangedText({ fromName: "Ada", toName: "Ben" }, "Summer")).toBe(
+      "Ada handed “Summer” to Ben. Ben is the Admin now and accepts new people.",
+    );
+  });
+
+  it("says The Admin for a name this phone does not know", () => {
+    expect(adminChangedText({ fromName: "", toName: "Ben" }, "Summer")).toBe(
+      "The Admin handed “Summer” to Ben. Ben is the Admin now and accepts new people.",
+    );
+    expect(adminChangedText({ fromName: "Ada", toName: "" }, "Summer")).toBe(
+      "Ada handed “Summer” to The Admin. The Admin is the Admin now and accepts new people.",
+    );
   });
 });

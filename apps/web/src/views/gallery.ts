@@ -59,7 +59,7 @@ import {
 import { ownerShown } from "../utils/invite-link";
 import { joinActor, joinedNow } from "../machines/sharing/join-request";
 import { stillToDropLine } from "./still-to-drop";
-import { joinedNotice, whoJoinedNotice, whoLeftNotice } from "./notices";
+import { adminChangedNotice, joinedNotice, whoJoinedNotice, whoLeftNotice } from "./notices";
 import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
@@ -910,10 +910,12 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
       ${watch(joinActor, (j) =>
         joinedNow(j)?.folderId === album.id &&
         album.notice === undefined &&
+        album.adminChanged === undefined &&
         !album.whoJoined?.length
           ? joinedNotice(album.name)
           : null,
       )}
+      ${adminChangedNotice(album, !page.foldersSettled)}
       ${whoJoinedNotice(album, !page.foldersSettled)} ${whoLeftNotice(album, !page.foldersSettled)}
       ${slot} ${album.notice === undefined && status ? stillToDropLine(status) : null}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}

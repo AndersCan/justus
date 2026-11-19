@@ -92,6 +92,7 @@ const changeVerbs = {
   dismiss: copy("albums.dismiss_the_notice_for"),
   dismissWhoLeft: copy("albums.dismiss_the_notice_for"),
   dismissWhoJoined: copy("albums.dismiss_the_notice_for"),
+  dismissAdminChanged: copy("albums.dismiss_the_notice_for"),
 } as const;
 
 // Archive, restore, leave and delete end with a toast; leaving the album page

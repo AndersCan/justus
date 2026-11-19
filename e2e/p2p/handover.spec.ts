@@ -2,6 +2,8 @@
  * Three real bare instances, one story: Ada makes an album, Ben joins it, Cy asks with Ada's link,
  * Ada leaves by handing the album to Ben, and Ada's phone goes off. Ben's phone is the Admin from
  * then on: he sees the notice, accepts Cy, and Cy's phone lists Ben as the Admin and not Ada.
+ * A second story has Cy already in the album as a Viewer: his page reads that Ada handed it to
+ * Ben, in place of "You're now in", whether it was open at the handover or his phone was off.
  *
  *   pnpm test:e2e-p2p e2e/p2p/handover.spec.ts
  */
@@ -211,3 +213,83 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
     }
   }
 });
+
+for (const cyOff of [false, true]) {
+  test(`Cy, already in the album as a Viewer${cyOff ? " with his phone off at the handover" : ""}, reads that Ada handed it to Ben`, async ({
+    instancePages,
+    instances,
+  }) => {
+    test.setTimeout(360_000);
+    const [a, b, c] = instancePages;
+    const album = `Handover viewer ${Date.now().toString(36)}`;
+    const beforeNames = [];
+    try {
+      await skipIntro([a, b, c]);
+      for (const [i, page] of instancePages.entries())
+        beforeNames[i] = await setName(page, NAMES[i]);
+
+      await createAlbum(a, album, "handover-viewer.png", 93);
+      const link = await copyInviteLink(a);
+      const wants = words("album.wants_to_join", { folderName: album });
+
+      await askToJoin(b, link, album);
+      await expect(a.getByText(wants)).toBeVisible({ timeout: 60_000 });
+      await a
+        .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
+        .click();
+      await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+      await askToJoin(c, link, album);
+      await expect(a.getByText(wants)).toBeVisible({ timeout: 60_000 });
+      await a.getByRole("button", { name: words("album.accept_as_viewer"), exact: true }).click();
+      await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+      const cyAlbumPath = new URL(c.url()).pathname;
+      await expect(c.getByText(words("notices.now_in_album", { albumName: album }))).toBeVisible();
+      await expect(c.getByText(words("gallery.you_re_a_viewer_you", { who: "Ada" }))).toBeVisible();
+
+      await a.goto("/sharing");
+      await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+      await expect(
+        a
+          .locator("li[data-member-key]")
+          .filter({ hasText: "Ben" })
+          .getByText(words("member.role_collaborator")),
+      ).toBeVisible({ timeout: 60_000 });
+      const id = new URL(a.url()).pathname.split("/").pop();
+      const resumeCy = cyOff ? await pausePhone(instances[2]) : () => {};
+      await a.getByRole("button", { name: "More options" }).click();
+      await a.getByRole("menuitem", { name: words("album.leave_album") }).click();
+      await a.getByRole("button", { name: words("album.hand_over_confirm"), exact: true }).click();
+      await expect
+        .poll(
+          async () => {
+            const res = await a.context().request.get(new URL("/__state", instances[0].url).href);
+            return (await res.json()).folders.some((f) => f.id === id);
+          },
+          { message: "the album leaves Ada's phone", timeout: 90_000, intervals: [200] },
+        )
+        .toBe(false);
+      resumeCy();
+      if (cyOff) await c.goto(cyAlbumPath);
+
+      const line = c.getByText(
+        words("notices.admin_changed", { fromName: "Ada", album, name: "Ben" }),
+      );
+      await expect(line).toBeVisible({ timeout: 60_000 });
+      await expect(c.getByText(words("notices.now_in_album", { albumName: album }))).toHaveCount(0);
+      await expect(c.getByText(words("gallery.you_re_a_viewer_you", { who: "Ben" }))).toBeVisible();
+
+      await c.getByRole("button", { name: `Dismiss notice about ${album}` }).click();
+      await expect(line).toHaveCount(0);
+      await c.goto(cyAlbumPath);
+      await expect(c.getByText(words("gallery.you_re_a_viewer_you", { who: "Ben" }))).toBeVisible();
+      await expect(line).toHaveCount(0);
+    } finally {
+      resumeAll();
+      await leaveAlbum(c, album, instances[2]);
+      for (const [i, page] of instancePages.entries()) {
+        if (beforeNames[i]) await setName(page, beforeNames[i]);
+      }
+    }
+  });
+}

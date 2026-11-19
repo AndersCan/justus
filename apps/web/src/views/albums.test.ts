@@ -33,6 +33,7 @@ const mock = vi.hoisted(() => ({
   setActive: vi.fn(),
   dismissWhoLeft: vi.fn(),
   dismissWhoJoined: vi.fn(),
+  dismissAdminChanged: vi.fn(),
   ask: vi.fn(),
   linkTurnedOff: vi.fn(),
 }));
@@ -51,6 +52,7 @@ vi.mock("../gateway", () => ({
     setActive: mock.setActive,
     dismissWhoLeft: mock.dismissWhoLeft,
     dismissWhoJoined: mock.dismissWhoJoined,
+    dismissAdminChanged: mock.dismissAdminChanged,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
