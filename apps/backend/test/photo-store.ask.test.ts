@@ -1923,7 +1923,7 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
         await s.close();
       });
 
-      it("refuses an unknown end, a malformed one and a locked phone; ending twice writes once", async () => {
+      it("refuses an unknown end, a malformed one and an unknown album; ending twice writes once", async () => {
         const { s, ends } = await twoLinks();
         expect((await s.admin.store.endInviteLink(s.folderId, ends.first + 1000))[0]).toMatchObject(
           {
@@ -1944,6 +1944,28 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
         const again = savedLinks(s).find((l) => l.to === ends.first) as { ended?: number };
         expect(again.ended).toBe(once.ended);
         expect(savedLinks(s).find((l) => l.to === ends.second)).not.toHaveProperty("ended");
+        await s.close();
+      });
+
+      it("saves the end when the Admin's phone restarted before ending the link", async () => {
+        const { s, ends } = await twoLinks();
+        await s.admin.store.close();
+        const deps = restarted(s.admin.deps);
+        const again = createPhotoStore(deps);
+        await again.ready();
+        expect((await again.endInviteLink(s.folderId, ends.second))[0]).toBe(null);
+        const saved = savedLinks(s).find((l) => l.to === ends.second) as { ended?: number };
+        expect(saved.ended).toBeTypeOf("number");
+        await again.close();
+        await s.joiner.store.close();
+      });
+
+      it("tells Ada's screen to refresh its requests when a link ends", async () => {
+        const { s, ends } = await twoLinks();
+        const pushes: Array<{ cause: string; folderId?: string }> = [];
+        s.admin.deps.onChanged = (e) => pushes.push(e as { cause: string; folderId?: string });
+        await s.admin.store.endInviteLink(s.folderId, ends.second);
+        expect(pushes).toContainEqual({ cause: "request", folderId: s.folderId });
         await s.close();
       });
 

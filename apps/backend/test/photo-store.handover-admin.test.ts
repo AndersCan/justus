@@ -131,6 +131,11 @@ describe("an old Admin once /admin.json is written", () => {
     expect(viewer[0]?.code).toBe(PhotoError.HANDOVER_REFUSED);
     const removed = await s.ada.store.removeMember(s.folderId, s.cyKey);
     expect(removed[0]?.code).toBe(PhotoError.HANDOVER_REFUSED);
+    const ended = await s.ada.store.endInviteLink(s.folderId, 1);
+    expect(ended[0]?.code).toBe(PhotoError.HANDOVER_REFUSED);
+    const cyAlbum = (await s.cy.store.folders()).folders[0]!.id;
+    const byMember = await s.cy.store.endInviteLink(cyAlbum, 1);
+    expect(byMember[0]?.code).toBe(PhotoError.NOT_CREATOR);
     for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
   }, 30_000);
 });

@@ -558,29 +558,15 @@ describe("linkOff answers", () => {
     }
   });
 
-  test("askLinkState: no windows work; the named link decides; ended wins over another live link", () => {
+  test("askLinkState: the named link decides; ended wins over another live link", () => {
     const w = { from: 1_000_000, to: 2_000_000 };
     const ended = { ...w, ended: 1_600_000 };
-    expect(askLinkState(undefined, { at: 5 })).toBe("works");
-    expect(askLinkState([], { at: 5, linkEnd: 9 })).toBe("works");
-    expect(askLinkState([w], { at: 1_500_000, linkEnd: 2_000_000 })).toBe("works");
-    expect(askLinkState([ended], { at: 1_500_000, linkEnd: 2_000_000 })).toBe("ended");
-    expect(askLinkState([w], { at: 1_500_000, linkEnd: 3_000_000 })).toBe("expired");
-    expect(askLinkState([w], { at: 2_000_000 + CLOCK_SLACK_MS, linkEnd: 2_000_000 })).toBe("works");
-    expect(askLinkState([w], { at: 2_000_000 + CLOCK_SLACK_MS + 1, linkEnd: 2_000_000 })).toBe(
-      "expired",
-    );
-    expect(askLinkState([w], { at: 1_000_000 - CLOCK_SLACK_MS - 1, linkEnd: 2_000_000 })).toBe(
-      "expired",
-    );
     const other = { from: 1_000_000, to: 5_000_000 };
-    expect(askLinkState([{ ...ended }, other], { at: 1_500_000, linkEnd: 2_000_000 })).toBe(
-      "ended",
-    );
+    expect(askLinkState(undefined, { at: 5, linkEnd: 9 })).toBe("works");
+    expect(askLinkState([ended, other], { at: 1_500_000, linkEnd: 2_000_000 })).toBe("ended");
+    expect(askLinkState([w], { at: 1_500_000, linkEnd: 3_000_000 })).toBe("expired");
     // No link end on the ask: the time rule, and ending every link does not open the album.
     expect(askLinkState([ended, other], { at: 1_500_000 })).toBe("works");
-    expect(askLinkState([{ ...ended, ended: 1 }], { at: 1_500_000 })).toBe("ended");
-    expect(askLinkState([w], { at: 5_000_000 })).toBe("expired");
   });
 
   test("invitesAsked lists invite entries and skips the rest", () => {

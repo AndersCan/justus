@@ -5158,49 +5158,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return proven;
   }
 
-  /** Marks each ask whose sealed entry this phone can open (a new Admin only: others never ask). */
+  /** Reads each ask's sealed entry in one pass: marks whether this phone can open it (a new Admin
+   * only: others never ask) and adds the link end it carries, for asks through the current code
+   * of an album this phone is Admin of. */
   async function withOpens(text: string, asked: AskedCode[]): Promise<AskedCode[]> {
     const taken = [...runtimes.values()].some((rt) => rt.record.handoverChains);
-    if (!taken) return asked;
-    const entries = Object.values(parseRequestsFile(text)?.requests ?? {}) as unknown[];
-    const out: AskedCode[] = [];
-    for (const a of asked) {
-      const raw = entries.find(
-        (e) => isTextJSON(e) && e.invite === a.code && e.requestedAt === a.requestedAt,
-      );
-      const sealed = isTextJSON(raw) && typeof raw.sealedKey === "string" ? raw.sealedKey : "";
-      const [openErr] = sealed === "" ? [new Error("plain")] : await deps.drives.openSealed(sealed);
-      out.push({ ...a, opens: !openErr });
-    }
-    return out;
-  }
-
-  /** Adds the link end each ask's seal carries, for asks through the current code of an album
-   * this phone is Admin of. Asks whose seal does not open keep none. */
-  async function withLinkEnds(text: string, asked: AskedCode[]): Promise<AskedCode[]> {
     const current = new Set(
       [...runtimes.values()].flatMap((rt) =>
         rt.record.role === "creator" && rt.record.invite ? [rt.record.invite.code] : [],
       ),
     );
-    if (!asked.some((a) => current.has(a.code))) return asked;
+    if (!taken && !asked.some((a) => current.has(a.code))) return asked;
     const entries = Object.values(parseRequestsFile(text)?.requests ?? {}) as unknown[];
     const out: AskedCode[] = [];
     for (const a of asked) {
-      const raw = entries.find(
-        (e) => isTextJSON(e) && e.invite === a.code && e.requestedAt === a.requestedAt,
-      );
-      const sealedKey = isTextJSON(raw) ? raw.sealedKey : undefined;
-      if (!current.has(a.code) || typeof sealedKey !== "string") {
+      const wantsEnd = current.has(a.code);
+      if (!taken && !wantsEnd) {
         out.push(a);
         continue;
       }
-      const [openErr, bytes] = await deps.drives.openSealed(sealedKey);
-      const sealed = openErr ? undefined : parseSealedAsk(bytes);
+      const raw = entries.find(
+        (e) => isTextJSON(e) && e.invite === a.code && e.requestedAt === a.requestedAt,
+      );
+      const sealed = isTextJSON(raw) && typeof raw.sealedKey === "string" ? raw.sealedKey : "";
+      const [openErr, bytes] =
+        sealed === "" ? [new Error("plain"), undefined] : await deps.drives.openSealed(sealed);
+      const ask = taken ? { ...a, opens: !openErr } : a;
+      const linkEnd = openErr || !wantsEnd ? undefined : parseSealedAsk(bytes);
       out.push(
-        sealed?.invite === a.code && sealed.linkEnd !== undefined
-          ? { ...a, linkEnd: sealed.linkEnd }
-          : a,
+        linkEnd?.invite === a.code && linkEnd.linkEnd !== undefined
+          ? { ...ask, linkEnd: linkEnd.linkEnd }
+          : ask,
       );
     }
     return out;
@@ -5223,7 +5211,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         5_000,
       );
       if (!text) return [];
-      return await withLinkEnds(text, await withOpens(text, invitesAsked(text)));
+      return await withOpens(text, invitesAsked(text));
     } catch (thrown: unknown) {
       log("error", { where: "answer.asked", err: errMsg(thrown) });
       return [];
