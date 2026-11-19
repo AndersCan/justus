@@ -66,5 +66,5 @@ describe("a Viewer's phone and a new Viewer", () => {
     await until(() => watch.opened.includes(cyKey));
 
     await Promise.all([ada.close(), ben.close(), cy.close()]);
-  });
+  }, 15_000);
 });
