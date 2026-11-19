@@ -1,6 +1,6 @@
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { expectNoDesignErrors, expectReached, inspect } from "@mantaq/inspect";
+import { expectNoDesignErrors, inspect, missedReach } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
 import type { VizRun } from "@mantaq/viz";
 import { describe, expect, test } from "vite-plus/test";
@@ -1529,10 +1529,9 @@ describe("joiner design", () => {
   });
   // The design target knows no albums, so only the unit tests above reach alreadyInAlbum.
   test("reaches every state a link to a new album can reach", () => {
-    const states = inspect(target)
-      .machine.states.map((s) => s.id)
-      .filter((id) => id !== "alreadyInAlbum");
-    expectReached(target, { states });
+    const { machine } = inspect(target);
+    const states = machine.states.map((s) => s.id).filter((id) => id !== "alreadyInAlbum");
+    expect(missedReach(machine, { states })).toEqual([]);
   });
 });
 
