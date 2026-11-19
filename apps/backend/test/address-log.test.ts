@@ -26,7 +26,16 @@ function stubUdx(opts: { throwOnSend?: boolean; throwOnBind?: boolean } = {}) {
       };
     },
     createStream(id: number) {
+      const listeners: Record<string, () => void> = {};
       return {
+        listeners,
+        on(event: string, fn: () => void) {
+          listeners[event] = fn;
+        },
+        write(...args: unknown[]) {
+          calls.push(["write", ...args]);
+          return true;
+        },
         connect(...args: unknown[]) {
           calls.push(["connect", ...args]);
           return "connected";
@@ -86,4 +95,19 @@ it("notes the far end of a stream on connect and changeRemote", () => {
     ["connect", "sock", 1, 9000, "10.0.0.1"],
     ["changeRemote", "sock", 1, 9001, "10.0.0.2"],
   ]);
+});
+
+it("stamps a stream's far end again each time it writes or receives data", async () => {
+  const log = emptyAddressLog();
+  const stream = watchAddresses(stubUdx(), log).createStream(8);
+  stream.write("early");
+  expect(log.streams).toEqual({});
+  stream.connect("sock", 1, 9000, "10.0.0.1");
+  log.streams["10.0.0.1:9000"] = 0;
+  expect(stream.write("x")).toBe(true);
+  const afterWrite = log.streams["10.0.0.1:9000"];
+  expect(afterWrite).toBeGreaterThan(0);
+  log.streams["10.0.0.1:9000"] = 0;
+  stream.listeners.data();
+  expect(log.streams["10.0.0.1:9000"]).toBeGreaterThan(0);
 });

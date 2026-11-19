@@ -163,6 +163,12 @@ test("runs with no server: Ada's photo stays on Ben's phone and every phone and 
     "every address a phone used is a lookup packet or a phone of the test network",
   ).toEqual([]);
   for (const [i, name] of names.entries()) {
+    expect(
+      Object.values(second[i].streams).some((last) => last >= since),
+      `${name}'s phone has a connection this run checks`,
+    ).toBe(true);
+  }
+  for (const [i, name] of names.entries()) {
     expect(outsidePages[i], `${name}'s page asked for nothing outside its phone`).toEqual([]);
   }
 
