@@ -3202,7 +3202,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
                 held: rt.held,
                 album: removed
                   ? { kind: "removed" }
-                  : { kind: "inAlbum", people, former: rt.former },
+                  : {
+                      kind: "inAlbum",
+                      people,
+                      former: rt.former,
+                      pastAdmins: new Set(rt.record.adminChain?.slice(0, -1) ?? []),
+                    },
                 presence: (k) => memberPresence(presence, k),
                 yourColor: people.find((p) => p.self)?.color,
                 now,

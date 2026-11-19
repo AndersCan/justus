@@ -468,18 +468,47 @@ describe("holdersFor", () => {
     held?: [string, HeldReport][];
     former?: { name: string; ids: ReadonlySet<string>; left?: true }[];
     presence?: (key: string) => { connected: boolean; lastSeenAt?: number };
+    pastAdmins?: ReadonlySet<string>;
   }) {
     const result = holdersFor({
       photo: over.photo ?? photo,
       selfKey: SELF,
       held: new Map(over.held ?? []),
-      album: { kind: "inAlbum", people: over.people ?? [self, adder], former: over.former ?? [] },
+      album: {
+        kind: "inAlbum",
+        people: over.people ?? [self, adder],
+        former: over.former ?? [],
+        ...(over.pastAdmins !== undefined ? { pastAdmins: over.pastAdmins } : {}),
+      },
       presence: over.presence ?? (() => ({ connected: true })),
       now: NOW,
     });
     if (result.kind !== "inAlbum") throw new Error("expected an in-album result");
     return result;
   }
+
+  it("drops a past Admin who is no longer in the album from the holders", () => {
+    const result = run({
+      people: [self, ben],
+      held: [[B, has("p1")]],
+      pastAdmins: new Set([ADDER]),
+    });
+    expect(result.others.map((o: { key: string }) => o.key)).toEqual([B]);
+  });
+
+  it("keeps a past Admin who is back in the album", () => {
+    const result = run({
+      people: [self, adder, ben],
+      held: [[B, has("p1")]],
+      pastAdmins: new Set([ADDER]),
+    });
+    expect(result.others.map((o: { key: string }) => o.key)).toEqual([ADDER, B]);
+  });
+
+  it("keeps the adder when no Admin has handed the album on", () => {
+    const result = run({ people: [self, ben], held: [[B, has("p1")]] });
+    expect(result.others.map((o: { key: string }) => o.key)).toEqual([ADDER, B]);
+  });
 
   it("says previewHere when only the preview is on this phone", () => {
     const result = run({ held: [[SELF, report([], ["p1"])]] });
