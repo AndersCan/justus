@@ -363,7 +363,6 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
   let aToasts;
   const resumeBen = await pausePhone(instances[1]);
   try {
-    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ben off · Ada's phone: still connected",
@@ -575,7 +574,6 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   let bToasts;
   const resumeAda = await pausePhone(instances[0]);
   try {
-    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
     await expect(
       b.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ada off · Ben's phone: still connected",

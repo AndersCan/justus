@@ -246,6 +246,33 @@ describe("Delete", () => {
     vi.mocked(syncActor.snapshot).mockRestore();
   });
 
+  it.each([
+    [10_000, "Deleted “b”. Cara has the full photo."],
+    [60_000, "Deleted “b”. Cara has the full photo. Cara will see it's gone when connected."],
+  ])("a friend lost %i ms ago follows the 30 s rule in the delete toast", async (ago, text) => {
+    await reload([a, b]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f1" },
+          members: [
+            member("Ada", true),
+            { ...member("Cara", false), lastSeenAt: Date.now() - ago },
+          ],
+        },
+      },
+    } as never);
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox({
+      ...b,
+      folderId: "f1",
+      holders: holdersOf([{ key: "Cara", name: "Cara" }]),
+    });
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith(text);
+    vi.mocked(syncActor.snapshot).mockRestore();
+  });
+
   it("uses the saved friend name for a member", async () => {
     await reload([a, b]);
     vi.spyOn(syncActor, "snapshot").mockReturnValue({

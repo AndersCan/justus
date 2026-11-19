@@ -7,6 +7,7 @@ import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
+import { membersChanged, presenceClockActor } from "../machines/presence-clock-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { gateway } from "../gateway";
@@ -1960,6 +1961,31 @@ describe("album member status", () => {
     const line = zed!.querySelector("[data-member-presence]")!.textContent?.trim();
     expect(line).toBe("Phone off, last seen 2 hr ago");
     expect(zed!.querySelector('[aria-label="' + line + '"]')).not.toBeNull();
+  });
+
+  test("a friend lost 10 s ago has no line, and the row turns to Phone off when the clock moves past 30 s", async () => {
+    const lost = Date.now() - 10_000;
+    const blip = {
+      ...status,
+      members: status.members.map((m) => (m.key === "k2" ? { ...m, lastSeenAt: lost } : m)),
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: blip }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    expect(memberRows(host)[2]!.querySelector("[data-member-presence]")).toBeNull();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(lost + 31_000);
+      presenceClockActor.send(membersChanged.create({ someoneNotConnected: true }));
+      await vi.waitFor(() =>
+        expect(
+          memberRows(host)[2]!.querySelector("[data-member-presence]")?.textContent?.trim(),
+        ).toBe("Phone off, last seen just now"),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("repro 662: own row line is the role part only, with and without photos", async () => {
