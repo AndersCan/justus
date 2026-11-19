@@ -562,6 +562,19 @@ describe("a request from someone removed", () => {
     await s.close();
   }, 60_000);
 
+  it("notes a removed Viewer too, under the name the album lists", async () => {
+    const s = await album();
+    const listed = ((await s.admin.store.status()).members as { key: string; name: string }[]).find(
+      (m) => m.key === s.keys.vera,
+    )!.name;
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.vera))[0]).toBeNull();
+    expect(s.record().removals?.[identityOf(s.vera)]).toEqual({
+      name: listed,
+      at: expect.any(Number),
+    });
+    await s.close();
+  });
+
   it("is forgotten once they are accepted", async () => {
     const { s, carl, owner, now } = await removedCarl();
     expect((await carl.store.ask({ code: now.invite!.code, owner }))[0]).toBeNull();

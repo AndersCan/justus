@@ -657,14 +657,14 @@ export const MAX_HANDOVER_ANSWERS = 1000;
 /** Someone an Admin removed: the name they had in the album, when (ms since the epoch), and who removed them. `by` is absent when this phone did; a handover fills it. */
 export type Removal = { name: string; at: number; by?: string };
 
-/** Removals by phone identity off the wire or the saved state; undefined when any entry is malformed or there are more than MAX_HANDOVER_ANSWERS. */
+/** Removals by phone identity off the wire or the saved state; undefined when any entry is malformed. */
 export function parseRemovals(value: unknown): Record<string, Removal> | undefined {
-  if (!isTextJSON(value) || Object.keys(value).length > MAX_HANDOVER_ANSWERS) return undefined;
+  if (!isTextJSON(value)) return undefined;
   const out: Record<string, Removal> = {};
   for (const [id, raw] of Object.entries(value)) {
     if (!isHexKey(id) || !isTextJSON(raw)) return undefined;
     const name = peerName(raw.name, "");
-    if (typeof raw.name !== "string" || name === "") return undefined;
+    if (name === "") return undefined;
     if (typeof raw.at !== "number" || !Number.isFinite(raw.at)) return undefined;
     if (raw.by !== undefined && typeof raw.by !== "string") return undefined;
     out[id.toLowerCase()] =
@@ -673,17 +673,6 @@ export function parseRemovals(value: unknown): Record<string, Removal> | undefin
         : { name, at: raw.at, by: peerName(raw.by, DEFAULT_ASK_OWNER) };
   }
   return out;
-}
-
-/** `removals` with `identity` noted; past MAX_HANDOVER_ANSWERS the oldest (smallest `at`) go, so the list always fits a handover. */
-export function withRemoval(
-  removals: Readonly<Record<string, Removal>> | undefined,
-  identity: string,
-  removal: Removal,
-): Record<string, Removal> {
-  const all = Object.entries({ ...removals, [identity]: removal });
-  all.sort((a, b) => b[1].at - a[1].at);
-  return Object.fromEntries(all.slice(0, MAX_HANDOVER_ANSWERS));
 }
 
 /** Everything the next Admin needs from the Admin's phone that is not on a drive. */

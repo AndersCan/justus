@@ -101,7 +101,6 @@ import {
   parseEarlier,
   parseRemoved,
   parseRemovals,
-  withRemoval,
   parseRequestsFile,
   invitesAsked,
   verifiedDeviceIdentity,
@@ -7399,12 +7398,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
           const identity =
             presence.identities.get(memberKey) ?? (gone ? await identityOfDrive(gone) : undefined);
-          if ((isMember || isViewer) && identity !== undefined && removedName !== undefined) {
+          if (identity !== undefined && removedName !== undefined) {
             patchRecord(rt, {
-              removals: withRemoval(rt.record.removals, identity, {
-                name: removedName,
-                at: Date.now(),
-              }),
+              removals: {
+                ...rt.record.removals,
+                [identity]: { name: removedName, at: Date.now() },
+              },
             });
           }
           await noteFormer(
