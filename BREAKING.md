@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 5
 
+- **The next Admin's phone says which photos it holds when it answers a handover** (peer message `handoverReady` gains a required `photos` digest). Who: testers on a protocol-5 build from before this change: an updated Admin's phone drops their phone's reply as the next Admin, so the handover waits. Do: update Justus.
 - **A Collaborator's phone records the photos it deleted** (`/deleted-photos/<id>` on the Collaborator's album drive, read with the holding record). Who: internal testers on a protocol-5 build from before this change: a photo their phone deletes never shows on the "still has a deleted photo" line, and their phone keeps saying it has a photo an updated Collaborator deleted until its cache drops it. Do: update Justus.
 - **An Admin can hand the album to a Collaborator** (new drive file `/admin.json` on the Admin's drive; new peer messages `handover`, `handoverReady`, `handoverDone`; new `handedOver` answer). Who: testers on a protocol-5 build from before this change: their phone does not follow the handover and the old Admin's phone waits. Do: update Justus.
 - **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.

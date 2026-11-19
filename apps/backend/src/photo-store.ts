@@ -134,6 +134,8 @@ import {
   listsDigest,
   parseChains,
   parseSavedHandover,
+  holdPhotos,
+  photosDigest,
   readyVerdict,
   senderIsAdmin,
   takeAdminRecords,
@@ -741,6 +743,9 @@ function withoutHeld(
   const left = Object.fromEntries(Object.entries(held).filter(([id]) => !identities.includes(id)));
   return Object.keys(left).length > 0 ? left : undefined;
 }
+
+/** How long the next Admin waits for each photo or preview of the leaving Admin before it stops and tries on the next message. */
+const HANDOVER_PHOTO_MS = 30_000;
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const fs = deps.fs;
@@ -3537,6 +3542,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (rt.record.role === "reader") {
       return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
     }
+    if (rt.record.handover?.written)
+      return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
     const [displayErr, display] = readImport(filePath);
     if (displayErr) return [displayErr, null];
     // With a thumbnail, `filePath` is a display copy the adding device made
@@ -5571,6 +5578,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!(await listsReach(rt.folderDrive, message.digest))) {
         return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
       }
+      const [holdErr, held] = await holdPhotos(rt.folderDrive, {
+        hash: hashText,
+        timeoutMs: HANDOVER_PHOTO_MS,
+      });
+      if (holdErr)
+        return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
       const [takeErr, taken] = await takeAdminRecords(rt.folderDrive, rt.selfDrive, {
         self: selfKeyOf(rt),
         hash: hashText,
@@ -5583,6 +5596,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         kind: "handoverReady",
         album: message.album,
         digest: taken.digest,
+        photos: held.digest,
       });
       log("handover.ready", { folder: short(rt.record.id) });
     });
@@ -5616,6 +5630,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         theirs: reached ? message.digest : undefined,
         package: admin ? JSON.stringify(admin) : undefined,
         sent: handoverSent.get(rt.record.id),
+        photos: await photosDigest(rt.folderDrive, hashText),
+        theirPhotos: message.photos,
       });
       if (verdict !== "write") {
         log("handover.stale", { folder: short(rt.record.id), reason: verdict });

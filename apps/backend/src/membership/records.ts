@@ -536,8 +536,8 @@ export type FriendMessage =
   | { kind: "copyDeletedSeen"; album: string }
   /** Admin to the next Admin: the album's lists and links, to be confirmed with `handoverReady`. */
   | { kind: "handover"; album: string; digest: string; admin: HandoverPackage }
-  /** Next Admin to the Admin: its copy of the lists matches `digest`. */
-  | { kind: "handoverReady"; album: string; digest: string }
+  /** Next Admin to the Admin: its copy of the lists matches `digest` and it holds every photo and preview that `photos` (see `photosDigest`) covers. */
+  | { kind: "handoverReady"; album: string; digest: string; photos: string }
   /** Next Admin to the Admin: the next Admin's phone is the Admin now. */
   | { kind: "handoverDone"; album: string };
 
@@ -571,7 +571,10 @@ export function parseFriendMessage(value: unknown): FriendMessage | undefined {
     if (kind === "handoverDone") return { kind, album: albumKey };
     if (typeof value.digest !== "string" || !isHexKey(value.digest)) return undefined;
     const digest = value.digest.toLowerCase();
-    if (kind === "handoverReady") return { kind, album: albumKey, digest };
+    if (kind === "handoverReady") {
+      if (typeof value.photos !== "string" || !isHexKey(value.photos)) return undefined;
+      return { kind, album: albumKey, digest, photos: value.photos.toLowerCase() };
+    }
     const admin = parseHandoverPackage(value.admin);
     return admin ? { kind, album: albumKey, digest, admin } : undefined;
   }

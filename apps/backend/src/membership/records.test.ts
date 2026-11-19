@@ -765,11 +765,18 @@ describe("handover messages", () => {
   });
 
   test("handoverReady and handoverDone carry a hex album (and a digest)", () => {
-    expect(parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID })).toEqual({
+    expect(
+      parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID, photos: KEY_A }),
+    ).toEqual({
       kind: "handoverReady",
       album: KEY_B.toLowerCase(),
       digest: ID,
+      photos: KEY_A.toLowerCase(),
     });
+    expect(parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID })).toBeUndefined();
+    expect(
+      parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID, photos: "x" }),
+    ).toBeUndefined();
     for (const kind of ["handoverDone"] as const) {
       expect(parseFriendMessage({ kind, album: KEY_A, digest: 5 })).toEqual({ kind, album: KEY_A });
       expect(parseFriendMessage({ kind, album: "nope" })).toBeUndefined();

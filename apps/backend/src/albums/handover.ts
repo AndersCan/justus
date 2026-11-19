@@ -26,7 +26,7 @@ import {
 import { DRIVE_PATH_MEMBERS, MAX_PEER_JSON_BYTES } from "../membership/join.ts";
 import { errText, type P2pLog } from "../p2p-log.ts";
 import type { AlbumResult } from "./albums";
-import { DRIVE_PATH_DELETED } from "./lifecycle";
+import { DRIVE_PATH_DELETED, PHOTO_DIRS } from "./lifecycle";
 
 export const DRIVE_PATH_ADMIN = "/admin.json";
 
@@ -61,6 +61,44 @@ function membersWithout(text: string | undefined, without: string): string {
     Object.entries(registry.members).filter(([, m]) => m.key !== without),
   );
   return JSON.stringify({ version: 1, members });
+}
+
+/** sha-256 (by `hash`) of the sorted `path:size` lines of every photo and preview `drive` lists. Both phones work it out from their own copy of the leaving Admin's drive. */
+export async function photosDigest(drive: Drive, hash: (text: string) => string): Promise<string> {
+  return hash((await photoLines(drive)).join("\n"));
+}
+
+async function photoLines(drive: Drive): Promise<string[]> {
+  const lines: string[] = [];
+  for (const dir of PHOTO_DIRS) {
+    for await (const entry of drive.list(dir)) lines.push(`${entry.path}:${entry.size}`);
+  }
+  return lines.sort();
+}
+
+/** Fetches every photo and preview `drive` lists onto this device, after a `drive.update()`. Returns the digest of exactly the entries it fetched ({@link photosDigest}'s form). `photo-missing` names the first path that did not come, or the thrown error. */
+export async function holdPhotos(
+  drive: Drive,
+  options: { hash: (text: string) => string; timeoutMs: number },
+): Promise<AlbumResult<{ digest: string }>> {
+  try {
+    await drive.update();
+    const lines: string[] = [];
+    for (const dir of PHOTO_DIRS) {
+      const entries: { path: string; size: number }[] = [];
+      for await (const entry of drive.list(dir)) entries.push(entry);
+      for (const entry of entries) {
+        const found = await drive.download(entry.path, { timeoutMs: options.timeoutMs });
+        if (found !== "here") {
+          return [{ kind: "photo-missing", message: `${entry.path}: ${found}` }, null];
+        }
+        lines.push(`${entry.path}:${entry.size}`);
+      }
+    }
+    return [null, { digest: options.hash(lines.sort().join("\n")) }];
+  } catch (thrown: unknown) {
+    return [{ kind: "photo-missing", message: errText(thrown) }, null];
+  }
 }
 
 /** sha-256 (by `hash`) of the six list files' texts as read, a missing file as "". With `without`, the members are rewritten less that key, as {@link takeAdminRecords} writes them: the leaving Admin passes the next Admin's key to get the digest the reply must carry. */
@@ -281,9 +319,13 @@ export function readyVerdict(input: {
   /** The package that would be sent now, and the one last sent. */
   package: string | undefined;
   sent: string | undefined;
-}): "write" | "sender" | "lists" | "copy" | "package" {
+  /** This phone's {@link photosDigest} now, and the one in the reply. */
+  photos: string;
+  theirPhotos: string;
+}): "write" | "sender" | "lists" | "photos" | "copy" | "package" {
   if (input.sender !== input.chosen) return "sender";
   if (input.own !== input.digest) return "lists";
+  if (input.photos !== input.theirPhotos) return "photos";
   if (input.theirs !== input.digest) return "copy";
   if (input.package === undefined || input.package !== input.sent) return "package";
   return "write";
