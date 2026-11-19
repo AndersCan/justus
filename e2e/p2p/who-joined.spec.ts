@@ -47,8 +47,15 @@ test("Ben reads that Cy joined Summer in place of his own line, after his phone 
   await letIn(a, b, "Accept, can add photos");
   const nowIn = b.getByText(words("notices.now_in_album", { albumName: ALBUM }));
   await expect(nowIn).toBeVisible({ timeout: 60_000 });
+  const benConnected = a.getByText(words("gallery.connected_now", { connected: 1 }));
+  // 60 s: Ada's phone shows Ben connected before he goes off; without this the off-wait below can pass at once.
+  await expect(benConnected, "Ben on · Ada's phone: connected").toBeVisible({ timeout: 60_000 });
   try {
     const resumeBen = await pausePhone(instances[1]);
+    // 90 s: Ada's phone drops a gone peer when its connection times out; until then Ben's phone is only slow, not off.
+    await expect(benConnected, "Ben off · Ada's phone: still connected").toHaveCount(0, {
+      timeout: 90_000,
+    });
     await letIn(a, c, "Accept, can add photos");
     resumeBen();
     const line = b
