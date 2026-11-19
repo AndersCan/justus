@@ -14,7 +14,15 @@ import { join } from "node:path";
 import { expect, test } from "../hub/fixtures.mjs";
 import { addressReport } from "../hub/addresses.mjs";
 import { noisePng } from "../add-photos.js";
-import { askToJoin, copyInviteLink, createAlbum, setName, skipIntro, words } from "./steps";
+import {
+  askToJoin,
+  closePhoto,
+  copyInviteLink,
+  createAlbum,
+  setName,
+  skipIntro,
+  words,
+} from "./steps";
 
 const FILE = "no-server.png";
 
@@ -91,7 +99,7 @@ test("runs with no server: Ada's photo stays on Ben's phone and every phone and 
     "base64",
   );
   const mark = copy.subarray(Math.floor(copy.length / 2), Math.floor(copy.length / 2) + 32);
-  await a.getByRole("button", { name: "Close" }).click();
+  await closePhoto(a);
 
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
@@ -100,7 +108,7 @@ test("runs with no server: Ada's photo stays on Ben's phone and every phone and 
     a.getByText(words("album.wants_to_join", { folderName: ALBUM })).first(),
   ).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
-  await a.getByRole("link", { name: "See photos in this album" }).click();
+  await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
   const benPhoto = b.getByRole("button", { name: words("gallery.view", { name: FILE }) });
   // 60 s: the album and its photo sync to Ben's phone after Ada accepts.
   await expect(benPhoto).toBeVisible({ timeout: 60_000 });
@@ -157,4 +165,11 @@ test("runs with no server: Ada's photo stays on Ben's phone and every phone and 
   for (const [i, name] of names.entries()) {
     expect(outsidePages[i], `${name}'s page asked for nothing outside its phone`).toEqual([]);
   }
+
+  // Clean-up, so later specs meet no open ask.
+  await a.getByRole("button", { name: words("album.decline"), exact: true }).click();
+  // 20 s: the decline reaches the card and removes it.
+  await expect(a.getByText(words("album.wants_to_join", { folderName: ALBUM }))).toHaveCount(0, {
+    timeout: 20_000,
+  });
 });

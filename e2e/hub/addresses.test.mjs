@@ -18,8 +18,8 @@ describe("addressReport", () => {
   it("returns nothing for lookup nodes, its own interface and another phone's port", () => {
     expect(
       report({
-        sent: { "127.0.0.1:4001": 200, "10.1.0.5:5001": 200 },
-        streams: { "127.0.0.1:6001": 200 },
+        sent: { "127.0.0.1:4001": 200, "127.0.0.2:4001": 200, "10.1.0.5:5001": 200 },
+        streams: { "127.0.0.1:6001": 200, "127.0.0.2:6001": 200 },
       }),
     ).toEqual([]);
   });
