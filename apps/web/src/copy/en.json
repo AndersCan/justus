@@ -4458,6 +4458,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "member.handed_to": {
+    "text": "{fromName} left and handed {album} to {name}",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, when the Admin they see was handed the album",
+    "screen": ""
+  },
   "member.role_collaborator": {
     "text": "Can add photos",
     "status": "draft",
@@ -4606,7 +4613,7 @@
     "screen": ""
   },
   "album.hand_over_detail": {
-    "text": "{name} becomes the Admin and accepts new people from now on. Old invite links go to {name}. {album} disappears from this phone and you drop off the people list. You can stay Admin until {name}'s phone has the album.",
+    "text": "{name} becomes the Admin and accepts new people from now on. Old invite links go to {name}. The photos you added stay in {album}: {name}'s phone gets a copy of each first. Then {album} disappears from this phone and you drop off the people list. You can stay Admin until {name}'s phone has them.",
     "status": "draft",
     "where": "Album › Leave album › dialog",
     "who": "Admins leaving an album",
@@ -4627,7 +4634,7 @@
     "screen": ""
   },
   "album.handing_over": {
-    "text": "Handing {album} to {name}. It finishes when {name}'s phone is on.",
+    "text": "Handing {album} to {name}. It finishes once {name}'s phone is on and has your photos.",
     "status": "draft",
     "where": "Album › text",
     "who": "Admins who are handing an album over",

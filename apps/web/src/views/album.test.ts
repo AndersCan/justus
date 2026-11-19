@@ -27,6 +27,7 @@ import {
   leaveDetail,
   requestIdentity,
   removeDetail,
+  adminLineText,
 } from "./album";
 import { open } from "../machines/router-machine";
 import { VALID_FOR_MS, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
@@ -2195,14 +2196,16 @@ describe("Leave album for the Admin", () => {
     vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
     await handOverAlbum(st, [ada, ben]);
     const detail = vi.mocked(confirmAction).mock.calls[0]?.[0].detail ?? "";
-    expect(detail).toContain("You can stay Admin until Ben's phone has the album.");
+    expect(detail).toContain("You can stay Admin until Ben's phone has them.");
     expect(detail).not.toContain("take it back");
   });
 
-  test("the confirm promises nothing about the photos", async () => {
+  test("the confirm says Ada's photos stay and Ben's phone copies them first", async () => {
     vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
     await handOverAlbum(st, [ada, ben]);
-    expect(vi.mocked(confirmAction).mock.calls[0]?.[0].detail).not.toMatch(/photos/);
+    expect(vi.mocked(confirmAction).mock.calls[0]?.[0].detail).toContain(
+      "The photos you added stay in Summer: Ben's phone gets a copy of each first.",
+    );
   });
 
   test("with two Collaborators the pick comes first and the chosen one is handed to", async () => {
@@ -2234,7 +2237,7 @@ describe("Leave album for the Admin", () => {
       return host;
     };
     expect(draw(false).textContent).toContain(
-      "Handing Summer to Ben. It finishes when Ben's phone is on.",
+      "Handing Summer to Ben. It finishes once Ben's phone is on and has your photos.",
     );
     expect(draw(false).querySelector("button")?.textContent?.trim()).toBe("Stay Admin");
     expect(draw(true).querySelector("button")).toBeNull();
@@ -2257,7 +2260,9 @@ describe("Admin handover on the album page", () => {
 
   test("while handing over the page shows the line and the menu is only Archive", () => {
     const host = page(handing);
-    expect(flat(host)).toContain("Handing Trip to Kim. It finishes when Kim's phone is on.");
+    expect(flat(host)).toContain(
+      "Handing Trip to Kim. It finishes once Kim's phone is on and has your photos.",
+    );
     expect([...host.querySelectorAll("wa-dropdown-item")].map(itemLabel)).toEqual(["Archive"]);
   });
 
@@ -2305,5 +2310,18 @@ describe("Admin handover on the album page", () => {
       ]),
     );
     expect(confirmAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("an Admin's line in the people list", () => {
+  test("says who left and handed the album on", () => {
+    const host = document.createElement("div");
+    render(adminLineText({ name: "Ben", handedBy: "Ada" }, "Summer"), host);
+    expect(host.textContent?.trim()).toBe("Ada left and handed Summer to Ben");
+  });
+  test("is the plain role when the album was never handed on", () => {
+    const host = document.createElement("div");
+    render(adminLineText({ name: "Ben" }, "Summer"), host);
+    expect(host.textContent?.trim()).toBe(copy("member.role_admin"));
   });
 });

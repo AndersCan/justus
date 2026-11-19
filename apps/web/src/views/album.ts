@@ -390,10 +390,16 @@ export function removeDetail(name: string, viewer: boolean): string {
   return copy("album.won_t_see_photos_added", { name, added });
 }
 
-function memberLine(role: PeopleVm["people"][number]["role"]) {
-  switch (role) {
+/** The words under an Admin's name: who left and handed the album on when it was handed on, else the plain role. */
+export function adminLineText(p: Pick<Person, "handedBy" | "name">, album: string) {
+  if (p.handedBy === undefined) return t("member.role_admin");
+  return t("member.handed_to", { fromName: p.handedBy, album, name: p.name });
+}
+
+function memberLine(p: PeopleVm["people"][number], album: string) {
+  switch (p.role) {
     case "admin":
-      return html`<p class="text-xs text-muted">${t("member.role_admin")}</p>`;
+      return html`<p class="text-xs text-muted">${adminLineText(p, album)}</p>`;
     case "collaborator":
       return html`<p class="text-xs text-muted">${t("member.role_collaborator")}</p>`;
     case "viewer":
@@ -458,7 +464,7 @@ function memberRow(
         ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${memberLine(p.role)}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.showPresence ? html`<p class="text-xs text-muted" data-member-presence>${p.presence}</p>` : null}
+      ${memberLine(p, vm.folder?.name ?? "")}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.showPresence ? html`<p class="text-xs text-muted" data-member-presence>${p.presence}</p>` : null}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">

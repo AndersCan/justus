@@ -7,18 +7,29 @@
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
+import { pngOf, runColour } from "../add-photos.js";
 import {
   askToJoin,
   copyInviteLink,
   createAlbum,
   pattern,
   pausePhone,
+  restartPhone,
   resumeAll,
   skipIntro,
   words,
 } from "./steps";
 
 const NAMES = ["Ada", "Ben", "Cy"];
+const PHOTOS = ["handover-ada.png", "handover-ada-2.png"];
+
+async function expectLoaded(page, name) {
+  const img = page.getByRole("button", { name: `View ${name}` }).locator("img");
+  await expect(img).toBeAttached({ timeout: 60_000 });
+  await expect
+    .poll(() => img.evaluate((i) => i.naturalWidth), { timeout: 60_000 })
+    .toBeGreaterThan(0);
+}
 const before = [];
 
 async function setName(page, name) {
@@ -53,7 +64,7 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
   instancePages,
   instances,
 }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(360_000);
   const [a, b, c] = instancePages;
   const album = `Handover ${Date.now().toString(36)}`;
   try {
@@ -61,6 +72,16 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
     for (const [i, page] of instancePages.entries()) before[i] = await setName(page, NAMES[i]);
 
     await createAlbum(a, album, "handover-ada.png", 91);
+    await a.setInputFiles("input[type=file]", {
+      name: "handover-ada-2.png",
+      mimeType: "image/png",
+      buffer: pngOf(...runColour(92)),
+    });
+    await expect(
+      a.getByRole("button", { name: "View handover-ada-2.png" }).locator("img"),
+    ).toBeAttached({
+      timeout: 20_000,
+    });
     const link = await copyInviteLink(a);
     const wants = words("album.wants_to_join", { folderName: album });
 
@@ -144,14 +165,42 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
 
     // Cy gets in; the people list names Ben as the Admin and does not list Ada.
     await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    // Each phone gives the album its own id, so Cy's page has its own path.
+    const cyAlbumPath = new URL(c.url()).pathname;
     await c.goto("/sharing");
     await c.getByRole("link", { name: `Invite & members of ${album}` }).click();
     const rows = c.locator("li[data-member-key]");
     await expect(
-      rows.filter({ hasText: "Ben" }).getByText(words("member.role_admin")),
-      "Cy's list: Ben is the Admin",
+      rows
+        .filter({ hasText: "Ben" })
+        .getByText(words("member.handed_to", { fromName: "Ada", album, name: "Ben" })),
+      "Cy's list: Ada left and handed the album to Ben",
     ).toBeVisible({ timeout: 60_000 });
-    await expect(rows.filter({ hasText: "Ada" }), "Cy's list: no Ada").toHaveCount(0);
+    await expect(rows, "Cy's list: only Cy and Ben").toHaveCount(2);
+
+    // Ben's phone took a copy of each of Ada's photos first: after a restart, both open on Ben's
+    // phone with hers off.
+    await restartPhone(b, instances[1]);
+    await b.goto(benAlbumPath);
+    for (const name of PHOTOS) await expectLoaded(b, name);
+
+    // Cy sees and opens Ada's photos while Ada's phone is off.
+    await c.goto(cyAlbumPath);
+    for (const name of PHOTOS) await expectLoaded(c, name);
+
+    // Ben, the Admin, deletes one of Ada's photos; it leaves Cy's phone too.
+    await b.goto(benAlbumPath);
+    await b.getByRole("button", { name: `View ${PHOTOS[0]}` }).click();
+    await b.getByRole("button", { name: "More options" }).click();
+    await b.getByRole("menuitem", { name: "Delete" }).click();
+    const dialog = b.locator("wa-dialog[open]", { hasText: `Delete “${PHOTOS[0]}”?` });
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    for (const page of [b, c]) {
+      await expect(page.getByRole("button", { name: `View ${PHOTOS[0]}` })).toHaveCount(0, {
+        timeout: 60_000,
+      });
+      await expect(page.getByRole("button", { name: `View ${PHOTOS[1]}` })).toHaveCount(1);
+    }
   } finally {
     // Instances keep their state across specs; later specs find rows by name. A name never set cannot be saved empty.
     resumeAll();

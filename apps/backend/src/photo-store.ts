@@ -3685,6 +3685,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return albumSummary(rt, { ownIdentity: ownDrive.key });
   }
 
+  /** The name of the Admin before this album's current one, when it was handed on and her entry is still listed. */
+  function handedByName(rt: FolderRuntime): string | undefined {
+    const previous = rt.record.adminChain?.at(-2);
+    if (previous === undefined) return undefined;
+    return rt.record.earlier?.find((e) => e.key === previous)?.name;
+  }
+
   type AlbumPerson = {
     key: string;
     name: string;
@@ -4105,6 +4112,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const selfKey = selfKeyOf(rt);
     const photos = (await listPhotosIn(rt)).length;
     const proof = await deleteProof(rt);
+    const handedBy = handedByName(rt);
     const memberList: SyncMember[] = (await albumPeople(rt))
       .map((person) =>
         person.self
@@ -4116,6 +4124,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               identity: ownDrive.key,
               ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
               ...(person.color === undefined ? {} : { color: person.color }),
+              ...(person.admin && handedBy !== undefined ? { handedBy } : {}),
             }
           : {
               key: person.key,
@@ -4124,6 +4133,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               ...memberPresence(presence, person.key),
               ...(person.viewer ? { viewer: true as const } : {}),
               ...(person.color === undefined ? {} : { color: person.color }),
+              ...(person.admin && handedBy !== undefined ? { handedBy } : {}),
             },
       )
       .map((m) => {

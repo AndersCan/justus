@@ -169,6 +169,7 @@ export const syncMemberSchema = s.object({
   identity: s.optional(s.string),
   viewer: s.optional(s.boolean),
   color: s.optional(s.number),
+  handedBy: s.optional(s.string),
   stillToDrop: s.optional(s.array(s.string)),
 });
 
