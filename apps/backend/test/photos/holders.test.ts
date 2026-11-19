@@ -445,6 +445,8 @@ describe("holdersFor", () => {
   const adder = person(ADDER, "Ada");
   const ben = person(B, "Ben");
   const cy = person(C, "Cy");
+  const onB = { ...ben, connected: true };
+  const onC = { ...cy, connected: true };
   const report = (ids: string[], previews: string[]): HeldReport => ({
     kind: "reports",
     ids: new Set(ids),
@@ -552,7 +554,7 @@ describe("holdersFor", () => {
       others: [],
       quiet: [],
       unsure: [],
-      waiting: [ben],
+      waiting: [onB],
       previews: [],
       former: [],
       left: [],
@@ -571,11 +573,30 @@ describe("holdersFor", () => {
     expect(result.unsure).toEqual([]);
   });
 
+  it("a waiting person carries whether their phone is connected, and when it was last", () => {
+    const away = (key: string) =>
+      key === B ? { connected: false, lastSeenAt: 5, identity: "x" } : { connected: true };
+    const result = run({
+      people: [self, adder, ben, cy],
+      held: [
+        [B, has("p2")],
+        [C, has("p2")],
+      ],
+      presence: away,
+    });
+    expect(result.waiting).toEqual([
+      { ...ben, connected: false, lastSeenAt: 5 },
+      { ...cy, connected: true },
+    ]);
+    expect(result.waiting[0]).not.toHaveProperty("identity");
+    expect(result.waiting[1]).not.toHaveProperty("lastSeenAt");
+  });
+
   it("a person who reports without the photo is waiting", () => {
     const result = run({ people: [self, adder, ben], held: [[B, has("p2")]] });
     expect(result.others).toEqual([adder]);
     expect(result.unsure).toEqual([]);
-    expect(result.waiting).toEqual([ben]);
+    expect(result.waiting).toEqual([onB]);
   });
 
   it("a person who reports only a preview is in previews, not waiting", () => {
@@ -594,7 +615,7 @@ describe("holdersFor", () => {
   it("a preview of another photo does not count", () => {
     const result = run({ people: [self, adder, ben], held: [[B, report([], ["p2"])]] });
     expect(result.previews).toEqual([]);
-    expect(result.waiting).toEqual([ben]);
+    expect(result.waiting).toEqual([onB]);
   });
 
   it("a silent person is unsure, not waiting", () => {
@@ -613,7 +634,7 @@ describe("holdersFor", () => {
         [B, has()],
       ],
     });
-    expect(result.waiting).toEqual([ben]);
+    expect(result.waiting).toEqual([onB]);
     const byAdder = run({
       people: [self, adder],
       held: [
@@ -632,7 +653,7 @@ describe("holdersFor", () => {
         [B, has()],
       ],
     });
-    expect(result.waiting).toEqual([ben, cy]);
+    expect(result.waiting).toEqual([onB, onC]);
   });
 
   it("a silent person is unsure", () => {

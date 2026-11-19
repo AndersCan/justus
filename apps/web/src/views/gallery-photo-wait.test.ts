@@ -55,7 +55,7 @@ describe("albumHeader photo wait line", () => {
       others: [],
       quiet: [],
       unsure: [],
-      waiting: [{ key: "k1", name: "Ada" }],
+      waiting: [{ key: "k1", name: "Ada", connected: true }],
       previews: [],
       former: [],
       left: [],

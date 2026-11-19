@@ -51,6 +51,48 @@ describe("photo contract", () => {
     expect(checkPhotoResult("photos.list", holders("x"))).toContain("holders.quiet[0].lastSeenAt");
   });
 
+  it("checks the presence on a waiting entry", () => {
+    const photo = {
+      id: "a",
+      url: "u",
+      name: "n",
+      mime: "m",
+      size: 1,
+      addedAt: 0,
+      member: { key: "k", name: "N" },
+    };
+    const list = (entry: unknown) => ({
+      photos: [
+        {
+          ...photo,
+          holders: {
+            kind: "inAlbum",
+            here: true,
+            previewHere: false,
+            others: [],
+            quiet: [],
+            unsure: [],
+            waiting: [entry],
+            previews: [],
+            former: [],
+            left: [],
+          },
+        },
+      ],
+    });
+    const ben = { key: "b", name: "Ben" };
+    expect(checkPhotoResult("photos.list", list({ ...ben, connected: true }))).toBeNull();
+    expect(
+      checkPhotoResult("photos.list", list({ ...ben, connected: false, lastSeenAt: 5 })),
+    ).toBeNull();
+    expect(checkPhotoResult("photos.list", list({ ...ben, connected: "yes" }))).toContain(
+      "holders.waiting[0].connected",
+    );
+    expect(checkPhotoResult("photos.list", list(ben))).toContain(
+      "holders.waiting[0].connected: missing required field",
+    );
+  });
+
   it("accepts removed holders and names a bad kind", () => {
     const photo = {
       id: "a",

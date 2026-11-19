@@ -154,7 +154,12 @@ export async function deleteFromLightbox(photo: Photo) {
   gallery.remove(photo.id, photo.folderId);
 }
 
-function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>, hidden: boolean) {
+function lightboxBody(
+  photo: Photo,
+  people: ReturnType<typeof peopleIn>,
+  hidden: boolean,
+  now: number,
+) {
   const adderFill = memberColor(people.find((p) => p.key === photo.member.key)?.color);
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
@@ -262,7 +267,7 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>, hidden:
           : null,
       )}
     </div>
-    ${holdersRow(photo)}
+    ${holdersRow(photo, now)}
   `;
   return html`
     <div
@@ -295,7 +300,7 @@ export function lightboxView() {
     return watch(syncActor, (sync) =>
       watch(presenceClockActor, (pc) => {
         const people = peopleIn(sync.context.status, photo.folderId, pc.context);
-        return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone")}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+        return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone", pc.context.now)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
       }),
     );
   });

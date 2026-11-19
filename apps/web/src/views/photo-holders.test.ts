@@ -8,6 +8,7 @@ import { memberColor } from "../utils/palette";
 import type { Person } from "../utils/people";
 
 const m = (name: string) => ({ key: name, name });
+const w = (name: string, connected = true) => ({ key: name, name, connected });
 function photo(holders: PhotoHolders | undefined): Photo {
   return {
     id: "a",
@@ -41,19 +42,19 @@ const draw = (t: unknown) => {
 
 describe("holdersRow", () => {
   it("is min-h-11 when tappable", () => {
-    const el = draw(holdersRow(photo(h({}))));
+    const el = draw(holdersRow(photo(h({})), 0));
     const b = el.querySelector("button");
     expect(b?.className).toContain("min-h-11");
     expect(b?.getAttribute("aria-label")).toBe("Only on your phone, show who has this photo");
   });
   it("wraps long text instead of cutting it", () => {
-    const el = draw(holdersRow(photo(h({ waiting: [m("Nils")] }))));
+    const el = draw(holdersRow(photo(h({ waiting: [w("Nils")] })), 0));
     const text = el.querySelector(".justus-holders-text");
     expect(text?.textContent).toContain("On its way to Nils's phone");
     expect(text?.className).not.toContain("truncate");
   });
   it("is min-h-11 and not a button when it can't tell", () => {
-    const el = draw(holdersRow(photo(undefined)));
+    const el = draw(holdersRow(photo(undefined), 0));
     expect(el.querySelector("button")).toBeNull();
     expect(el.firstElementChild?.className).toContain("min-h-11");
     expect(el.textContent).toContain("Can't tell who has this photo yet");
@@ -119,7 +120,7 @@ describe("holdersSheet leavers", () => {
 
 describe("holdersSheet waiting", () => {
   it("names the phones a waiting friend gets the photo from, above Hasn't said yet", () => {
-    const el = draw(holdersSheet(photo(h({ waiting: [m("Maya")], unsure: [m("Jo")] })), []));
+    const el = draw(holdersSheet(photo(h({ waiting: [w("Maya")], unsure: [m("Jo")] })), []));
     const text = el.textContent ?? "";
     expect(text).toContain("Maya");
     expect(text).toContain("Doesn't have the full photo");
@@ -143,7 +144,7 @@ describe("holdersSheet waiting", () => {
   });
   it("puts you last in the list of sources", () => {
     const el = draw(
-      holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [m("Cy")] })), []),
+      holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [w("Cy")] })), []),
     );
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
       "Can still get it from Ben and you",
@@ -158,7 +159,7 @@ describe("holdersSheet waiting", () => {
 
 describe("holdersRow live region", () => {
   it("announces changes to the line politely", () => {
-    const el = draw(holdersRow(photo(h({}))));
+    const el = draw(holdersRow(photo(h({})), 0));
     expect(el.querySelector(".justus-holders-text")?.getAttribute("aria-live")).toBe("polite");
   });
 });
@@ -183,7 +184,10 @@ describe("holdersSheet colours", () => {
     expect(initialsOfRow(here)).toBe("BE");
     expect(fillOf(here)).toBe(`background:${memberColor(0)}`);
     const arriving = draw(
-      holdersSheet(photo(h({ here: false, waiting: [{ key: "k2", name: "Cy" }] })), people),
+      holdersSheet(
+        photo(h({ here: false, waiting: [{ key: "k2", name: "Cy", connected: true }] })),
+        people,
+      ),
     ).querySelectorAll("li");
     expect(initialsOfRow(arriving[0])).toBe("BE");
     expect(fillOf(arriving[0])).toBe(`background:${memberColor(0)}`);
@@ -215,7 +219,15 @@ describe("holdersSheet colours", () => {
   });
   it("names Members' name in the Can still get it from heading", () => {
     const el = draw(
-      holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada" }], waiting: [m("Cy")] })), people),
+      holdersSheet(
+        photo(
+          h({
+            others: [{ key: "k1", name: "Ada" }],
+            waiting: [{ key: "k2", name: "Cy", connected: true }],
+          }),
+        ),
+        people,
+      ),
     );
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
       "Can still get it from Mum and you",
@@ -247,7 +259,7 @@ describe("holdersSheet previews", () => {
     expect(el.textContent).not.toContain("Doesn't have the full photo");
   });
   it("keeps 'Can still get it from' under 'Doesn't have' and Ben under 'Seen, not opened'", () => {
-    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [m("Cy")] })), []));
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [w("Cy")] })), []));
     expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview", "full_photo.lacks"]);
     const lists = el.querySelectorAll("ul");
     expect(lists[1].textContent).toContain("Ben");

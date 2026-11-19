@@ -2,7 +2,7 @@
  * The record each phone keeps of the photos it has a full copy of, and the
  * rules that turn those records into "who has it". Ports only: no photo-store.
  */
-import type { PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
+import type { HolderMember, PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
 import { isHexKey } from "../membership/records";
 import type { GalleryLog } from "./gallery";
@@ -297,14 +297,22 @@ export function holdersFor(input: {
     others.set(photo.driveKey, { key: photo.driveKey, name: photo.memberName });
   }
   const unsure = new Map<string, PhotoMember>();
-  const waiting = new Map<string, PhotoMember>();
+  const waiting = new Map<string, HolderMember>();
   const previews = new Map<string, PhotoMember>();
   for (const person of people) {
     if (person.key === selfKey || person.key === photo.driveKey) continue;
     if (holds(held.get(person.key), photo.id)) others.set(person.key, person);
     else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, person);
     else if (previewed(held.get(person.key), photo.id)) previews.set(person.key, person);
-    else waiting.set(person.key, person);
+    else {
+      const seen = presence(person.key);
+      waiting.set(person.key, {
+        key: person.key,
+        name: person.name,
+        connected: seen.connected,
+        ...(seen.lastSeenAt !== undefined ? { lastSeenAt: seen.lastSeenAt } : {}),
+      });
+    }
   }
   const removed = new Set<string>();
   const leavers = new Set<string>();

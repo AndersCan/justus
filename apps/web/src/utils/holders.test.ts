@@ -5,7 +5,7 @@ import {
   deleteDetail,
   deletedMessage,
   hasFullPhoto,
-  holdersLine,
+  holdersLine as holdersLineAt,
   holdersSheetRows,
   lacksFullPhoto,
   memberHoldings,
@@ -14,6 +14,9 @@ import {
 } from "./holders";
 
 const m = (name: string) => ({ key: name, name });
+const NOW = 1_000_000;
+const holdersLine = (x: PhotoHolders | undefined, now = NOW) => holdersLineAt(x, now);
+const w = (name: string, connected = true) => ({ key: name, name, connected });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   kind: "inAlbum",
   here: true,
@@ -67,6 +70,68 @@ describe("holdersLine", () => {
     });
   });
 
+  describe("a friend whose phone is off", () => {
+    const off = (name: string) => ({ key: name, name, connected: false, lastSeenAt: NOW - 60_000 });
+    const blip = (name: string) => ({
+      key: name,
+      name,
+      connected: false,
+      lastSeenAt: NOW - 10_000,
+    });
+    const never = (name: string) => ({ key: name, name, connected: false });
+    const rows: [string, Partial<PhotoHolders>, string][] = [
+      ["off", { waiting: [off("Ben")] }, "On your phone. Waiting for Ben's phone"],
+      ["on", { waiting: [w("Ben")] }, "On your phone. On its way to Ben's phone"],
+      ["a blip", { waiting: [blip("Ben")] }, "On your phone. On its way to Ben's phone"],
+      ["never seen", { waiting: [never("Ben")] }, "On your phone. Waiting for Ben's phone"],
+      [
+        "previews and off",
+        { previews: [m("Cy")], waiting: [off("Ben")] },
+        "On your phone. Preview on Cy's phone. Waiting for Ben's phone",
+      ],
+      [
+        "others and off",
+        { others: [m("Cy")], waiting: [off("Ben")] },
+        "On Cy's and your phone. Waiting for Ben's phone",
+      ],
+      [
+        "two off",
+        { waiting: [off("Ben"), off("Dan")] },
+        "On your phone. Waiting for Ben's and Dan's phones",
+      ],
+      [
+        "one on, one off",
+        { waiting: [w("Dan"), off("Ben")] },
+        "On your phone. On its way to Dan's phone. Waiting for Ben's phone",
+      ],
+      [
+        "quiet and off",
+        { quiet: [{ key: "Cy", name: "Cy", lastSeenAt: NOW }], waiting: [off("Ben")] },
+        "On your phone. Waiting for Ben's phone. Cy's phone last had it just now",
+      ],
+    ];
+    it.each(rows)("%s", (_name, holders, text) => {
+      expect(holdersLine(h(holders)).text).toBe(text);
+    });
+
+    it("says nothing about waiting phones while the photo is still arriving here", () => {
+      const waiting = [off("Ben"), w("Dan")];
+      expect(holdersLine(h({ here: false, others: [m("Cy")], waiting })).text).toBe(
+        "On Cy's phone. Arriving on yours…",
+      );
+    });
+
+    it("ages with now: the same friend reads as on its way, then waiting", () => {
+      const ben = { key: "Ben", name: "Ben", connected: false, lastSeenAt: 1000 };
+      expect(holdersLine(h({ waiting: [ben] }), 1000 + 29_000).text).toBe(
+        "On your phone. On its way to Ben's phone",
+      );
+      expect(holdersLine(h({ waiting: [ben] }), 1000 + 30_000).text).toBe(
+        "On your phone. Waiting for Ben's phone",
+      );
+    });
+  });
+
   it("can't tell without holders, and is not tappable", () => {
     expect(holdersLine(undefined)).toEqual({
       text: "Can't tell who has this photo yet",
@@ -77,24 +142,24 @@ describe("holdersLine", () => {
     expect(holdersLine(h({}))).toEqual({ text: "Only on your phone", tappable: true });
   });
   it("names the friends a photo is on its way to, or counts them", () => {
-    const line = (...names: string[]) => holdersLine(h({ waiting: names.map(m) })).text;
-    expect(line("Ben")).toBe("On its way to Ben's phone");
-    expect(line("Ben", "Cy")).toBe("On its way to Ben's and Cy's phones");
-    expect(line("a", "b", "c", "d")).toBe("On its way to 4 phones");
-    expect(line("Ben", "ben")).toBe("On its way to 2 phones");
+    const line = (...names: string[]) => holdersLine(h({ waiting: names.map((n) => w(n)) })).text;
+    expect(line("Ben")).toBe("On your phone. On its way to Ben's phone");
+    expect(line("Ben", "Cy")).toBe("On your phone. On its way to Ben's and Cy's phones");
+    expect(line("a", "b", "c", "d")).toBe("On your phone. On its way to 4 phones");
+    expect(line("Ben", "ben")).toBe("On your phone. On its way to 2 phones");
   });
-  it("others haven't said wins over so far", () => {
-    expect(holdersLine(h({ unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(
-      "On your phone. Others haven't said",
+  it("others haven't said stays, and the clause follows it", () => {
+    expect(holdersLine(h({ unsure: [m("Jo")], waiting: [w("Nils")] })).text).toBe(
+      "On your phone. Others haven't said. On its way to Nils's phone",
     );
   });
-  it("a named holder line ignores waiting", () => {
-    expect(holdersLine(h({ others: [m("Nils")], waiting: [m("Maya")] })).text).toBe(
-      "On Nils's and your phone",
+  it("a named holder line is followed by the waiting clause", () => {
+    expect(holdersLine(h({ others: [m("Nils")], waiting: [w("Maya")] })).text).toBe(
+      "On Nils's and your phone. On its way to Maya's phone",
     );
   });
   it("sheet rows carry waiting", () => {
-    expect(holdersSheetRows(h({ waiting: [m("Maya")] })).waiting).toEqual([m("Maya")]);
+    expect(holdersSheetRows(h({ waiting: [w("Maya")] })).waiting).toEqual([w("Maya")]);
     expect(holdersSheetRows(undefined).waiting).toEqual([]);
   });
   it("others haven't said", () => {
@@ -125,8 +190,8 @@ describe("holdersLine", () => {
     expect(holdersLine(h({ former: ["Ben"] })).text).toBe(
       "On your phone. Ben was removed and keeps a copy",
     );
-    expect(holdersLine(h({ former: ["Ben"], unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(
-      "On your phone. Ben was removed and keeps a copy",
+    expect(holdersLine(h({ former: ["Ben"], unsure: [m("Jo")], waiting: [w("Nils")] })).text).toBe(
+      "On your phone. Ben was removed and keeps a copy. On its way to Nils's phone",
     );
   });
   it("a former holder with others, or several, keeps the count form", () => {
@@ -298,12 +363,12 @@ describe("deleteDetail", () => {
     );
   });
   it("names who has it and who does not", () => {
-    expect(deleteDetail(h({ others: [m("Ben")], waiting: [m("Cy")] }))).toBe(
+    expect(deleteDetail(h({ others: [m("Ben")], waiting: [w("Cy")] }))).toBe(
       `${gone} Ben's phone stops showing it and drops its copy once it's connected. Cy doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
     );
   });
   it("names only who lacks it", () => {
-    expect(deleteDetail(h({ waiting: [m("Ben")] }))).toBe(
+    expect(deleteDetail(h({ waiting: [w("Ben")] }))).toBe(
       `${gone} Ben doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
     );
   });
@@ -316,7 +381,7 @@ describe("deletedMessage", () => {
     ["alone", {}, "Deleted “Sunset”."],
     [
       "one keeps, one never got it",
-      { others: [m("Ben")], waiting: [m("Cy")] },
+      { others: [m("Ben")], waiting: [w("Cy")] },
       "Deleted “Sunset”. Ben has the full photo. Cy doesn't have the full photo.",
     ],
     [
@@ -326,7 +391,7 @@ describe("deletedMessage", () => {
     ],
     [
       "waiting away",
-      { waiting: [m("Cy"), m("Dan")] },
+      { waiting: [w("Cy"), w("Dan")] },
       "Deleted “Sunset”. Cy and Dan don't have the full photo.",
     ],
     [
@@ -375,7 +440,7 @@ describe("previews", () => {
     expect(deleteDetail(h({ previews: [m("Ben")] }))).toBe(
       `${gone} Ben's phone stops showing it and drops its copy once it's connected. Copies saved outside Justus can't be taken back.`,
     );
-    expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [m("Dan")] }))).toBe(
+    expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [w("Dan")] }))).toBe(
       `${gone} Ben's and Cy's phones stop showing it and drop their copies once they're connected. Dan doesn't have the full photo. Copies saved outside Justus can't be taken back.`,
     );
   });
@@ -455,22 +520,27 @@ describe("memberHoldings", () => {
   const people = ["Ada", "Ben", "Cy", "Dan", "Eve", "Fay"].map((key, i) => ({ key, you: i === 0 }));
 
   it("counts each member from the sheet's lists", () => {
-    const rest = { quiet: [q("Cy")], unsure: [m("Dan")], waiting: [m("Eve")] };
+    const rest = { quiet: [q("Cy")], unsure: [m("Dan")], waiting: [w("Eve")] };
     const photos = [
       photoWith(h({ others: [m("Ben")], ...rest })),
       photoWith(h({ previews: [m("Ben")], ...rest })),
       photoWith(h({ here: false, previewHere: true, previews: [m("Ben")], ...rest })),
     ];
     const got = memberHoldings(photos, people);
-    expect(got.get("Ada")).toEqual({ full: 2, previews: 1, total: 3 });
-    expect(got.get("Ben")).toEqual({ full: 1, previews: 2, total: 3 });
-    expect(got.get("Eve")).toEqual({ full: 0, previews: 0, total: 3 });
+    expect(got.get("Ada")).toEqual({ full: 2, previews: 1, waiting: 0, total: 3 });
+    expect(got.get("Ben")).toEqual({ full: 1, previews: 2, waiting: 0, total: 3 });
+    expect(got.get("Eve")).toEqual({ full: 0, previews: 0, waiting: 3, total: 3 });
     expect([...got.keys()]).toEqual(["Ada", "Ben", "Eve"]);
   });
 
   it("counts your own phone even when it holds neither copy", () => {
     const photos = [photoWith(h({ here: false })), photoWith(h({}))];
-    expect(memberHoldings(photos, people).get("Ada")).toEqual({ full: 1, previews: 0, total: 2 });
+    expect(memberHoldings(photos, people).get("Ada")).toEqual({
+      full: 1,
+      previews: 0,
+      waiting: 0,
+      total: 2,
+    });
   });
 
   it("says nothing until every photo's holders are known", () => {
@@ -485,9 +555,15 @@ describe("memberHoldings", () => {
 describe("memberPhotosLine", () => {
   it("words the line", () => {
     expect(memberPhotosLine(undefined)).toBe("");
-    expect(memberPhotosLine({ full: 3, previews: 0, total: 3 })).toBe("Photos: 3 of 3");
-    expect(memberPhotosLine({ full: 1, previews: 2, total: 3 })).toBe(
+    expect(memberPhotosLine({ full: 3, previews: 0, waiting: 0, total: 3 })).toBe("Photos: 3 of 3");
+    expect(memberPhotosLine({ full: 1, previews: 2, waiting: 0, total: 3 })).toBe(
       "Photos: 1 of 3, 2 as previews",
+    );
+    expect(memberPhotosLine({ full: 1, previews: 2, waiting: 1, total: 4 })).toBe(
+      "Photos: 1 of 4, 2 as previews, 1 waiting",
+    );
+    expect(memberPhotosLine({ full: 3, previews: 0, waiting: 1, total: 4 })).toBe(
+      "Photos: 3 of 4, 1 waiting",
     );
   });
 });

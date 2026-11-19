@@ -1,25 +1,35 @@
-import type { Photo, PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
+import type { HolderMember, Photo, PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 
 import { copy } from "../copy/copy";
 import { nameKey, nameList } from "./people";
+import { presenceOf } from "./presence";
 import { formatDay } from "./time";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
 
-/** The one line on photo detail that says whose phones have a full copy, and whose have the preview. */
+/** The one line on photo detail that says whose phones have a full copy, whose have the preview, and whose are still to get it. `now` ages friends' phones with the same rule Members uses. */
 export function holdersLine(
   h: PhotoHolders | undefined,
-  now = Date.now(),
+  now: number,
 ): { text: string; tappable: boolean } {
   const line = baseLine(h);
   if (h?.kind !== "inAlbum") return line;
   const preview = h.here ? previewClause(h.previews) : "";
-  if (preview === "" && h.quiet.length === 0) return line;
+  const reached = h.here ? h.waiting.filter((m) => presenceOf(m, { now }) === "connected") : [];
+  const away = h.here ? h.waiting.filter((m) => presenceOf(m, { now }) !== "connected") : [];
+  const onItsWay = reached.length > 0 ? onItsWayClause(reached) : "";
+  const waitingFor = away.length > 0 ? waitingForClause(away) : "";
+  const unsaid = h.unsure.length > 0;
   let text =
-    h.here && h.others.length + h.former.length === 0 && (preview !== "" || h.quiet.length > 0)
+    h.here &&
+    h.others.length + h.former.length === 0 &&
+    (preview !== "" || h.quiet.length > 0 || ((onItsWay !== "" || waitingFor !== "") && !unsaid))
       ? copy("holders.on_your_phone")
       : line.text;
   if (preview !== "") text = copy("holders.line_and_preview", { line: text, preview });
+  if (onItsWay !== "") text = copy("holders.line_and_waiting", { line: text, waiting: onItsWay });
+  if (waitingFor !== "")
+    text = copy("holders.line_and_waiting", { line: text, waiting: waitingFor });
   if (h.quiet.length > 0) {
     const quiet = h.quiet
       .map((m) =>
@@ -31,27 +41,34 @@ export function holdersLine(
   return { text, tappable: true };
 }
 
-/** "Preview on Ben's phone", or "Preview on 4 phones" when the names are many, alike or long. */
-function previewClause(previews: readonly PhotoMember[]): string {
-  if (previews.length === 0) return "";
-  const names = previews.map((m) => `${m.name}'s`);
-  const distinct = new Set(previews.map((m) => nameKey(m.name))).size === previews.length;
+/** `say` words the clause for some names and a count, such as "Preview on Ben's phone"; the names give way to a count when they are many, alike or long. */
+function phonesClause(
+  members: readonly PhotoMember[],
+  say: (names: string, n: number) => string,
+): string {
+  const names = members.map((m) => `${m.name}'s`);
+  const distinct = new Set(members.map((m) => nameKey(m.name))).size === members.length;
   if (names.length <= 3 && distinct) {
-    const text = copy("holders.preview_on_names", { names: nameList(names), n: names.length });
+    const text = say(nameList(names), names.length);
     if (text.length <= LIMIT) return text;
   }
-  return copy("holders.preview_on_names", { names: String(previews.length), n: previews.length });
+  return say(String(members.length), members.length);
 }
 
-/** "On its way to Ben's phone", or "On its way to 4 phones" when the names are many, alike or long. */
-function onItsWayClause(waiting: readonly PhotoMember[]): string {
-  const names = waiting.map((m) => `${m.name}'s`);
-  const distinct = new Set(waiting.map((m) => nameKey(m.name))).size === waiting.length;
-  if (names.length <= 3 && distinct) {
-    const text = copy("holders.on_its_way_to_names", { names: nameList(names), n: names.length });
-    if (text.length <= LIMIT) return text;
-  }
-  return copy("holders.on_its_way_to_names", { names: String(waiting.length), n: waiting.length });
+/** "Preview on Ben's phone", or "Preview on 4 phones". */
+function previewClause(previews: readonly PhotoMember[]): string {
+  if (previews.length === 0) return "";
+  return phonesClause(previews, (names, n) => copy("holders.preview_on_names", { names, n }));
+}
+
+/** "On its way to Ben's phone", or "On its way to 4 phones". */
+function onItsWayClause(members: readonly PhotoMember[]): string {
+  return phonesClause(members, (names, n) => copy("holders.on_its_way_to_names", { names, n }));
+}
+
+/** "Waiting for Ben's phone", or "Waiting for 4 phones": friends whose phones are off. */
+function waitingForClause(members: readonly PhotoMember[]): string {
+  return phonesClause(members, (names, n) => copy("holders.waiting_for_names", { names, n }));
 }
 
 function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
@@ -72,9 +89,7 @@ function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolea
         text:
           h.unsure.length > 0
             ? copy("holders.on_your_phone_others_haven")
-            : h.waiting.length > 0
-              ? onItsWayClause(h.waiting)
-              : copy("holders.only_on_your_phone"),
+            : copy("holders.only_on_your_phone"),
         tappable: true,
       };
     }
@@ -107,7 +122,7 @@ export type HoldersSheetRows = {
   others: PhotoMember[];
   quiet: QuietHolder[];
   unsure: PhotoMember[];
-  waiting: PhotoMember[];
+  waiting: HolderMember[];
   previews: PhotoMember[];
   former: string[];
   left: string[];
@@ -213,7 +228,7 @@ export function deletedMessage(
 }
 
 /** How many of an album's photos one member's phone holds in full and as previews. */
-export type MemberHolding = { full: number; previews: number; total: number };
+export type MemberHolding = { full: number; previews: number; waiting: number; total: number };
 
 /** Each member's holding of `photos` (one album's), by member key, from the lists the photo sheet shows. A member on no list, or on `unsure` or `quiet`, is left out; so is everyone when there are no photos or any photo's holders are unknown. */
 export function memberHoldings(
@@ -227,20 +242,26 @@ export function memberHoldings(
   for (const { key, you } of people) {
     let full = 0;
     let previews = 0;
+    let waiting = 0;
     let said = true;
     for (const h of lists) {
       if (you ? h.here : has(h.others, key)) full++;
       else if (you ? h.previewHere : has(h.previews, key)) previews++;
-      else if (!you && !has(h.waiting, key)) said = false;
+      else if (has(h.waiting, key)) waiting++;
+      else if (!you) said = false;
     }
-    if (said) out.set(key, { full, previews, total: lists.length });
+    if (said) out.set(key, { full, previews, waiting, total: lists.length });
   }
   return out;
 }
 
-/** The Members row line: "Photos: 1 of 3, 2 as previews"; "" for no line. */
+/** The Members row line: "Photos: 1 of 3, 2 as previews, 1 waiting"; "" for no line. */
 export function memberPhotosLine(h: MemberHolding | undefined): string {
   if (h === undefined) return "";
   const line = copy("members.has_photos", { full: h.full, total: h.total });
-  return h.previews === 0 ? line : copy("members.and_previews", { line, n: h.previews });
+  const withPreviews =
+    h.previews === 0 ? line : copy("members.and_previews", { line, n: h.previews });
+  return h.waiting === 0
+    ? withPreviews
+    : copy("members.and_waiting", { line: withPreviews, n: h.waiting });
 }

@@ -12,6 +12,7 @@ import type {
   AskSummary,
   DeletedAlbum,
   FolderSummary,
+  HolderMember,
   JoinRequest,
   Photo,
   PhotoChanged,
@@ -97,6 +98,13 @@ export const s = {
 
 export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 
+export const holderMemberSchema = s.object({
+  key: s.string,
+  name: s.string,
+  connected: s.boolean,
+  lastSeenAt: s.optional(s.number),
+});
+
 const quietHolderSchema = s.object({ key: s.string, name: s.string, lastSeenAt: s.number });
 
 const inAlbumHoldersSchema = s.object({
@@ -106,7 +114,7 @@ const inAlbumHoldersSchema = s.object({
   others: s.array(photoMemberSchema),
   quiet: s.array(quietHolderSchema),
   unsure: s.array(photoMemberSchema),
-  waiting: s.array(photoMemberSchema),
+  waiting: s.array(holderMemberSchema),
   previews: s.array(photoMemberSchema),
   former: s.array(s.string),
   left: s.array(s.string),
@@ -341,6 +349,7 @@ type Assert<T extends true> = T;
 type T<S> = S extends Schema<infer X> ? X : never;
 export type _ContractChecks = [
   Assert<Equal<T<typeof photoMemberSchema>, PhotoMember>>,
+  Assert<Equal<T<typeof holderMemberSchema>, HolderMember>>,
   Assert<Equal<T<typeof photoHoldersSchema>, PhotoHolders>>,
   Assert<Equal<T<typeof photoSchema>, Photo>>,
   Assert<Equal<T<typeof syncMemberSchema>, SyncMember>>,

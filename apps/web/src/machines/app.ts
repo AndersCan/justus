@@ -8,7 +8,7 @@ import { logsMachine } from "./logs-machine";
 import { onboardingMachine, wireOnboardingToFolders } from "./onboarding-machine";
 import { peopleMachine, wirePeopleToRequests } from "./people-machine";
 import { prefsMachine } from "./prefs-machine";
-import { presenceClockMachine, wirePresenceClockToSync } from "./presence-clock-machine";
+import { presenceClockMachine, wirePresenceClock } from "./presence-clock-machine";
 import { reachMachine, wireReachToSync } from "./reach-hint-machine";
 import { requestsMachine, refresh } from "./requests-machine";
 import { routerMachine } from "./router-machine";
@@ -33,11 +33,12 @@ export const justusMachine = machine("justus", {
     const requests = requestsMachine.create();
     const reach = reachMachine.create({ clock });
     const join = joinRequestMachine.create({ clock });
+    const gallery = galleryMachine.create();
     const presenceClock = presenceClockMachine.create({ clock });
     wireOnboardingToFolders(onboarding, folders);
     wireFoldersToSync(folders, sync);
     wireReachToSync(reach, sync);
-    wirePresenceClockToSync(presenceClock, sync);
+    wirePresenceClock(presenceClock, { sync, gallery });
     wirePeopleToRequests(people, { refresh: () => requests.send(refresh.create()) });
     wireAsksToJoin(folders, join);
     return {
@@ -45,7 +46,7 @@ export const justusMachine = machine("justus", {
       appLock: appLockMachine.create(),
       folders,
       friends: friendsMachine.create(),
-      gallery: galleryMachine.create(),
+      gallery,
       lightbox: lightboxMachine.create(),
       logs: logsMachine.create(),
       onboarding,
