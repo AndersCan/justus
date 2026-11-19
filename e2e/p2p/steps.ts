@@ -48,7 +48,9 @@ export async function askToJoin(b, link, _album) {
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Ask to join", exact: true }).click();
-  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
+  await expect(
+    b.getByRole("dialog", { name: pattern("invite.waiting_for_to_let_you_in") }),
+  ).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
 }
 
@@ -66,6 +68,16 @@ export function words(id, params = {}) {
     if (one === undefined) return String(value);
     return Number(value) === 1 ? one : other;
   });
+}
+
+/** The text of a copy id as a pattern, anything standing for each placeholder. */
+export function pattern(id) {
+  return new RegExp(
+    catalogue[id].text
+      .split(/\{\w+\}/)
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".+"),
+  );
 }
 
 const paused = new Set();

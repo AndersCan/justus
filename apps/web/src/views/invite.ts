@@ -221,10 +221,10 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** The joiner's three words, optional, shown only if the Admin asks, in the waiting dialog and on the update screen; null until the stored ask has them. */
+/** The joiner's three words and why the inviter may ask for them; on the waiting and update screens; null until the stored ask has them. */
 export function checkCodeLine(code: string | undefined, ownerName: string) {
   if (!code) return null;
-  const owner = ownerShown(ownerName, "mid");
+  const owner = ownerShown(ownerName, "start");
   return html`<p class="mt-3 text-sm text-muted">${t("invite.may_ask_you_for_these", { owner })}</p>
     <p class="mt-1 break-words text-lg font-semibold text-fg">${code}</p>`;
 }

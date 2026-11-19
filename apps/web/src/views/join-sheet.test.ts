@@ -40,7 +40,7 @@ const labels: [JoinView["state"], string][] = [
   ["checkingLink", copy("join_request.checking_the_link")],
   ["decidingToAsk", copy("invite.ask_to_join", { album: invite.album })],
   ["sendingRequest", copy("invite.ask_to_join", { album: invite.album })],
-  ["waitingForAdminToAccept", copy("invite.you_re_done", { owner })],
+  ["waitingForAdminToAccept", copy("invite.waiting_for_to_let_you_in", { owner })],
   ["waitingForYouToUpdate", copy("invite.update_justus_to_join", { album: invite.album })],
   ["declinedByAdmin", copy("invite.didn_t_accept_your_request", { owner })],
   ["sendingRequestAgain", copy("invite.didn_t_accept_your_request", { owner })],
@@ -284,7 +284,9 @@ describe("renderJoinSheet when the owner's name is not known", () => {
 
   test("a mid-sentence line uses the lowercase form", () => {
     expect(drawFor("waitingForAdminToAccept", "").textContent).toContain(
-      "Waiting for the person who invited you to let you in.",
+      copy("invite.waiting_for_to_let_you_in", {
+        owner: copy("invite_link.the_person_who_invited_you"),
+      }),
     );
   });
 });
@@ -307,7 +309,7 @@ describe("renderJoinSheet picks the start or mid form for every owner line", () 
     ["albumDeletedByAdmin", `${C} deleted this album`, ""],
     ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],
     ["sendingRequestAgain", `${C} didn't accept your request.`, `You can ask ${P} again.`],
-    ["waitingForAdminToAccept", `Request to join sent to ${P}.`, ""],
+    ["waitingForAdminToAccept", `Keep Justus open until ${P} lets you in.`, ""],
     ["waitingForYouToUpdate", `It reaches ${P} once both phones`, ""],
     ["linkExpired", `Ask ${P} for a new one.`, ""],
   ] as const)("%s reads %j and %j", (state, first, second) => {
@@ -355,13 +357,34 @@ describe("renderJoinSheet names", () => {
     );
   });
 
-  test("the waiting body without an album name uses the unnamed text, with one the named text", () => {
+  test("the waiting body is the keep-open line, album named or not", () => {
     const body = (div: HTMLElement) =>
       div.querySelector("[data-copy-id]")?.getAttribute("data-copy-id");
-    expect(body(drawUnnamed("waitingForAdminToAccept"))).toBe(
-      "invite.request_to_join_sent_to_unnamed",
+    expect(body(drawUnnamed("waitingForAdminToAccept"))).toBe("invite.keep_justus_open_until");
+    expect(body(draw("waitingForAdminToAccept"))).toBe("invite.keep_justus_open_until");
+  });
+
+  test("the dialog is described by its one line", () => {
+    const described = (div: HTMLElement) => {
+      const id = div.querySelector("dialog")?.getAttribute("aria-describedby");
+      return id ? div.querySelector(`#${id}`) : null;
+    };
+    expect(
+      described(draw("waitingForAdminToAccept"))?.querySelector(
+        '[data-copy-id="invite.keep_justus_open_until"]',
+      ),
+    ).toBeTruthy();
+    expect(
+      described(draw("waitingForYouToUpdate"))?.querySelector(
+        '[data-copy-id="invite.request_reaches_after_update"]',
+      ),
+    ).toBeTruthy();
+    expect(draw("decidingToAsk").querySelector("dialog")?.hasAttribute("aria-describedby")).toBe(
+      false,
     );
-    expect(body(draw("waitingForAdminToAccept"))).toBe("invite.request_to_join_sent_to");
+    expect(draw("declinedByAdmin").querySelector("dialog")?.hasAttribute("aria-describedby")).toBe(
+      false,
+    );
   });
 
   test("a named album shows its name in the title", () => {

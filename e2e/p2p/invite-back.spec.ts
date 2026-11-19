@@ -11,7 +11,7 @@
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
-import { copyInviteLink, skipIntro } from "./steps";
+import { copyInviteLink, pattern, skipIntro } from "./steps";
 
 // Counts the sync pushes ("add") a page has received. Call before any goto.
 function addPushes(page) {
@@ -30,7 +30,9 @@ async function askToJoin(b, link, _album) {
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Ask to join", exact: true }).click();
-  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
+  await expect(
+    b.getByRole("dialog", { name: pattern("invite.waiting_for_to_let_you_in") }),
+  ).toBeVisible({ timeout: 20_000 });
 }
 
 test("Back from the invite page shows Sharing after Ben adds photos", async ({

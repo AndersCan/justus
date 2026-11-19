@@ -212,7 +212,9 @@ test("a link holder with an edited link who opens, asks, waits, is declined, ask
   await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
     timeout: 60_000,
   });
-  const waiting = b.getByRole("dialog", { name: words("invite.you_re_done", { owner: adaName }) });
+  const waiting = b.getByRole("dialog", {
+    name: words("invite.waiting_for_to_let_you_in", { owner: adaName }),
+  });
   await expect(waiting).toContainText(album, { timeout: 60_000 });
   await expect(waiting.locator("[data-link-named-other]")).toContainText(
     words("invite.link_named_other_album", { linkAlbum: hintAlbum, album, owner: adaName }),

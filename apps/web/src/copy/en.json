@@ -2919,7 +2919,7 @@
     "screen": ""
   },
   "invite.may_ask_you_for_these": {
-    "text": "If {owner} asks which three words your phone shows, read out these:",
+    "text": "{owner} may ask for these three words, to check it's you:",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -3212,8 +3212,8 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
-  "invite.you_re_done": {
-    "text": "You're done. Waiting for {owner} to let you in.",
+  "invite.waiting_for_to_let_you_in": {
+    "text": "Waiting for {owner} to let you in.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -3233,18 +3233,11 @@
     "who": "People joining by a link",
     "screen": ""
   },
-  "invite.request_to_join_sent_to": {
-    "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. They must be online too: keep Justus open on both phones.",
+  "invite.keep_justus_open_until": {
+    "text": "Keep Justus open until {owner} lets you in.",
     "status": "draft",
     "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
-    "screen": ""
-  },
-  "invite.request_to_join_sent_to_unnamed": {
-    "text": "Request to join sent to {owner}. You'll see the album when accepted. They must be online too: keep Justus open on both phones.",
-    "status": "draft",
-    "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
+    "who": "People joining by a link",
     "screen": ""
   },
   "invite.didn_t_accept_your_request": {

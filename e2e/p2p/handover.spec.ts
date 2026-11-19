@@ -11,6 +11,7 @@ import {
   askToJoin,
   copyInviteLink,
   createAlbum,
+  pattern,
   pausePhone,
   resumeAll,
   skipIntro,
@@ -76,7 +77,7 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
 
     // Cy asks with the same link and waits.
     await askToJoin(c, link, album);
-    const cyDialog = c.getByRole("dialog", { name: /^You're done\. / });
+    const cyDialog = c.getByRole("dialog", { name: pattern("invite.waiting_for_to_let_you_in") });
     // The three words show once the stored ask has them.
     await expect(cyDialog.locator(".text-lg")).toBeVisible({ timeout: 20_000 });
     const cyWords = await cyDialog.innerText();
