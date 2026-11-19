@@ -1,4 +1,4 @@
-import { html, type TemplateResult } from "lit-html";
+import { html, nothing, type TemplateResult } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
@@ -64,18 +64,11 @@ const joinModal = modalDialog();
 
 const WAITING_LINE_ID = "join-sheet-waiting-line";
 
-function sheet(label: string, body: unknown) {
-  return html`<dialog class="ui-sheet-dialog" aria-label=${label} ${ref(joinModal)}>
-    <div class="justus-sheet ui-sheet">${body}</div>
-  </dialog>`;
-}
-
-/** The waiting and update dialog: its one line is read out when it opens. */
-function waitingSheet(label: string, body: unknown) {
+function sheet(label: string, body: unknown, describedBy?: string) {
   return html`<dialog
     class="ui-sheet-dialog"
     aria-label=${label}
-    aria-describedby=${WAITING_LINE_ID}
+    aria-describedby=${describedBy ?? nothing}
     ${ref(joinModal)}
   >
     <div class="justus-sheet ui-sheet">${body}</div>
@@ -185,7 +178,7 @@ export function renderJoinSheet(
         })
       : copy("invite.waiting_for_to_let_you_in", { owner });
     const warn = !update && linkNamedOtherAlbum(invite.linkAlbum, invite.album);
-    return waitingSheet(
+    return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
         ${
@@ -236,6 +229,7 @@ export function renderJoinSheet(
             ${t("invite.close")}
           </button>
         </div>`,
+      WAITING_LINE_ID,
     );
   }
   const title = copy("invite.didn_t_accept_your_request", { owner: Owner });

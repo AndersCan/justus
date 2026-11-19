@@ -1,12 +1,5 @@
-// @ts-nocheck: reads the catalogue untyped, like the p2p specs
-import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-
-const catalogue = JSON.parse(
-  readFileSync(new URL("../apps/web/src/copy/en.json", import.meta.url), "utf8"),
-);
-const words = (id, params = {}) =>
-  catalogue[id].text.replace(/\{(\w+)\}/g, (whole, k) => String(params[k] ?? whole));
+import { words } from "./p2p/steps.js";
 
 test("an expired invite link says so under the box and sends nothing", async ({ page }) => {
   await page.goto("/join");
