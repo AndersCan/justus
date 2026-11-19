@@ -450,7 +450,7 @@ describe("other phones follow the new Admin", () => {
     await s.ben.store.close();
   });
 
-  it("a phone that was restarted after a handover it missed follows Ben and lists only Ben's photos", async () => {
+  it("a phone that was restarted after a handover it missed follows Ben and lists Ada's and Ben's photos", async () => {
     const s = await scene();
     await s.ada.store.setActive(s.folderId);
     await s.ada.store.addBytes("ada.jpg", new Uint8Array([1, 2, 3, 41]));
@@ -473,10 +473,101 @@ describe("other phones follow the new Admin", () => {
     await cy.ready();
     await until(() => debugOf({ store: cy }).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
     await cy.setActive((await cy.folders()).folders[0]!.id);
-    await until(async () => (await names(cy)) === "ben.jpg");
+    await until(async () => (await names(cy)) === "ada.jpg,ben.jpg");
     await cy.close();
     await s.ben.store.close();
   }, 60_000);
+
+  it("Ada's photos stay under her name after she leaves, and Ben can delete one", async () => {
+    const s = await scene();
+    await s.ada.store.setActive(s.folderId);
+    await s.ada.store.addBytes("ada1.jpg", new Uint8Array([1, 2, 3, 51]));
+    await s.ada.store.addBytes("ada2.jpg", new Uint8Array([1, 2, 3, 52]));
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator", 30_000);
+    await until(async () => (await s.ada.store.folders()).folders.length === 0, 30_000);
+    await s.ada.store.close();
+    const benId = (await trip(s.ben)).id;
+    const cyId = (await trip(s.cy)).id;
+    await s.ben.store.setActive(benId);
+    await s.cy.store.setActive(cyId);
+    const names = async (st: Phone["store"]) =>
+      (await st.list())
+        .map((p: { name: string }) => p.name)
+        .toSorted()
+        .join();
+    await until(async () => (await names(s.ben.store)) === "ada1.jpg,ada2.jpg", 30_000);
+    await until(async () => (await names(s.cy.store)) === "ada1.jpg,ada2.jpg", 30_000);
+    const photos = await s.ben.store.list();
+    expect(photos.every((p: { member?: { name: string } }) => p.member?.name === "Ada")).toBe(true);
+    const ada1 = photos.find((p: { name: string }) => p.name === "ada1.jpg")!;
+    expect((await s.ben.store.remove(ada1.id, benId))[0]).toBeNull();
+    await until(async () => (await names(s.cy.store)) === "ada2.jpg", 30_000);
+    expect(await names(s.ben.store)).toBe("ada2.jpg");
+    await s.cy.store.close();
+    await s.ben.store.close();
+  }, 90_000);
+
+  it("Ada's old photos stay after she leaves and Ben lets her back in", async () => {
+    const s = await scene();
+    await s.ada.store.setActive(s.folderId);
+    await s.ada.store.addBytes("ada1.jpg", new Uint8Array([1, 2, 3, 61]));
+    await s.ada.store.addBytes("ada2.jpg", new Uint8Array([1, 2, 3, 62]));
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator", 30_000);
+    await until(async () => (await s.ada.store.folders()).folders.length === 0, 30_000);
+    const benId = (await trip(s.ben)).id;
+    const cyId = (await trip(s.cy)).id;
+    await s.ben.store.setActive(benId);
+    await s.cy.store.setActive(cyId);
+    const names = async (st: Phone["store"]) =>
+      (await st.list())
+        .map((p: { name: string }) => p.name)
+        .toSorted()
+        .join();
+    await until(async () => (await names(s.cy.store)) === "ada1.jpg,ada2.jpg", 30_000);
+    // Ada is let back in: her new drive, under the same identity, is enrolled.
+    await joinAsMember(s.ben.store, benId, s.ada.store, s.shareKey);
+    // Her new drive comes to hold as many photos as her old one did.
+    const again = await s.ada.deps.drives.openOwn(`member/${s.shareKey}`);
+    await again.put("/photos/x1.jpg", Buffer.from([9, 9, 1]));
+    await again.put("/photos/x2.jpg", Buffer.from([9, 9, 2]));
+    await sleep(5_000);
+    expect(await names(s.cy.store)).toContain("ada1.jpg,ada2.jpg");
+    expect(await names(s.ben.store)).toContain("ada1.jpg,ada2.jpg");
+    await s.close();
+  }, 120_000);
+
+  it("a photo Ada adds again after Ben lets her back in is listed once", async () => {
+    const s = await scene();
+    await s.ada.store.setActive(s.folderId);
+    await s.ada.store.addBytes("ada1.jpg", new Uint8Array([1, 2, 3, 61]));
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator", 30_000);
+    await until(async () => (await s.ada.store.folders()).folders.length === 0, 30_000);
+    const benId = (await trip(s.ben)).id;
+    const cyId = (await trip(s.cy)).id;
+    await s.ben.store.setActive(benId);
+    await s.cy.store.setActive(cyId);
+    const names = async (st: Phone["store"]) =>
+      (await st.list())
+        .map((p: { name: string }) => p.name)
+        .toSorted()
+        .join();
+    await until(async () => (await names(s.cy.store)) === "ada1.jpg", 30_000);
+    const old = (await s.cy.store.list()).find((p: { name: string }) => p.name === "ada1.jpg");
+    await joinAsMember(s.ben.store, benId, s.ada.store, s.shareKey);
+    // Back in, Ada adds the same photo again (same bytes) on her new drive.
+    const again = await s.ada.deps.drives.openOwn(`member/${s.shareKey}`);
+    await again.put("/photos/x1.jpg", Buffer.from([1, 2, 3, 61]), {
+      metadata: { name: "ada1.jpg", sha256: old?.sha256, addedAt: Date.now(), mime: "image/jpeg" },
+    });
+    await until(async () => (await names(s.cy.store)) === "ada1.jpg", 30_000);
+    await sleep(3_000);
+    expect(await names(s.cy.store)).toBe("ada1.jpg");
+    expect(await names(s.ben.store)).toBe("ada1.jpg");
+    await s.close();
+  }, 120_000);
 
   it("a connected phone hears Ben's later changes on Ben's drive", async () => {
     const s = await scene();

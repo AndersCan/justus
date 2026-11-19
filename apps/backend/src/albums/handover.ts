@@ -13,6 +13,7 @@ import {
   isHexKey,
   isTextJSON,
   parseAdminNote,
+  parseEarlier,
   parseProofChain,
   parseRegistry,
   peerName,
@@ -63,6 +64,20 @@ function membersWithout(text: string | undefined, without: string): string {
   return JSON.stringify({ version: 1, members });
 }
 
+/** The `/earlier.json` text with the leaving Admin's drive listed last, once, as {@link takeAdminRecords} writes it. The drive is then read like a member's, so the leaving Admin's photos stay. */
+function earlierWith(text: string | undefined, leaving: LeavingAdmin): string {
+  const earlier = parseEarlier(text ?? null).filter((e) => e.key !== leaving.key);
+  return JSON.stringify({
+    version: 1,
+    earlier: [...earlier, { key: leaving.key, name: leaving.name }],
+  });
+}
+
+/** The Admin's drive being left, and the name its photos are listed under. */
+export type LeavingAdmin = { key: string; name: string };
+
+const EARLIER_INDEX = LIST_PATHS.indexOf("/earlier.json");
+
 /** sha-256 (by `hash`) of the sorted `path:size` lines of every photo and preview `drive` lists. Both phones work it out from their own copy of the leaving Admin's drive. */
 export async function photosDigest(drive: Drive, hash: (text: string) => string): Promise<string> {
   return hash((await photoLines(drive)).join("\n"));
@@ -105,9 +120,12 @@ export async function holdPhotos(
 export async function listsDigest(
   drive: Drive,
   hash: (text: string) => string,
-  options: { without?: string } = {},
+  options: { without?: string; leaving?: LeavingAdmin } = {},
 ): Promise<string> {
   const texts = await readLists(drive);
+  if (options.leaving !== undefined) {
+    texts[EARLIER_INDEX] = earlierWith(texts[EARLIER_INDEX], options.leaving);
+  }
   if (options.without !== undefined) {
     texts[LIST_PATHS.length - 1] = membersWithout(texts[LIST_PATHS.length - 1], options.without);
   }
@@ -118,10 +136,13 @@ export async function listsDigest(
 export async function takeAdminRecords(
   from: Drive,
   to: Drive,
-  options: { self: string; hash: (text: string) => string },
+  options: { self: string; leaving?: LeavingAdmin; hash: (text: string) => string },
 ): Promise<AlbumResult<{ digest: string }>> {
   try {
     const texts = await readLists(from);
+    if (options.leaving !== undefined) {
+      texts[EARLIER_INDEX] = earlierWith(texts[EARLIER_INDEX], options.leaving);
+    }
     for (let i = 0; i < LIST_PATHS.length - 1; i++) {
       const text = texts[i];
       if (text !== undefined) await to.put(LIST_PATHS[i], Buffer.from(text));

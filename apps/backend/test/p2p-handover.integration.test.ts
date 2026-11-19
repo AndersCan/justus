@@ -89,6 +89,18 @@ describe("after a handover", () => {
     );
     await ada.stop();
 
+    for (const peer of [ben, cy]) {
+      const folder = (await peer.store.folders()).folders[0]!;
+      await ok(peer.store.setActive(folder.id));
+      const shown = await eventually(
+        () => peer.store.list(),
+        (photos) => photos.length === 3,
+        `Ada's 3 photos on ${peer.name}`,
+        60_000,
+      );
+      expect(shown.every((p) => p.member?.name === "Ada")).toBe(true);
+    }
+
     const onCy = await ok(cy.drives.open(shareKey, { timeoutMs: 10_000 }));
     const paths = await listed(onCy, 6);
     expect(paths).toHaveLength(6);

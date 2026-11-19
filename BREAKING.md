@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 5
 
+- **A handed-over album lists the leaving Admin's drive as an earlier drive** (the next Admin's `/earlier.json` gains the old Admin's drive). Who: testers on a protocol-5 build from before this change. If the next Admin's or the leaving Admin's phone is on an older build, the two photo digests never match, the handover never finishes and the leaving Admin's phone keeps re-sending. Do: update both phones.
 - **The next Admin's phone says which photos it holds when it answers a handover** (peer message `handoverReady` gains a required `photos` digest). Who: testers on a protocol-5 build from before this change: an updated Admin's phone drops their phone's reply as the next Admin, so the handover waits. Do: update Justus.
 - **A Collaborator's phone records the photos it deleted** (`/deleted-photos/<id>` on the Collaborator's album drive, read with the holding record). Who: internal testers on a protocol-5 build from before this change: a photo their phone deletes never shows on the "still has a deleted photo" line, and their phone keeps saying it has a photo an updated Collaborator deleted until its cache drops it. Do: update Justus.
 - **An Admin can hand the album to a Collaborator** (new drive file `/admin.json` on the Admin's drive; new peer messages `handover`, `handoverReady`, `handoverDone`; new `handedOver` answer). Who: testers on a protocol-5 build from before this change: their phone does not follow the handover and the old Admin's phone waits. Do: update Justus.

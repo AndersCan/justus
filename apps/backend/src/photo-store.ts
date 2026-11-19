@@ -2122,7 +2122,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         new Set(removed.filter((k) => k.startsWith(`${key}:`)).map((k) => k.slice(key.length + 1)));
       const done = new Set<string>();
       for (const e of earlier) {
-        if (e.keptVersion !== undefined) continue;
+        if (e.keptVersion !== undefined || rt.record.adminChain?.includes(e.key)) continue;
         const oldDrive = rt.memberDrives.get(e.key);
         const identity = presence.identities.get(e.key);
         if (!oldDrive || !identity) continue;
@@ -2559,6 +2559,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await deleteOwnPhotos(mine, { log });
     }
     keys.delete(ownDrive.key);
+    // A past Admin's drive is still served so phones that were off can follow the hop.
+    for (const past of rt.pastAdmins ?? []) keys.delete(past.key);
     for (const key of keys) {
       try {
         await deps.drives.purge(key);
@@ -5587,6 +5589,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
       const [takeErr, taken] = await takeAdminRecords(rt.folderDrive, rt.selfDrive, {
         self: selfKeyOf(rt),
+        leaving: { key: rt.folderDrive.key, name: message.admin.fromName },
         hash: hashText,
       });
       if (takeErr) return log("error", { where: "handover.take", err: takeErr.message });
@@ -5616,13 +5619,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await oneChangePerAlbum(rt.record.id, async () => {
       const handover = rt.record.handover;
       if (!handover || handover.written) return;
-      const own = await listsDigest(rt.folderDrive, hashText, { without: handover.to.key });
-      const copy = rt.memberDrives.get(handover.to.key);
-      const reached = copy !== undefined && (await listsReach(copy, message.digest));
       const admin = buildHandoverPackage(rt.record, {
         fromName: state.name,
         chains: handover.chains,
       });
+      const own = await listsDigest(rt.folderDrive, hashText, {
+        without: handover.to.key,
+        leaving: { key: rt.folderDrive.key, name: admin?.fromName ?? state.name },
+      });
+      const copy = rt.memberDrives.get(handover.to.key);
+      const reached = copy !== undefined && (await listsReach(copy, message.digest));
       const verdict = readyVerdict({
         sender,
         chosen: handover.to.identity,
@@ -5721,6 +5727,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.memberDrives.delete(key);
     rt.keptAt.delete(key);
     rt.memberNameCache.delete(key);
+    const left = parseEarlier(
+      await readText(hop.drive, DRIVE_PATH_EARLIER, { timeout: 2_000 }),
+    ).find((e) => e.key === rt.folderDrive.key && e.keptVersion === undefined);
+    if (left) {
+      // The drive being left is listed as an earlier one: it stays a read source, so its photos never drop out.
+      rt.memberDrives.set(left.key, rt.folderDrive);
+      rt.memberNameCache.set(left.key, left.name);
+    }
     rt.folderDrive = hop.drive;
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
@@ -5747,8 +5761,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const earlier = rt.folderDrive;
     rt.pastAdmins = [...(rt.pastAdmins ?? []), earlier];
     joinTopic(topicOf(earlier), { server: true });
+    const kept = parseEarlier(await readText(rt.selfDrive, DRIVE_PATH_EARLIER));
+    const left = kept.find((e) => e.key === earlier.key);
+    // Her drive is read before the swap, so no gallery pass runs without her photos.
+    if (left) await loadMemberDrive(rt, left.key, left.name);
     rt.folderDrive = rt.selfDrive;
     patchRecord(rt, {
+      earlier: kept.length > 0 ? kept : undefined,
       role: "creator",
       driveKey: selfKeyOf(rt),
       pending: false,

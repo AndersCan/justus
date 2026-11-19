@@ -241,6 +241,27 @@ describe("takeAdminRecords", () => {
     expect(out?.digest).toBe(await listsDigest(to, hash));
   });
 
+  it("with `leaving`, lists the leaving Admin's drive last and once in /earlier.json", async () => {
+    const drives = store();
+    const from = await fill(drives);
+    const old = "d".repeat(64);
+    await from.put("/earlier.json", json({ version: 1, earlier: [{ key: old, name: "Old" }] }));
+    const to = await drives.openOwn("to");
+    const leaving = { key: "a".repeat(64), name: "Ada" };
+    for (const _ of [1, 2]) {
+      const [error, out] = await takeAdminRecords(from, to, { self: SELF, leaving, hash });
+      expect(error).toBeNull();
+      expect(JSON.parse((await to.readSmall("/earlier.json", 1000))!).earlier).toEqual([
+        { key: old, name: "Old" },
+        leaving,
+      ]);
+      expect(out?.digest).toBe(await listsDigest(to, hash));
+    }
+    const again = await drives.openOwn("again");
+    await takeAdminRecords(to, again, { self: SELF, leaving, hash });
+    expect(JSON.parse((await again.readSmall("/earlier.json", 1000))!).earlier).toHaveLength(2);
+  });
+
   it("writes /members.json last", async () => {
     const drives = store();
     const from = await fill(drives);
@@ -337,6 +358,21 @@ describe("plan step 3(a): the leaving Admin can check the reply's digest", () =>
     expect(mine).toBe(out?.digest);
     expect(mine).toBe(await listsDigest(to, hash));
     expect(await listsDigest(from, hash)).not.toBe(mine);
+  });
+});
+
+describe("listsDigest with `leaving`", () => {
+  it("equals the digest takeAdminRecords returns, also when the drive has no /earlier.json", async () => {
+    const drives = store();
+    const SELF = "b".repeat(64);
+    const from = await drives.openOwn("from");
+    await from.put("/members.json", members(SELF, "c".repeat(64)));
+    const to = await drives.openOwn("to");
+    const leaving = { key: "a".repeat(64), name: "Ada" };
+    const [, out] = await takeAdminRecords(from, to, { self: SELF, leaving, hash });
+    const mine = await listsDigest(from, hash, { without: SELF, leaving });
+    expect(mine).toBe(out?.digest);
+    expect(mine).not.toBe(await listsDigest(from, hash, { without: SELF }));
   });
 });
 
