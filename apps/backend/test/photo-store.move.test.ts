@@ -1239,9 +1239,18 @@ describe("the other phones follow the move by themselves", () => {
   it("after the follow the old album is gone and the id is kept", async () => {
     const s = await invited();
     const before = (await albumOf(s.nils, s.ids.nils))!;
+    const drives = s.nils.deps.drives;
+    const released: string[] = [];
+    const realRelease = drives.release.bind(drives);
+    drives.release = async (drive: Parameters<typeof realRelease>[0]) => {
+      released.push(String((drive as { key: unknown }).key));
+      return realRelease(drive);
+    };
     await s.admin.store.removeMember(s.folderId, s.keys.ben);
     const next = s.record().shareKey;
     await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await until(() => released.includes(before.shareKey), 5_000);
+    expect(released.filter((k) => k === before.shareKey)).toHaveLength(1);
     expect((await s.nils.store.folders()).asks).toHaveLength(0);
     await until(() => savedOf(s.nils).folders.every((f) => f.shareKey === next), 5_000);
     const folders = savedOf(s.nils).folders;

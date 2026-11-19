@@ -5812,7 +5812,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.selfDrive = fresh;
     rt.viewers = {};
     saveState();
-    void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
+    if ((record.adminChain?.length ?? 0) <= 1) {
+      void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
+    }
     joinTopic(topicOf(fresh), { server: true });
     rediscover(topicOf(fresh), fresh);
     if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });
