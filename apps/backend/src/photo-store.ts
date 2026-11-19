@@ -217,6 +217,7 @@ import type {
   AskSummary,
   OfferSummary,
   ChangedRole,
+  AdminChange,
   FolderNotice,
   DeletedAlbum,
   FolderSummary,
@@ -688,6 +689,8 @@ type FolderRuntime = {
   /** The folder's share drive (creator drive): holds members.json, removed.json,
    * folder.json + the creator's own photos. */
   folderDrive: Drive;
+  /** Who handed the album to whom when this phone followed a handover since the app started. Never saved. */
+  adminChanged?: AdminChange;
   /** The drive THIS device writes photos to inside this folder. For a creator
    * folder this is `folderDrive` itself; for a joined folder it is a drive of
    * its own, made for this album alone (#195), which only takes photos once
@@ -5740,7 +5743,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Another phone is the Admin now: its drive holds the lists this phone reads. */
   async function followHop(
     rt: FolderRuntime,
-    hop: { drive: Drive; next: { key: string; identity: string } },
+    hop: { drive: Drive; next: { key: string; identity: string; name: string } },
   ): Promise<void> {
     const key = hop.drive.key;
     // The drive stays open as the album's drive, so it is not released with the member drives.
@@ -5755,7 +5758,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.memberDrives.set(left.key, rt.folderDrive);
       rt.memberNameCache.set(left.key, left.name);
     }
+    const fromName = left?.name ?? (await adminNameOf(rt));
     rt.folderDrive = hop.drive;
+    const toName = (await adminNameOf(rt)) ?? hop.next.name;
+    rt.adminChanged = { fromName: fromName ?? "", toName: toName ?? "" };
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
       ...(rt.record.invite ? { invite: { ...rt.record.invite, owner: hop.next.identity } } : {}),
@@ -7486,6 +7492,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
         if (target) delete target.whoJoined;
       }
+      delete rt.adminChanged;
       saveState();
       return ok({ ok: true });
     },

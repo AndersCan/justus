@@ -383,6 +383,10 @@ describe("other phones follow the new Admin", () => {
     expect(debugOf(s.cy).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
     await until(async () => (await people(s.cy)).join() === "Ben,Cy");
     expect((await trip(s.cy)).role).toBe("member");
+    expect((await trip(s.cy)).adminChanged).toEqual({ fromName: "Ada", toName: "Ben" });
+    expect((await trip(s.ben)).adminChanged).toBeUndefined();
+    expect((await s.cy.store.dismissWhoJoined((await trip(s.cy)).id))[0]).toBeNull();
+    expect((await trip(s.cy)).adminChanged).toBeUndefined();
     await until(async () => (await s.ada.store.folders()).folders.length === 0);
     await s.close();
   });
@@ -416,6 +420,7 @@ describe("other phones follow the new Admin", () => {
     setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
     await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
     await until(async () => (await people(s.cy)).join() === "Ben,Cy");
+    expect((await trip(s.cy)).adminChanged).toEqual({ fromName: "Ada", toName: "Ben" });
     await s.ben.store.close();
     await s.cy.store.close();
   }, 40_000);
@@ -432,6 +437,7 @@ describe("other phones follow the new Admin", () => {
     expect(folder.folderDrive.key).toBe(s.benKey);
     expect(folder.adminChain).toEqual([s.shareKey, s.benKey]);
     expect(folder.role).toBe("member");
+    expect((await reopened.folders()).folders[0]!.adminChanged).toBeUndefined();
     await reopened.close();
     await s.ada.store.close();
     await s.ben.store.close();

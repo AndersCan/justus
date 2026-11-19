@@ -208,6 +208,29 @@ describe("list", () => {
     expect(owned.invite?.owner, "Trip: list: a given owner is kept").toBe("them");
   });
 
+  it("a member reports who handed the album to whom; an Admin or a moved album does not", () => {
+    const adminChanged = { fromName: "Ada", toName: "Ben" };
+    const member = albumSummary(
+      { ...readerSource({ role: "member", notice: undefined }), adminChanged },
+      { ownIdentity: "me" },
+    );
+    expect(member.adminChanged, "Trip: list: member reports it").toEqual(adminChanged);
+    const creator = albumSummary(
+      { ...readerSource({ role: "creator", notice: undefined }), adminChanged },
+      { ownIdentity: "me" },
+    );
+    expect("adminChanged" in creator, "Trip: list: Admin has none").toBe(false);
+    const moved = albumSummary(
+      { ...readerSource({ role: "member", notice: { kind: "removed" } }), adminChanged },
+      { ownIdentity: "me" },
+    );
+    expect("adminChanged" in moved, "Trip: list: notice hides it").toBe(false);
+    const none = albumSummary(readerSource({ role: "member", notice: undefined }), {
+      ownIdentity: "me",
+    });
+    expect("adminChanged" in none, "Trip: list: unset when not followed").toBe(false);
+  });
+
   it("a reader shows no drive of its own unless it asked to write", () => {
     const members = new Map([["a", 1]]);
     const plain = albumSummary({ ...readerSource(), memberDrives: members }, { ownIdentity: "me" });
