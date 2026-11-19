@@ -78,11 +78,12 @@ test("Ada's waiting line appears while Ben's phone is paused and goes without a 
     timeout: 30_000,
   });
 
-  // 100 s: Ada's phone needs about 14 s to see Ben is gone, the strip keeps him connected for 30 s more, and its clock ticks every 15 s; resuming sooner never cuts the link.
+  // 90 s: Ada's phone needs about 14 s to see Ben is gone and the strip reads him as connected for 30 s more,
+  // so "Connecting to Ben…" (first 15 s) never shows; resuming sooner never cuts the link.
   await expect(
-    a.getByText(words("gallery.connecting_to", { name: "Ben" }), { exact: true }),
+    a.getByText(words("gallery.nobody_connected_right_now"), { exact: true }),
     "Ada sees Ben's link drop",
-  ).toBeVisible({ timeout: 100_000 });
+  ).toBeVisible({ timeout: 90_000 });
 
   resume();
   // 60 s: reconnecting after a resume took 2-16 s, then three previews.
