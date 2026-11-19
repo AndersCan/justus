@@ -8,6 +8,7 @@ import { lightboxActor } from "../machines/lightbox-machine";
 import { galleryActor, gallery } from "../machines/gallery-machine";
 import { folders } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
+import { membersChanged, presenceClockActor } from "../machines/presence-clock-machine";
 import { friendsActor } from "../machines/friends-machine";
 import type { Photo } from "@justus/core";
 
@@ -579,6 +580,45 @@ describe("the photo grows and shrinks", () => {
     closeLightbox();
     openLightbox(photo("b"));
     expect(host.querySelector("[data-part=placeholder]")).toBeNull();
+    render(null, host);
+  });
+});
+
+describe("the line ages with the presence clock", () => {
+  afterEach(() => {
+    presenceClockActor.send(membersChanged.create({ someoneNotConnected: false }));
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+
+  it("reads on its way inside 30 s of Ben's last contact, and waiting once the clock passes 30 s", () => {
+    const t0 = 5_000_000;
+    const now = vi.spyOn(Date, "now").mockReturnValue(t0);
+    const p = {
+      ...photo("a"),
+      holders: {
+        kind: "inAlbum" as const,
+        here: true,
+        previewHere: false,
+        others: [],
+        quiet: [],
+        unsure: [],
+        waiting: [{ key: "Ben", name: "Ben", connected: false, lastSeenAt: t0 - 10_000 }],
+        previews: [],
+        former: [],
+        left: [],
+      },
+    };
+    setPhotos([p]);
+    presenceClockActor.send(membersChanged.create({ someoneNotConnected: true }));
+    openLightbox(p);
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    const line = () => host.querySelector(".justus-holders-text")?.textContent;
+    expect(line()).toBe("On your phone. On its way to Ben's phone");
+    now.mockReturnValue(t0 + 25_000);
+    presenceClockActor.send(membersChanged.create({ someoneNotConnected: true }));
+    expect(line()).toBe("On your phone. Waiting for Ben's phone");
     render(null, host);
   });
 });

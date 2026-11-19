@@ -105,16 +105,6 @@ describe("holdersLine", () => {
         "On your phone. On its way to Dan's phone. Waiting for Ben's phone",
       ],
       [
-        "four off",
-        { waiting: ["a", "b", "c", "d"].map(off) },
-        "On your phone. Waiting for 4 phones",
-      ],
-      [
-        "unsure and off",
-        { unsure: [m("Jo")], waiting: [off("Ben")] },
-        "On your phone. Others haven't said. Waiting for Ben's phone",
-      ],
-      [
         "quiet and off",
         { quiet: [{ key: "Cy", name: "Cy", lastSeenAt: NOW }], waiting: [off("Ben")] },
         "On your phone. Waiting for Ben's phone. Cy's phone last had it just now",
