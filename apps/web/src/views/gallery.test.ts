@@ -734,6 +734,12 @@ describe("albumHeader when people joined", () => {
     send.mockRestore();
   });
 
+  test("the Admin line's Dismiss is off until the album list is settled", () => {
+    const album = { ...base, adminChanged: { fromName: "Ada", toName: "Ben" } };
+    expect(draw(album, false).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(true);
+    expect(draw(album, true).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(false);
+  });
+
   test("no line when nobody joined", () => {
     expect(draw(base).textContent).not.toContain("joined this album");
   });
