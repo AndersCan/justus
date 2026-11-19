@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { formatDay, linkEndText } from "./time";
+import { formatDay, linkEndText, linkMadeText } from "./time";
 
 test("a link ending later the same day shows only the time", () => {
   const now = new Date(2026, 10, 7, 9, 0).getTime();
@@ -22,4 +22,28 @@ test("formatDay says hours, then the weekday, then the date", () => {
   expect(formatDay(new Date(2026, 10, 14, 20, 0).getTime(), now)).toBe("Saturday");
   expect(formatDay(now - (7 * 24 - 1) * h, now)).toBe("Wednesday");
   expect(formatDay(new Date(2026, 10, 11, 9, 0).getTime(), now)).toBe("November 11, 2026");
+});
+
+test("linkMadeText says the part of today or yesterday, then the date, never a clock time", () => {
+  const now = new Date(2026, 10, 19, 15, 0).getTime();
+  const at = (y: number, m: number, d: number, h: number, min = 0) =>
+    linkMadeText(new Date(y, m, d, h, min).getTime(), now);
+  const out = [
+    [at(2026, 10, 19, 0, 16), "this morning"],
+    [at(2026, 10, 19, 12), "this afternoon"],
+    [at(2026, 10, 19, 14, 59), "this afternoon"],
+    [at(2026, 10, 18, 19), "yesterday evening"],
+    [at(2026, 10, 18, 9), "yesterday morning"],
+    [at(2026, 10, 18, 13), "yesterday afternoon"],
+    [at(2026, 10, 12, 23, 59), "on 12 Nov"],
+    [at(2025, 11, 31, 9), "on 31 Dec 2025"],
+    [
+      linkMadeText(new Date(2026, 10, 19, 18).getTime(), new Date(2026, 10, 19, 21).getTime()),
+      "this evening",
+    ],
+  ] as const;
+  for (const [got, want] of out) {
+    expect(got).toBe(want);
+    expect(got).not.toMatch(/\d:\d/);
+  }
 });

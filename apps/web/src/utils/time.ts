@@ -93,3 +93,26 @@ export function linkEndText(expiresAt: number, now = Date.now()): string {
   if (sameDay) return hhmm;
   return `${WEEKDAYS[end.getDay()]} ${end.getDate()} ${MONTHS_SHORT[end.getMonth()]} ${hhmm}`;
 }
+
+/** When a link was made, as words that cannot read as a time: "this morning", "yesterday evening", "on 12 Nov", "on 31 Dec 2025". */
+export function linkMadeText(madeAt: number, now = Date.now()): string {
+  const made = new Date(Math.min(madeAt, now));
+  const today = new Date(now);
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((midnight(today) - midnight(made)) / 86_400_000);
+  const hour = made.getHours();
+  if (days === 0) {
+    if (hour < 12) return copy("time.this_morning");
+    if (hour < 17) return copy("time.this_afternoon");
+    return copy("time.this_evening");
+  }
+  if (days === 1) {
+    if (hour < 12) return copy("time.yesterday_morning");
+    if (hour < 17) return copy("time.yesterday_afternoon");
+    return copy("time.yesterday_evening");
+  }
+  const year = made.getFullYear() === today.getFullYear() ? "" : ` ${made.getFullYear()}`;
+  return copy("time.on_day", {
+    day: `${made.getDate()} ${MONTHS_SHORT[made.getMonth()]}${year}`,
+  });
+}

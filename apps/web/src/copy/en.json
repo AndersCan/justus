@@ -699,6 +699,83 @@
     "who": "Everyone",
     "screen": ""
   },
+  "link_kind.10_minute": {
+    "text": "10\u2011minute",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, the kind of link",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "link_kind.1_hour": {
+    "text": "1\u2011hour",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, the kind of link",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "link_kind.1_day": {
+    "text": "1\u2011day",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, the kind of link",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "link_kind.7_day": {
+    "text": "7\u2011day",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, the kind of link",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.this_morning": {
+    "text": "this morning",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.this_afternoon": {
+    "text": "this afternoon",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.this_evening": {
+    "text": "this evening",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.yesterday_morning": {
+    "text": "yesterday morning",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.yesterday_afternoon": {
+    "text": "yesterday afternoon",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.yesterday_evening": {
+    "text": "yesterday evening",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
+  "time.on_day": {
+    "text": "on {day}",
+    "status": "draft",
+    "where": "Album › Invite & members › request card, when the link was made",
+    "who": "The Admin, on a request that came through one of the album's links",
+    "screen": ""
+  },
   "add_friend_sheet.add_as_viewers": {
     "text": "Add {names}, can only look",
     "status": "draft",
@@ -1155,10 +1232,10 @@
     "screen": ""
   },
   "album.asked_with_link": {
-    "text": "Asked {when} with your link for {kind}, made {made}",
+    "text": "Asked {when} with the {kind} link made {made}",
     "status": "draft",
     "where": "Album › Invite & members › request card and Accept all sheet",
-    "who": "The Admin, on a request that came through one of their links",
+    "who": "The Admin, on a request that came through one of the album's links",
     "screen": ""
   },
   "album.check_code": {

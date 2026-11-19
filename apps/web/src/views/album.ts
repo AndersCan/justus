@@ -31,8 +31,8 @@ import { friendlyError } from "../utils/friendly-error";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
 import { memberHoldings, memberPhotosLine, type MemberHolding } from "../utils/holders";
 import { photosInScope } from "../utils/photo-scope";
-import { formatRelative, linkEndText } from "../utils/time";
-import { linkKindOf, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
+import { formatRelative, linkMadeText } from "../utils/time";
+import { linkKindOf, type ValidFor } from "../machines/sharing/invite-link-machine";
 import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
@@ -591,15 +591,23 @@ function inviteAccept(
   </button>`;
 }
 
-/** "Asked 5 min ago", with the Admin's link it came through when the phone could tell. */
+/** A link's kind as it reads before "link": "the 1-day link". */
+const LINK_KIND_WORD: Record<ValidFor, string> = {
+  "10m": copy("link_kind.10_minute"),
+  "1h": copy("link_kind.1_hour"),
+  "1d": copy("link_kind.1_day"),
+  "7d": copy("link_kind.7_day"),
+};
+
+/** "Asked 5 min ago", with which of the album's links it came through and when it was made, when the phone could tell. */
 function askedLine(r: PeopleVm["requests"][number]): TemplateResult {
   const when = formatRelative(r.requestedAt);
   const kind = r.link ? linkKindOf(r.link) : undefined;
   if (!r.link || !kind) return t("album.asked", { when });
   return t("album.asked_with_link", {
     when,
-    kind: VALID_FOR_LABEL[kind],
-    made: linkEndText(r.link.madeAt),
+    kind: LINK_KIND_WORD[kind],
+    made: linkMadeText(r.link.madeAt),
   });
 }
 
