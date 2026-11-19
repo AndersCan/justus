@@ -1,10 +1,10 @@
 import { html, type TemplateResult } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
 import { keyed } from "lit-html/directives/keyed.js";
-import type { Photo } from "@justus/core";
+import type { HolderMember, Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
-import { nameList, type Person } from "../utils/people";
+import { nameList, shownName } from "../utils/people";
 import { formatDay } from "../utils/time";
 import { memberBadge } from "./avatar";
 import { modalDialog } from "./modal-dialog";
@@ -49,15 +49,6 @@ export function holdersRow(photo: Photo, now: number) {
   </button>`;
 }
 
-/** A keyed row takes the name and colour it has on Members; a key not there keeps what the backend sent. */
-function resolve(m: { key: string; name: string }, people: readonly Person[]) {
-  const p = people.find((q) => q.key === m.key);
-  return {
-    name: p?.name ?? m.name,
-    badge: p ? memberBadge(p.name, p.color) : memberBadge(m.name, undefined),
-  };
-}
-
 function personRow(name: string, badge: TemplateResult, detail?: string) {
   return html`<li class="flex items-center gap-3 py-2">
     ${badge}
@@ -68,16 +59,24 @@ function personRow(name: string, badge: TemplateResult, detail?: string) {
   </li>`;
 }
 
-export function holdersSheet(photo: Photo, people: readonly Person[], now = Date.now()) {
+export function holdersSheet(
+  photo: Photo,
+  who: { yourName: string; friends: Readonly<Record<string, string>> },
+  now = Date.now(),
+) {
   const rows = holdersSheetRows(photo.holders);
-  const others = rows.others.map((m) => resolve(m, people));
-  const quiet = rows.quiet.map((m) => ({ ...resolve(m, people), lastSeenAt: m.lastSeenAt }));
-  const waiting = rows.waiting.map((m) => resolve(m, people));
-  const unsure = rows.unsure.map((m) => resolve(m, people));
-  const previews = rows.previews.map((m) => resolve(m, people));
-  const self = people.find((p) => p.you);
+  const resolve = (m: HolderMember) => {
+    const name = shownName(m, who.friends);
+    return { name, badge: memberBadge(name, m.color) };
+  };
+  const others = rows.others.map((m) => resolve(m));
+  const quiet = rows.quiet.map((m) => ({ ...resolve(m), lastSeenAt: m.lastSeenAt }));
+  const waiting = rows.waiting.map((m) => resolve(m));
+  const unsure = rows.unsure.map((m) => resolve(m));
+  const previews = rows.previews.map((m) => resolve(m));
   const youName = copy("photo_holders.you");
-  const youBadge = self ? memberBadge(self.name, self.color) : memberBadge(youName, undefined);
+  const yourColor = photo.holders?.kind === "inAlbum" ? photo.holders.yourColor : undefined;
+  const youBadge = memberBadge(who.yourName || youName, yourColor);
   const sources = [
     ...others.map((r) => r.name),
     ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),

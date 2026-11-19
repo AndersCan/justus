@@ -133,6 +133,15 @@ function withSameName(
   return best === undefined ? row : { ...row, sameNameIn: best.presence };
 }
 
+/** The name this phone shows for someone else: the friend name you saved for their identity, else their own, else "Unknown device". */
+export function shownName(
+  m: { name: string; identity?: string },
+  friends: Readonly<Record<string, string>>,
+): string {
+  const friendName = m.identity !== undefined ? friends[m.identity] : undefined;
+  return friendName ?? (m.name || copy("people.unknown_device"));
+}
+
 /** View-model for the People sheet. The first member the
  * backend reports is this device, which always counts as connected. */
 export function buildPeople(
@@ -151,7 +160,7 @@ export function buildPeople(
       const clash = !you && !friend ? clashFriend(ownName, friends) : undefined;
       return {
         key: m.key,
-        name: friendName ?? ownName,
+        name: you ? ownName : shownName(m, friends),
         ownName,
         identity: m.identity,
         friend,

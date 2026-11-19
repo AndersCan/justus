@@ -383,8 +383,8 @@ describe("deleteDetail", () => {
 });
 
 describe("deletedMessage", () => {
-  const person = (name: string, connected = true) => ({ key: name, name, connected });
-  const people = [person("Ben"), person("Ana"), person("Cy"), person("Dan", false)];
+  const now = 1_000_000;
+  const off = (name: string) => ({ key: name, name, connected: false, lastSeenAt: now - 60_000 });
   const rows: [string, Partial<PhotoHolders>, string][] = [
     ["alone", {}, "Deleted “Sunset”."],
     [
@@ -404,7 +404,7 @@ describe("deletedMessage", () => {
     ],
     [
       "holder away",
-      { others: [m("Ben"), m("Dan")] },
+      { others: [m("Ben"), off("Dan")] },
       "Deleted “Sunset”. Ben and Dan have the full photo. Dan will see it's gone when connected.",
     ],
     [
@@ -414,28 +414,27 @@ describe("deletedMessage", () => {
     ],
   ];
   it.each(rows)("%s", (_, p, text) => {
-    expect(deletedMessage("Sunset", h(p), people)).toBe(text);
+    expect(deletedMessage("Sunset", h(p), {}, now)).toBe(text);
   });
   it("without holders", () => {
-    expect(deletedMessage("Sunset", undefined, people)).toBe("Deleted “Sunset”.");
+    expect(deletedMessage("Sunset", undefined, {}, now)).toBe("Deleted “Sunset”.");
   });
   it("names a person with only a preview by the friend name", () => {
-    const saved = [{ key: "k1", name: "Benny", connected: true }];
     expect(
       deletedMessage(
         "Sunset",
-        h({ previews: [{ key: "k1", name: "Ben", connected: true }] }),
-        saved,
+        h({ previews: [{ key: "k1", name: "Ben", identity: "id-b", connected: true }] }),
+        { "id-b": "Benny" },
+        now,
       ),
     ).toBe("Deleted “Sunset”. The photo no longer shows for Benny.");
   });
   it("uses the friend name, else the phone's own name", () => {
-    const saved = [{ key: "k1", name: "Benny", connected: true }];
     const others = [
-      { key: "k1", name: "Ben", connected: true },
+      { key: "k1", name: "Ben", identity: "id-b", connected: true },
       { key: "k2", name: "Zed", connected: true },
     ];
-    expect(deletedMessage("Sunset", h({ others }), saved)).toBe(
+    expect(deletedMessage("Sunset", h({ others }), { "id-b": "Benny" }, now)).toBe(
       "Deleted “Sunset”. Benny and Zed have the full photo.",
     );
   });
@@ -457,14 +456,11 @@ describe("previews", () => {
     );
   });
   it("the toast says who only has a preview, and who finds out when connected", () => {
-    const people = [
-      { key: "Ben", name: "Ben", connected: true },
-      { key: "Cara", name: "Cara", connected: false },
-    ];
-    expect(deletedMessage("pixel-2.png", h({ previews: [m("Ben")] }), people)).toBe(
+    const cara = { key: "Cara", name: "Cara", connected: false, lastSeenAt: 1 };
+    expect(deletedMessage("pixel-2.png", h({ previews: [m("Ben")] }), {}, 1_000_000)).toBe(
       "Deleted “pixel-2.png”. The photo no longer shows for Ben.",
     );
-    expect(deletedMessage("b", h({ previews: [m("Cara")] }), people)).toBe(
+    expect(deletedMessage("b", h({ previews: [cara] }), {}, 1_000_000)).toBe(
       "Deleted “b”. The photo no longer shows for Cara. Cara will see it's gone when connected.",
     );
   });
@@ -499,7 +495,7 @@ describe("a removed phone", () => {
   it("has nothing to say about others in the delete texts", () => {
     const removed: PhotoHolders = { kind: "removed", here: true };
     expect(deleteDetail(removed)).toBe(deleteDetail(undefined));
-    expect(deletedMessage("a.jpg", removed, [])).toBe(deletedMessage("a.jpg", undefined, []));
+    expect(deletedMessage("a.jpg", removed, {}, 0)).toBe(deletedMessage("a.jpg", undefined, {}, 0));
   });
 });
 
@@ -511,11 +507,11 @@ describe("a quiet phone in the delete dialog and toast", () => {
     expect(deleteDetail(holders)).toContain("Cy's and Ben's phones stop showing it");
   });
   it("tells a quiet phone that is not connected it will see the photo gone", () => {
-    const people = [{ key: "Ben", name: "Ben", connected: false }];
-    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), people)).toBe(
-      deletedMessage("a", h({ others: [m("Ben")] }), people),
+    const now = 10 * 86_400_000;
+    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), {}, now)).toBe(
+      deletedMessage("a", h({ others: [q("Ben")] }), {}, now),
     );
-    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), people)).toContain(
+    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), {}, now)).toContain(
       "Ben will see it's gone when connected.",
     );
   });

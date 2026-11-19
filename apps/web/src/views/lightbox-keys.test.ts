@@ -6,6 +6,7 @@ import { openHolders } from "./photo-holders";
 import { render } from "lit-html";
 import { lightboxActor } from "../machines/lightbox-machine";
 import { syncActor, statusSeen } from "../machines/sync-machine";
+import { friendsActor } from "../machines/friends-machine";
 import { lightboxView } from "./lightbox";
 import { memberColor } from "../utils/palette";
 import { galleryActor } from "../machines/gallery-machine";
@@ -64,54 +65,45 @@ describe("holders sheet in the lightbox", () => {
     vi.restoreAllMocks();
   });
 
-  it("colours rows from the open album's people", () => {
-    see("f1", [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
-    openLightbox({
-      ...photo,
-      folderId: "f1",
-      holders: {
-        kind: "inAlbum" as const,
-        here: true,
-        previewHere: false,
-        others: [],
-        quiet: [],
-        unsure: [],
-        waiting: [],
-        previews: [],
-        former: [],
-        left: [],
-      },
-    });
-    openHolders();
-    const el = document.createElement("div");
-    render(lightboxView(), el);
-    const fill = el.querySelector("dialog li span[style]")?.getAttribute("style");
-    expect(fill).toBe(`background:${memberColor(0)}`);
-  });
-
-  it("gives no Members colours when the open status is another album", () => {
-    see("f2", [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
-    openLightbox({
-      ...photo,
-      folderId: "f1",
-      holders: {
-        kind: "inAlbum" as const,
-        here: true,
-        previewHere: false,
-        others: [],
-        quiet: [],
-        unsure: [],
-        waiting: [],
-        previews: [],
-        former: [],
-        left: [],
-      },
-    });
-    openHolders();
-    const el = document.createElement("div");
-    render(lightboxView(), el);
-    const fill = el.querySelector("dialog li span[style]")?.getAttribute("style");
-    expect(fill).toBeUndefined();
+  it("reads the photo's own people, whichever album is open", () => {
+    const holders = {
+      kind: "inAlbum" as const,
+      here: true,
+      previewHere: false,
+      others: [{ key: "k1", name: "Ben", identity: "id-b", color: 1, connected: true }],
+      quiet: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+      yourColor: 0,
+    };
+    vi.spyOn(friendsActor, "snapshot").mockReturnValue({
+      context: { friends: { "id-b": "Benny" } },
+    } as never);
+    const rowsWhenOpen = (id: string) => {
+      syncActor.send(
+        statusSeen.create({ status: { folder: { id }, name: "Ada", members: [] } as never }),
+      );
+      openLightbox({ ...photo, folderId: "trip", holders });
+      openHolders();
+      const el = document.createElement("div");
+      render(lightboxView(), el);
+      const rows = [...el.querySelectorAll("dialog li")].map((li) => [
+        li.querySelector(".text-fg")?.textContent?.trim(),
+        li.querySelector("span[aria-hidden]")?.textContent?.trim(),
+        li.querySelector("span[aria-hidden]")?.getAttribute("style"),
+      ]);
+      closeLightbox();
+      return rows;
+    };
+    const inAlbum = rowsWhenOpen("trip");
+    expect(inAlbum).toEqual([
+      ["You", "AD", `background:${memberColor(0)}`],
+      ["Benny", "BE", `background:${memberColor(1)}`],
+    ]);
+    expect(rowsWhenOpen("summer")).toEqual(inAlbum);
   });
 });
 

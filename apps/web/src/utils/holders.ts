@@ -1,7 +1,7 @@
 import type { HolderMember, Photo, PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 
 import { copy } from "../copy/copy";
-import { nameKey, nameList } from "./people";
+import { nameKey, nameList, shownName } from "./people";
 import { presenceOf } from "./presence";
 import { formatDay } from "./time";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
@@ -119,11 +119,11 @@ function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolea
 export type HoldersSheetRows = {
   /** True when this phone is still waiting for its copy. */
   youArriving: boolean;
-  others: PhotoMember[];
+  others: HolderMember[];
   quiet: QuietHolder[];
-  unsure: PhotoMember[];
+  unsure: HolderMember[];
   waiting: HolderMember[];
-  previews: PhotoMember[];
+  previews: HolderMember[];
   former: string[];
   left: string[];
 };
@@ -202,19 +202,20 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
     .join(" ");
 }
 
-/** The toast after a delete: which photo, who has the full photo, who does not, and who finds out when connected. */
+/** The toast after a delete: which photo, who has the full photo, who does not, and who finds out when connected. Reads only the photo's own people. */
 export function deletedMessage(
   name: string,
   holders: PhotoHolders | undefined,
-  people: readonly { key: string; name: string; connected: boolean }[],
+  friends: Readonly<Record<string, string>>,
+  now: number,
 ): string {
-  const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
+  const named = (m: HolderMember) => shownName(m, friends);
   const live = holders?.kind === "inAlbum" ? holders : undefined;
   const have = [...(live?.others ?? []), ...(live?.quiet ?? [])].map(named);
   const preview = (live?.previews ?? []).map(named);
   const lack = (live?.waiting ?? []).map(named);
   const later = [...(live?.others ?? []), ...(live?.quiet ?? []), ...(live?.previews ?? [])]
-    .filter((m) => people.some((p) => p.key === m.key && !p.connected))
+    .filter((m) => presenceOf(m, { now }) !== "connected")
     .map(named);
   return [
     copy("lightbox.deleted", { name }),
