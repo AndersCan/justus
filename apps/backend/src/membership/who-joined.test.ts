@@ -73,6 +73,14 @@ describe("who joined after this phone", () => {
     expect(names(r)).toEqual(["Cy", "Di"]);
   });
 
+  it("E9: the same join time reads in key order", () => {
+    const r = nextWhoJoined(
+      { joinedUpTo: 200 },
+      read("Ben", [p("Ben", 200), p("Di", 300), p("Cy", 300)]),
+    );
+    expect(names(r)).toEqual(["Cy", "Di"].sort((a, b) => (key(a) < key(b) ? -1 : 1)));
+  });
+
   it("E10: the Admin never joins", () => {
     const r = nextWhoJoined({ joinedUpTo: 200 }, read("Ben", [p("Ben", 200), p("Ada", 900)]));
     expect(r).toBeUndefined();

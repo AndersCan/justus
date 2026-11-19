@@ -45,8 +45,7 @@ export function nextWhoJoined(
   const floor = Math.max(self.addedAt, now.joinedUpTo);
   const later: ListedPerson[] = [];
   for (const person of read.people) {
-    const isOther = person.key !== read.selfKey && person.key !== read.adminKey;
-    if (isOther && person.addedAt > floor) later.push(person);
+    if (person.key !== read.adminKey && person.addedAt > floor) later.push(person);
   }
   later.sort((a, b) => a.addedAt - b.addedAt || (a.key < b.key ? -1 : 1));
   const newest = later[later.length - 1];

@@ -130,4 +130,53 @@ describe("who joined after me", () => {
     await again.close();
     for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
   });
+  it("a line not yet dismissed is still there after a restart", async () => {
+    const s = await trip();
+    await letIn(s.anna, s.folderId, s.code, s.nils, "member");
+    await letIn(s.anna, s.folderId, s.code, s.ben, "member");
+    await waitFor(s.nils, ["Ben"]);
+    await s.nils.store.close();
+    const again = createPhotoStore(restarted(s.nils.deps));
+    await again.ready();
+    await until(async () => (await again.folders()).folders[0]?.whoJoined !== undefined);
+    expect((await again.folders()).folders[0]?.whoJoined).toEqual(["Ben"]);
+    await again.close();
+    for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
+  });
+
+  it("start-up names someone the lists already held when the phone stopped", async () => {
+    const s = await trip();
+    await letIn(s.anna, s.folderId, s.code, s.nils, "member");
+    await letIn(s.anna, s.folderId, s.code, s.ben, "member");
+    await waitFor(s.nils, ["Ben"]);
+    await s.nils.store.close();
+    for (const p of [s.anna, s.vera, s.ben]) await p.store.close();
+    const file = join(s.nils.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    for (const f of saved.folders) {
+      f.joinedUpTo = 0;
+      delete f.whoJoined;
+    }
+    writeFileSync(file, JSON.stringify(saved));
+    const again = createPhotoStore(restarted(s.nils.deps));
+    await again.ready();
+    await until(async () => (await again.folders()).folders[0]?.whoJoined !== undefined);
+    expect((await again.folders()).folders[0]?.whoJoined).toEqual(["Ben"]);
+    await again.close();
+  });
+  it("the push after the pass carries the line, so an open page shows it", async () => {
+    const s = await trip();
+    await letIn(s.anna, s.folderId, s.code, s.nils, "member");
+    const seen: Array<Promise<string[] | undefined>> = [];
+    const inner = s.nils.deps.onChanged;
+    s.nils.deps.onChanged = (change) => {
+      inner(change);
+      seen.push(s.nils.store.folders().then((r) => r.folders[0]?.whoJoined));
+    };
+    await letIn(s.anna, s.folderId, s.code, s.ben, "member");
+    await waitFor(s.nils, ["Ben"]);
+    await sleep(300);
+    expect((await Promise.all(seen)).some((w) => w?.[0] === "Ben")).toBe(true);
+    for (const p of s.all) await p.store.close();
+  });
 });

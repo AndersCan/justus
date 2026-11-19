@@ -2017,7 +2017,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!target) continue;
         target.joinedUpTo = next.joinedUpTo;
         if (next.whoJoined) target.whoJoined = next.whoJoined;
-        else delete target.whoJoined;
       }
       saveState();
       deps.onChanged({ cause: "enroll", folderId: record.id });
