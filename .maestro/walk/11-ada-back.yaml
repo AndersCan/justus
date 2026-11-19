@@ -1,15 +1,7 @@
 appId: no.cankode.justus
 ---
-# Step 11: Ada's phone runs again. Ben goes back to the album, which reads 1 connected now.
-# The link sits at the top of the page, above the Members card Ben has scrolled to.
-- scrollUntilVisible:
-    element:
-      text: ${SEE_PHOTOS}
-    direction: UP
-    timeout: 20000
-- tapOn:
-    text: ${SEE_PHOTOS}
-    waitToSettleTimeoutMs: 500
+# Step 11: Ada's phone runs again. Ben goes back from the Members list to the album, which reads 1 connected now.
+- back
 - extendedWaitUntil:
     visible: ${CONNECTED_NOW}
     timeout: 120000

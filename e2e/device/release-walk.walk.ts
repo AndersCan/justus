@@ -220,7 +220,6 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
       await ben(
         "11-ada-back",
         {
-          SEE_PHOTOS: exact(words("album.see_photos_in_this_album")),
           CONNECTED_NOW: exact(CONNECTED_NOW),
         },
         120_000,
