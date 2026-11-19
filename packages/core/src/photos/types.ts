@@ -254,6 +254,8 @@ export type JoinRequest = {
   requesterIdentity?: string;
   /** This phone asked through the link before and the Admin declined it; set only on a later ask. */
   declinedEarlier?: boolean;
+  /** This phone was removed from the album and not let back in since: the name it had, when (ms since the epoch), and who removed it when that was not this phone (an earlier Admin). */
+  removedEarlier?: { name: string; at: number; by?: string };
   /** The Admin's own link this ask came through: when it was made and when it ends (ms since the epoch). Absent when the phone cannot tell. */
   link?: { madeAt: number; endsAt: number };
 };

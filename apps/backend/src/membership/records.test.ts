@@ -30,6 +30,8 @@ import {
   handoverMessage,
   parseAdminNote,
   parseHandoverPackage,
+  parseRemovals,
+  withRemoval,
   type HandoverProof,
 } from "./records";
 
@@ -762,6 +764,34 @@ describe("handover messages", () => {
     declinedAsks: { [ID]: 9 },
     chains: { [KEY_A]: [proof], [ID]: [proof] },
     ...over,
+  });
+
+  test("a package's removals parse with keys lowercased, and one bad entry refuses the package", () => {
+    const parsed = parseHandoverPackage(
+      pkg({ removals: { [KEY_B]: { name: " Cy ", at: 3, by: " Ada " } } }),
+    );
+    expect(parsed?.removals).toEqual({ [KEY_B.toLowerCase()]: { name: "Cy", at: 3, by: "Ada" } });
+    expect(
+      parseHandoverPackage(pkg({ removals: { [ID]: { name: "Cy", at: "x" } } })),
+    ).toBeUndefined();
+    expect("removals" in parseHandoverPackage(pkg())!).toBe(false);
+  });
+
+  test("parseRemovals keeps a good list and refuses a bad one; withRemoval keeps the newest 1000", () => {
+    expect(parseRemovals({ [ID]: { name: "Cy", at: 3 } })).toEqual({ [ID]: { name: "Cy", at: 3 } });
+    expect(parseRemovals({ nothex: { name: "Cy", at: 3 } })).toBeUndefined();
+    expect(parseRemovals({ [ID]: { name: "  ", at: 3 } })).toBeUndefined();
+    const full = Object.fromEntries(
+      Array.from({ length: 1000 }, (_, i) => [
+        i.toString(16).padStart(64, "0"),
+        { name: "x", at: i + 10 },
+      ]),
+    );
+    const next = withRemoval(full, ID, { name: "Cy", at: 5000 });
+    expect(Object.keys(next)).toHaveLength(1000);
+    expect(next[ID]).toEqual({ name: "Cy", at: 5000 });
+    expect(next["0".padStart(64, "0")]).toBeUndefined();
+    expect(parseRemovals({ ...full, [ID]: { name: "Cy", at: 1 } })).toBeUndefined();
   });
 
   test("handoverReady and handoverDone carry a hex album (and a digest)", () => {

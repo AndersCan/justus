@@ -428,6 +428,10 @@ describe("the handover package", () => {
     retiredWhy: { [old]: "turnedOff" as const },
     answers: { ["c".repeat(64)]: "accepted" as const },
     declinedAsks: { ["d".repeat(64)]: 5 },
+    removals: {
+      ["e".repeat(64)]: { name: "Cy", at: 3 },
+      ["f".repeat(64)]: { name: "Dan", at: 4, by: "Ben" },
+    },
   };
   it("lists the album's code first, then the retired ones", () => {
     expect(handoverCodes(record)).toEqual([code, old]);
@@ -445,6 +449,10 @@ describe("the handover package", () => {
       retiredWhy: record.retiredWhy,
       answers: record.answers,
       declinedAsks: record.declinedAsks,
+      removals: {
+        ["e".repeat(64)]: { name: "Cy", at: 3, by: "Ada" },
+        ["f".repeat(64)]: { name: "Dan", at: 4, by: "Ben" },
+      },
       chains: { [code]: [proof], [old]: [proof] },
     });
   });

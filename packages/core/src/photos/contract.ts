@@ -248,6 +248,7 @@ export const joinRequestSchema = s.object({
   checkCode: s.optional(s.string),
   requesterIdentity: s.optional(s.string),
   declinedEarlier: s.optional(s.boolean),
+  removedEarlier: s.optional(s.object({ name: s.string, at: s.number, by: s.optional(s.string) })),
   link: s.optional(s.object({ madeAt: s.number, endsAt: s.number })),
 });
 
