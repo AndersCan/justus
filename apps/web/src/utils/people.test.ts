@@ -506,3 +506,13 @@ describe("shownName", () => {
     expect(shownName({ name: "" }, friends)).toBe(copy("people.unknown_device"));
   });
 });
+
+describe("an album handed on", () => {
+  it("carries the name of the Admin who left onto the Admin's row", () => {
+    const s = status("member");
+    s.members[1] = { ...s.members[1], handedBy: "Ada" };
+    const people = buildPeople(s, [], {}, { now: NOW }).people;
+    expect(people.find((p) => p.admin)?.handedBy).toBe("Ada");
+    expect(people.filter((p) => p.handedBy !== undefined)).toHaveLength(1);
+  });
+});

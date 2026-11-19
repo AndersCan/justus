@@ -116,6 +116,25 @@ describe("handing an album to a Collaborator", () => {
     await s.close();
   });
 
+  it("names Ada on the Admin's row for Ben and for Cy, and on no row before", async () => {
+    const s = await scene();
+    expect(
+      (await s.ben.store.status()).members.some(
+        (m: { handedBy?: string }) => m.handedBy !== undefined,
+      ),
+    ).toBe(false);
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    const own = (await s.ben.store.status()).members[0]!;
+    expect(own).toMatchObject({ admin: true, handedBy: "Ada" });
+    await until(async () =>
+      (await s.cy.store.status()).members.some(
+        (m: { admin: boolean; handedBy?: string }) => m.admin && m.handedBy === "Ada",
+      ),
+    );
+    await s.close();
+  });
+
   it("waits for Ben's phone, and hands over what changed while it was off", async () => {
     const s = await scene();
     setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });

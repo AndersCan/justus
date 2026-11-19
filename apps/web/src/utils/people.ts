@@ -20,6 +20,8 @@ export type Person = {
   /** Their seat in the album's palette, written by the Admin. Unset until they have one. */
   color?: number;
   admin: boolean;
+  /** On the Admin's row of an album handed on: the name of the Admin before them. */
+  handedBy?: string;
   /** Accepted as a Viewer: sees every photo, adds no photos. */
   viewer: boolean;
   /** What the row's line says this person can do. The own row follows the
@@ -168,6 +170,7 @@ export function buildPeople(
         tappable: !you && m.identity !== undefined,
         ...(m.color !== undefined && { color: m.color }),
         admin: m.admin,
+        ...(m.handedBy !== undefined && { handedBy: m.handedBy }),
         viewer: m.viewer === true,
         role: you ? ownRole(status?.folder) : otherRole(m),
         you,
