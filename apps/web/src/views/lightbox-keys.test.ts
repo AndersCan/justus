@@ -83,13 +83,16 @@ describe("holders sheet in the lightbox", () => {
       context: { friends: { "id-b": "Benny" } },
     } as never);
     const rowsWhenOpen = (id: string) => {
-      see(id, []);
+      syncActor.send(
+        statusSeen.create({ status: { folder: { id }, name: "Ada", members: [] } as never }),
+      );
       openLightbox({ ...photo, folderId: "trip", holders });
       openHolders();
       const el = document.createElement("div");
       render(lightboxView(), el);
       const rows = [...el.querySelectorAll("dialog li")].map((li) => [
         li.querySelector(".text-fg")?.textContent?.trim(),
+        li.querySelector("span[aria-hidden]")?.textContent?.trim(),
         li.querySelector("span[aria-hidden]")?.getAttribute("style"),
       ]);
       closeLightbox();
@@ -97,8 +100,8 @@ describe("holders sheet in the lightbox", () => {
     };
     const inAlbum = rowsWhenOpen("trip");
     expect(inAlbum).toEqual([
-      ["You", `background:${memberColor(0)}`],
-      ["Benny", `background:${memberColor(1)}`],
+      ["You", "AD", `background:${memberColor(0)}`],
+      ["Benny", "BE", `background:${memberColor(1)}`],
     ]);
     expect(rowsWhenOpen("summer")).toEqual(inAlbum);
   });

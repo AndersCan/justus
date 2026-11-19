@@ -288,6 +288,25 @@ describe("Delete", () => {
     expect(toasts[0]).toContain("Cara will see it's gone when connected.");
   });
 
+  it("names a holder who went off while the confirm was open", async () => {
+    const before = { ...b, folderId: "f1", holders: holdersOf([entry("Cara")]) };
+    await reload([a, before]);
+    const after = {
+      ...before,
+      holders: holdersOf([entry("Cara", { connected: false, lastSeenAt: Date.now() - 60_000 })]),
+    };
+    vi.mocked(confirmAction).mockImplementationOnce(async () => {
+      await reload([a, after]);
+      return true;
+    });
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox(before);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith(
+      "Deleted “b”. Cara has the full photo. Cara will see it's gone when connected.",
+    );
+  });
+
   it("a photo that was already gone leaves the list without a message", async () => {
     await reload([a, b]);
     hoisted.gateway.remove.mockResolvedValue([

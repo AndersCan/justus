@@ -125,15 +125,15 @@ export async function deleteFromLightbox(photo: Photo) {
   });
   if (!ok) return;
   const now = Date.now(); // who was off when the person confirmed
+  const holders = (galleryActor.snapshot().context.photos.find((p) => samePhoto(p, photo)) ?? photo)
+    .holders;
   // The view stays open until the album answers: success drops the photo and closes it.
   stopListening();
   const off = galleryActor.on("output", {
     fn: (e) => {
       if (photoDeleted.is(e) && samePhoto(e.payload, photo)) {
         off();
-        toast(
-          deletedMessage(photo.name, photo.holders, friendsActor.snapshot().context.friends, now),
-        );
+        toast(deletedMessage(photo.name, holders, friendsActor.snapshot().context.friends, now));
       } else if (photoNotDeleted.is(e) && samePhoto(e.payload, photo)) {
         off();
         toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));

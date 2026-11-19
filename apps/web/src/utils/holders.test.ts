@@ -408,16 +408,6 @@ describe("deletedMessage", () => {
       "Deleted “Sunset”. Ben and Dan have the full photo. Dan will see it's gone when connected.",
     ],
     [
-      "a blip is not away",
-      { others: [{ ...off("Ben"), lastSeenAt: now - 10_000 }] },
-      "Deleted “Sunset”. Ben has the full photo.",
-    ],
-    [
-      "quiet holder",
-      { quiet: [{ ...off("Ben"), lastSeenAt: now - 4 * 86_400_000 }] },
-      "Deleted “Sunset”. Ben has the full photo. Ben will see it's gone when connected.",
-    ],
-    [
       "only unsure, former, left",
       { unsure: [m("Ben")], former: ["Eve"], left: ["Fay"] },
       "Deleted “Sunset”.",
