@@ -7,6 +7,7 @@ import { greetPeer } from "./peer-identity";
 import { openVersion } from "./peer-version";
 import { PEER_PROTOCOL } from "../versions";
 import Hyperswarm from "hyperswarm";
+import { emptyAddressLog, watchAddresses } from "./address-log";
 
 type Handle = { destroy(): void | Promise<void>; flushed?: () => Promise<void> };
 
@@ -22,6 +23,8 @@ export function createHyperPeerNetwork(deps: {
   /** Replicates the drive store over a connection (the store adapter's `replicate`). */
   replicate(conn: unknown): unknown;
   log?: P2pLog;
+  /** Dev builds: note every address the peer network uses, shown in `debug().addresses`. */
+  recordAddresses?: boolean;
   /** Tests only: replace the per-connection channels. */
   greetPeer?: typeof greetPeer;
   openVersion?: typeof openVersion;
@@ -29,6 +32,9 @@ export function createHyperPeerNetwork(deps: {
 }): PeerNetwork {
   const log = deps.log ?? createP2pLog();
   const swarm: any = new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
+  const addresses = deps.recordAddresses ? emptyAddressLog() : undefined;
+  // Wrapped before dht-rpc's one-tick bind, so its first sockets are noted.
+  if (addresses) watchAddresses(swarm.dht.udx, addresses);
   const joins = new Map<string, Handle>();
   const servedTopics = new Set<string>();
   /** Later joins of a topic that upgraded it to serving; left with it. */
@@ -219,6 +225,7 @@ export function createHyperPeerNetwork(deps: {
     },
     debug() {
       return {
+        ...(addresses ? { addresses } : {}),
         swarmKey: toHex(swarm.keyPair.publicKey),
         swarmConnections: swarm.connections.size,
         connections: [...conns].map(([conn, c]) => ({
