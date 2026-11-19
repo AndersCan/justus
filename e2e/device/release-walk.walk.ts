@@ -2,7 +2,7 @@
  * The release walk: Ada (web, in Chromium) makes an album and copies her invite link. Ben (the release
  * APK on an emulator) opens it in Chrome, taps Open in Justus, asks to join, Ada accepts, and Ben sees
  * her photo, opens it, and Ada's photo says it is on Ben's phone. Then Ada's phone goes off and Ben's
- * Members list says so, and back. Run through
+ * Members list says so, and back. Ben's app is recorded from its start (apk-network.mjs). Run through
  * `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` (or the release-walk workflow).
  * Ben's words come from the copy catalogue by id, never as English written here.
  */
@@ -12,6 +12,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { expect, test } from "@playwright/test";
+import { recordApkNetwork, traceFacts } from "./apk-network.mjs";
 import { copyInviteLink, createAlbum, pausePhone, resumeAll, skipIntro } from "../p2p/steps";
 
 const catalogue = JSON.parse(
@@ -60,6 +61,8 @@ const STEPS = [
   `Ada's phone comes back; Ben's album reads “${CONNECTED_NOW}”`,
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
 
+let record = "";
+
 function summary() {
   const failed = STEPS.findIndex((s) => s.result === "FAILED");
   const title =
@@ -76,6 +79,7 @@ function summary() {
     ...rows,
     "",
     ...errors,
+    ...(record ? [record, ""] : []),
     "Screenshots: download `release-walk`, see walk/maestro/<flow>/ (ben-<n>-<step>.png under takeScreenshot/, Maestro's failure shot beside it).",
     "",
   ].join("\n");
@@ -137,6 +141,7 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
   }
   mkdirSync(out, { recursive: true });
   let link = "";
+  let recorder;
   try {
     await step(1, async () => {
       await skipIntro([a]);
@@ -146,6 +151,11 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
       link = await copyInviteLink(a);
     });
     await step(3, () => ben("3-open-link", { LINK: link, OPEN }, 60_000));
+    recorder = recordApkNetwork({
+      adb: process.env.JUSTUS_WALK_ADB ?? "adb",
+      serial,
+      app: "no.cankode.justus",
+    });
     await step(4, () =>
       ben(
         "4-open-in-justus",
@@ -227,6 +237,13 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     });
   } finally {
     resumeAll();
+    if (recorder) {
+      const seen = await recorder.stop();
+      const facts = traceFacts(seen.trace);
+      record = seen.error
+        ? `Ben's app could not be recorded: ${seen.error}`
+        : `Ben's app (pid ${seen.pid}) recorded: ${facts.lines} lines, ${facts.binds} binds, ${facts.dhtMessages} DHT messages, ${facts.streamPackets} stream packets.`;
+    }
     const text = summary();
     writeFileSync(join(out, "walk-summary.md"), text);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
