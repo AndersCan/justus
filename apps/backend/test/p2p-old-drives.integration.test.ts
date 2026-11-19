@@ -115,6 +115,8 @@ describe("old drives after a Remove", () => {
     const [one, two] = await pathsOn(oldOnAda, 2);
     const cyOnAda = await open(ada, cyOld);
     const [cyPaths] = await pathsOn(cyOnAda, 1);
+    expect(await ask(cyOnAda, cyPaths!.photo)).toBe("here");
+    expect(await ask(cyOnAda, cyPaths!.thumb)).toBe("here");
     const oldOnBen = await open(ben, shareKey);
     expect(await ask(oldOnBen, one!.photo)).toBe("here");
     expect(await ask(oldOnBen, one!.thumb)).toBe("here");

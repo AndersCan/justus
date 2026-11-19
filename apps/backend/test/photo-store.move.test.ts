@@ -902,6 +902,26 @@ describe("the other phones follow the move by themselves", () => {
     expect(mine).toHaveLength(1);
     await s.close();
   }, 40_000);
+  it("a Collaborator who followed clears his own old drive's copied photos", async () => {
+    const s = await invited();
+    const logs: { event: string; fields: Record<string, unknown> }[] = [];
+    await s.nils.store.close();
+    s.nils.deps = restarted(s.nils.deps);
+    s.nils.deps.log = (e: { event: string; fields: Record<string, unknown> }) => logs.push(e);
+    s.nils.store = createPhotoStore(s.nils.deps);
+    await s.nils.store.ready();
+    await s.nils.store.addBytes("mine.jpg", new Uint8Array([5, 5, 5]), s.ids.nils);
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    const own = () =>
+      logs.find(
+        (e) => e.event === "move.cleared" && e.fields.why === "own" && Number(e.fields.cleared) > 0,
+      );
+    await until(() => own() !== undefined, 15_000);
+    expect(own()?.fields.drive).toBe(s.keys.nils.slice(0, 8));
+    await s.close();
+  }, 40_000);
   it("a Collaborator's record of held photos follows to the new drive", async () => {
     const s = await invited();
     await s.admin.store.setActive(s.folderId);
