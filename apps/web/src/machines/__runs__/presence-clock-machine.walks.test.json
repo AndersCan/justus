@@ -1,0 +1,42 @@
+{
+  "presenceClock": [
+    {
+      "name": "Ben's phone goes off, Ada's clock keeps counting, and Ben comes back",
+      "end": "everyoneConnected",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "MEMBERS_CHANGED",
+          "payload": {
+            "someoneNotConnected": true
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 15000
+        },
+        {
+          "kind": "event",
+          "event": "CLOCK_TICKED",
+          "payload": {}
+        },
+        {
+          "kind": "advance",
+          "ms": 15000
+        },
+        {
+          "kind": "event",
+          "event": "CLOCK_TICKED",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "MEMBERS_CHANGED",
+          "payload": {
+            "someoneNotConnected": false
+          }
+        }
+      ]
+    }
+  ]
+}

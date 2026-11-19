@@ -8,6 +8,7 @@ import { logsMachine } from "./logs-machine";
 import { onboardingMachine, wireOnboardingToFolders } from "./onboarding-machine";
 import { peopleMachine, wirePeopleToRequests } from "./people-machine";
 import { prefsMachine } from "./prefs-machine";
+import { presenceClockMachine, wirePresenceClockToSync } from "./presence-clock-machine";
 import { reachMachine, wireReachToSync } from "./reach-hint-machine";
 import { requestsMachine, refresh } from "./requests-machine";
 import { routerMachine } from "./router-machine";
@@ -22,7 +23,7 @@ import { wireAsksToJoin } from "./sharing/join-request";
 import { syncMachine } from "./sync-machine";
 
 /** Every machine in the app, wired as the app wires them, so one board draws the whole app.
- * The router is the root; the other eighteen sit beside it by name. */
+ * The router is the root; the other nineteen sit beside it by name. */
 export const justusMachine = machine("justus", {
   create: ({ clock }) => {
     const folders = foldersMachine.create();
@@ -32,9 +33,11 @@ export const justusMachine = machine("justus", {
     const requests = requestsMachine.create();
     const reach = reachMachine.create({ clock });
     const join = joinRequestMachine.create({ clock });
+    const presenceClock = presenceClockMachine.create({ clock });
     wireOnboardingToFolders(onboarding, folders);
     wireFoldersToSync(folders, sync);
     wireReachToSync(reach, sync);
+    wirePresenceClockToSync(presenceClock, sync);
     wirePeopleToRequests(people, { refresh: () => requests.send(refresh.create()) });
     wireAsksToJoin(folders, join);
     return {
@@ -48,6 +51,7 @@ export const justusMachine = machine("justus", {
       onboarding,
       people,
       prefs: prefsMachine.create(),
+      presenceClock,
       reach,
       seen: seenMachine.create({}),
       sharedPhotos: sharedPhotosMachine.create({}),

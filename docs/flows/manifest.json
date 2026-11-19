@@ -3,6 +3,7 @@
   "make-an-album": ["apps/web/src/machines/folders-machine.ts"],
   "invite-someone": [
     "apps/web/src/machines/people-machine.ts",
+    "apps/web/src/machines/presence-clock-machine.ts",
     "apps/web/src/machines/friends-machine.ts",
     "apps/web/src/machines/sharing/invite-link-machine.ts"
   ],

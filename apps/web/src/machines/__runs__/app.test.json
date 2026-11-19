@@ -206,6 +206,16 @@
         },
         {
           "kind": "event",
+          "event": "MEMBERS_CHANGED",
+          "payload": {
+            "someoneNotConnected": true
+          },
+          "actor": {
+            "region": "presenceClock"
+          }
+        },
+        {
+          "kind": "event",
           "event": "OPEN",
           "payload": {},
           "actor": {

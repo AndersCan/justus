@@ -28,7 +28,7 @@ test("the factory returns every machine the app has, the router as its actor", (
   expect(made.actor.snapshot().context).toHaveProperty("page");
 });
 
-test("fuzzing finds exactly the six wires between the app's machines", async () => {
+test("fuzzing finds exactly the seven wires between the app's machines", async () => {
   const loaded = await inspectFile(join(here, "app.ts"));
   const machine = loaded.machines.find((m) => m.id === "justus");
   expect(machine).toBeDefined();
@@ -42,9 +42,10 @@ test("fuzzing finds exactly the six wires between the app's machines", async () 
     "onboarding → folders",
     "people → requests",
     "sync → folders",
+    "sync → presenceClock",
     "sync → reach",
   ]);
-  expect(machine!.regions).toHaveLength(19);
+  expect(machine!.regions).toHaveLength(20);
 }, 60_000);
 
 const recorded = recordRuns(justusMachine);
@@ -98,7 +99,7 @@ test("a saved name, an opened album, a sync status, a waiting request and an ope
   made.people.send({ type: "OPEN" } as never);
 });
 
-test("the whole-app walk names who sent each of its six messages, in order", async () => {
+test("the whole-app walk names who sent each of its seven messages, in order", async () => {
   const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
   const run = loaded.machines.find((m) => m.id === "justus")?.runs[0];
   expect(run).toBeDefined();
@@ -129,6 +130,7 @@ test("the whole-app walk names who sent each of its six messages, in order", asy
     ["folders", "STATUS_SEEN", "sync"],
     ["sync", "NAME_SEEN", "folders"],
     ["sync", "UNREACHABLE", "reach"],
+    ["sync", "MEMBERS_CHANGED", "presenceClock"],
     ["people", "REFRESH", "requests"],
   ]);
   expect(dropped).toEqual([]);
@@ -142,6 +144,7 @@ test("every timed part runs on the clock the app is given", () => {
     .map(([name, part]) => [name, part.clock === clock]);
   expect(Object.fromEntries(timed)).toEqual({
     reach: true,
+    presenceClock: true,
     join: true,
     friendOffer: true,
     inviteLink: true,
