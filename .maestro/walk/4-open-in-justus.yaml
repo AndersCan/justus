@@ -15,6 +15,13 @@ appId: no.cankode.justus
 - tapOn:
     text: ${YOUR_NAME}
     waitToSettleTimeoutMs: 500
+# Type only once the field has focus: the tap returns when the screen changes, which can be
+# before the field holds focus and the keyboard is up.
+- extendedWaitUntil:
+    visible:
+      text: ${YOUR_NAME}
+      focused: true
+    timeout: 15000
 - inputText: ${NAME}
 # Submit with Enter, not "Continue": the keyboard can cover the button.
 - pressKey: Enter
