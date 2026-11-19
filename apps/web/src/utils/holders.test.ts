@@ -13,7 +13,7 @@ import {
   previewOnly,
 } from "./holders";
 
-const m = (name: string) => ({ key: name, name });
+const m = (name: string) => ({ key: name, name, connected: true });
 const NOW = 1_000_000;
 const holdersLine = (x: PhotoHolders | undefined, now = NOW) => holdersLineAt(x, now);
 const w = (name: string, connected = true) => ({ key: name, name, connected });
@@ -106,7 +106,10 @@ describe("holdersLine", () => {
       ],
       [
         "quiet and off",
-        { quiet: [{ key: "Cy", name: "Cy", lastSeenAt: NOW }], waiting: [off("Ben")] },
+        {
+          quiet: [{ key: "Cy", name: "Cy", connected: false, lastSeenAt: NOW }],
+          waiting: [off("Ben")],
+        },
         "On your phone. Waiting for Ben's phone. Cy's phone last had it just now",
       ],
     ];
@@ -202,7 +205,7 @@ describe("holdersLine", () => {
     );
   });
   it("counts the phones when two holders share a name", () => {
-    const ben = (key: string, name = "Ben") => ({ key, name });
+    const ben = (key: string, name = "Ben") => ({ key, name, connected: true });
     expect(holdersLine(h({ others: [ben("k1"), ben("k2")] })).text).toBe(
       copy("holders.on_your_phone_and", { k: 2 }),
     );
@@ -237,7 +240,12 @@ describe("holdersLine", () => {
 
 describe("holdersLine with a quiet phone", () => {
   const now = new Date(2026, 10, 18, 9, 0).getTime();
-  const q = (name: string, lastSeenAt: number) => ({ key: name, name, lastSeenAt });
+  const q = (name: string, lastSeenAt: number) => ({
+    key: name,
+    name,
+    connected: false,
+    lastSeenAt,
+  });
   const friday = new Date(2026, 10, 13, 20, 0).getTime();
   const nov9 = new Date(2026, 10, 9, 20, 0).getTime();
 
@@ -413,15 +421,19 @@ describe("deletedMessage", () => {
   });
   it("names a person with only a preview by the friend name", () => {
     const saved = [{ key: "k1", name: "Benny", connected: true }];
-    expect(deletedMessage("Sunset", h({ previews: [{ key: "k1", name: "Ben" }] }), saved)).toBe(
-      "Deleted “Sunset”. The photo no longer shows for Benny.",
-    );
+    expect(
+      deletedMessage(
+        "Sunset",
+        h({ previews: [{ key: "k1", name: "Ben", connected: true }] }),
+        saved,
+      ),
+    ).toBe("Deleted “Sunset”. The photo no longer shows for Benny.");
   });
   it("uses the friend name, else the phone's own name", () => {
     const saved = [{ key: "k1", name: "Benny", connected: true }];
     const others = [
-      { key: "k1", name: "Ben" },
-      { key: "k2", name: "Zed" },
+      { key: "k1", name: "Ben", connected: true },
+      { key: "k2", name: "Zed", connected: true },
     ];
     expect(deletedMessage("Sunset", h({ others }), saved)).toBe(
       "Deleted “Sunset”. Benny and Zed have the full photo.",
@@ -467,8 +479,8 @@ describe("previews", () => {
     [
       {
         previews: [
-          { key: "k1", name: "Ben" },
-          { key: "k2", name: "Ben" },
+          { key: "k1", name: "Ben", connected: true },
+          { key: "k2", name: "Ben", connected: true },
         ],
       },
       "On your phone. Preview on 2 phones",
@@ -492,7 +504,7 @@ describe("a removed phone", () => {
 });
 
 describe("a quiet phone in the delete dialog and toast", () => {
-  const q = (name: string) => ({ key: name, name, lastSeenAt: 1 });
+  const q = (name: string) => ({ key: name, name, connected: false, lastSeenAt: 1 });
   it("still names the phone as having the full photo, after the fresh ones", () => {
     const holders = h({ others: [m("Cy")], quiet: [q("Ben")] });
     expect(deleteDetail(holders)).toBe(deleteDetail(h({ others: [m("Cy"), m("Ben")] })));
@@ -516,7 +528,7 @@ describe("a quiet phone in the delete dialog and toast", () => {
 describe("memberHoldings", () => {
   const photoWith = (holders: PhotoHolders | undefined) =>
     ({ id: "p", holders }) as unknown as Photo;
-  const q = (name: string) => ({ ...m(name), lastSeenAt: 1 });
+  const q = (name: string) => ({ ...m(name), connected: false, lastSeenAt: 1 });
   const people = ["Ada", "Ben", "Cy", "Dan", "Eve", "Fay"].map((key, i) => ({ key, you: i === 0 }));
 
   it("counts each member from the sheet's lists", () => {

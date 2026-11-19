@@ -36,8 +36,11 @@ describe("photo contract", () => {
             kind: "inAlbum",
             here: true,
             previewHere: false,
-            others: [],
-            quiet: [{ key: "b", name: "Ben", lastSeenAt }],
+            others: [{ key: "a", name: "Ada", connected: true, identity: "id-a", color: 3 }],
+            yourColor: 0,
+            quiet: [
+              { key: "b", name: "Ben", connected: false, lastSeenAt, identity: "id-b", color: 1 },
+            ],
             unsure: [],
             waiting: [],
             previews: [],

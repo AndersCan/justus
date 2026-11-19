@@ -103,21 +103,31 @@ export const holderMemberSchema = s.object({
   name: s.string,
   connected: s.boolean,
   lastSeenAt: s.optional(s.number),
+  identity: s.optional(s.string),
+  color: s.optional(s.number),
 });
 
-const quietHolderSchema = s.object({ key: s.string, name: s.string, lastSeenAt: s.number });
+const quietHolderSchema = s.object({
+  key: s.string,
+  name: s.string,
+  connected: s.boolean,
+  lastSeenAt: s.number,
+  identity: s.optional(s.string),
+  color: s.optional(s.number),
+});
 
 const inAlbumHoldersSchema = s.object({
   kind: s.oneOf("inAlbum"),
   here: s.boolean,
   previewHere: s.boolean,
-  others: s.array(photoMemberSchema),
+  others: s.array(holderMemberSchema),
   quiet: s.array(quietHolderSchema),
-  unsure: s.array(photoMemberSchema),
+  unsure: s.array(holderMemberSchema),
   waiting: s.array(holderMemberSchema),
-  previews: s.array(photoMemberSchema),
+  previews: s.array(holderMemberSchema),
   former: s.array(s.string),
   left: s.array(s.string),
+  yourColor: s.optional(s.number),
 });
 const removedHoldersSchema = s.object({ kind: s.oneOf("removed"), here: s.boolean });
 

@@ -269,6 +269,21 @@ function previewed(report: HeldReport | undefined, id: string): boolean {
 /** A phone not connected for this long stops counting as having the photo now. */
 export const HOLDER_QUIET_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 
+/** A person as a holders list shows them: their name as given, with their phone's presence, identity and album colour. */
+function holderOf(
+  p: { key: string; name: string; color?: number },
+  seen: { connected: boolean; lastSeenAt?: number; identity?: string },
+): HolderMember {
+  return {
+    key: p.key,
+    name: p.name,
+    connected: seen.connected,
+    ...(seen.lastSeenAt !== undefined ? { lastSeenAt: seen.lastSeenAt } : {}),
+    ...(seen.identity !== undefined ? { identity: seen.identity } : {}),
+    ...(p.color !== undefined ? { color: p.color } : {}),
+  };
+}
+
 export function holdersFor(input: {
   photo: { id: string; driveKey: string; memberName: string };
   selfKey: string;
@@ -279,40 +294,42 @@ export function holdersFor(input: {
     | {
         kind: "inAlbum";
         /** Current album people; self may be in it. */
-        people: ReadonlyArray<PhotoMember>;
+        people: ReadonlyArray<PhotoMember & { color?: number }>;
         former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
       }
     | { kind: "removed" };
   /** Whether this phone is connected to each person now, and when it last was. */
-  presence: (key: string) => { connected: boolean; lastSeenAt?: number };
+  presence: (key: string) => { connected: boolean; lastSeenAt?: number; identity?: string };
+  /** Your colour seat in the album, if the Admin's phone has given one. */
+  yourColor?: number;
   /** This phone's clock, for the quiet cut-off. */
   now: number;
 }): PhotoHolders {
-  const { photo, selfKey, held, album, presence, now } = input;
+  const { photo, selfKey, held, album, presence, yourColor, now } = input;
   const here = photo.driveKey === selfKey || holds(held.get(selfKey), photo.id);
   if (album.kind === "removed") return { kind: "removed", here };
   const { people, former } = album;
-  const others = new Map<string, PhotoMember>();
+  const others = new Map<string, HolderMember>();
   if (photo.driveKey !== selfKey) {
-    others.set(photo.driveKey, { key: photo.driveKey, name: photo.memberName });
+    const adder = people.find((p) => p.key === photo.driveKey);
+    others.set(
+      photo.driveKey,
+      holderOf(
+        { key: photo.driveKey, name: photo.memberName, color: adder?.color },
+        presence(photo.driveKey),
+      ),
+    );
   }
-  const unsure = new Map<string, PhotoMember>();
+  const unsure = new Map<string, HolderMember>();
   const waiting = new Map<string, HolderMember>();
-  const previews = new Map<string, PhotoMember>();
+  const previews = new Map<string, HolderMember>();
   for (const person of people) {
     if (person.key === selfKey || person.key === photo.driveKey) continue;
-    if (holds(held.get(person.key), photo.id)) others.set(person.key, person);
-    else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, person);
-    else if (previewed(held.get(person.key), photo.id)) previews.set(person.key, person);
-    else {
-      const seen = presence(person.key);
-      waiting.set(person.key, {
-        key: person.key,
-        name: person.name,
-        connected: seen.connected,
-        ...(seen.lastSeenAt !== undefined ? { lastSeenAt: seen.lastSeenAt } : {}),
-      });
-    }
+    const entry = holderOf(person, presence(person.key));
+    if (holds(held.get(person.key), photo.id)) others.set(person.key, entry);
+    else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, entry);
+    else if (previewed(held.get(person.key), photo.id)) previews.set(person.key, entry);
+    else waiting.set(person.key, entry);
   }
   const removed = new Set<string>();
   const leavers = new Set<string>();
@@ -339,6 +356,7 @@ export function holdersFor(input: {
     previews: [...previews.values()].sort(byNameThenKey),
     former: [...removed].sort(),
     left: [...leavers].sort(),
+    ...(yourColor !== undefined ? { yourColor } : {}),
   };
 }
 

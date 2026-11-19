@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Photo, PhotoHolders } from "@justus/core";
 import { photoWait } from "./photo-wait";
 
-const m = (name: string) => ({ key: name, name });
+const m = (name: string) => ({ key: name, name, connected: true });
 const w = (name: string, connected = true) => ({ key: name, name, connected });
 const members = (...on: string[]) =>
   ["Ada", "Ben", "Cara"].map((key) => ({ key, connected: on.includes(key) }));

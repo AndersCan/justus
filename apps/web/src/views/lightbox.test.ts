@@ -168,7 +168,7 @@ describe("Delete", () => {
       kind: "inAlbum" as const,
       here: true,
       previewHere: false,
-      others: [{ key: "n", name: "Nils" }],
+      others: [{ key: "n", name: "Nils", connected: true }],
       quiet: [],
       unsure: [],
       waiting: [],
@@ -215,7 +215,7 @@ describe("Delete", () => {
       },
     }) as never;
 
-  const holdersOf = (others: { key: string; name: string }[]) => ({
+  const holdersOf = (others: { key: string; name: string; connected: boolean }[]) => ({
     kind: "inAlbum" as const,
     here: true,
     previewHere: false,
@@ -236,8 +236,8 @@ describe("Delete", () => {
       ...b,
       folderId: "f1",
       holders: holdersOf([
-        { key: "Ben", name: "Ben" },
-        { key: "Cara", name: "Cara" },
+        { key: "Ben", name: "Ben", connected: true },
+        { key: "Cara", name: "Cara", connected: true },
       ]),
     });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
@@ -267,7 +267,7 @@ describe("Delete", () => {
     await deleteFromLightbox({
       ...b,
       folderId: "f1",
-      holders: holdersOf([{ key: "Cara", name: "Cara" }]),
+      holders: holdersOf([{ key: "Cara", name: "Cara", connected: true }]),
     });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
     expect(toast).toHaveBeenCalledWith(text);
@@ -291,7 +291,7 @@ describe("Delete", () => {
     await deleteFromLightbox({
       ...b,
       folderId: "f1",
-      holders: holdersOf([{ key: "Ben", name: "Ben" }]),
+      holders: holdersOf([{ key: "Ben", name: "Ben", connected: true }]),
     });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
     expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny has the full photo.");

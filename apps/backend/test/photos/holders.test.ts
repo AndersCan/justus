@@ -445,8 +445,10 @@ describe("holdersFor", () => {
   const adder = person(ADDER, "Ada");
   const ben = person(B, "Ben");
   const cy = person(C, "Cy");
-  const onB = { ...ben, connected: true };
-  const onC = { ...cy, connected: true };
+  const on = <T extends { key: string; name: string }>(p: T) => ({ ...p, connected: true });
+  const onA = on(adder);
+  const onB = on(ben);
+  const onC = on(cy);
   const report = (ids: string[], previews: string[]): HeldReport => ({
     kind: "reports",
     ids: new Set(ids),
@@ -531,7 +533,7 @@ describe("holdersFor", () => {
       kind: "inAlbum",
       here: false,
       previewHere: false,
-      others: [adder],
+      others: [onA],
       quiet: [],
       unsure: [],
       waiting: [],
@@ -542,12 +544,45 @@ describe("holdersFor", () => {
   });
 
   it("includes the adder even when not in people", () => {
-    expect(run({ people: [self] }).others).toEqual([adder]);
+    expect(run({ people: [self] }).others).toEqual([onA]);
+  });
+
+  it("every entry carries the person's colour, identity and connection, and yourColor is given", () => {
+    const withColor = (p: { key: string; name: string }, color: number) => ({ ...p, color });
+    const ids: Record<string, string> = { [ADDER]: "id-a", [B]: "id-b" };
+    const result = holdersFor({
+      photo,
+      selfKey: SELF,
+      held: new Map([[B, has("p1")]]),
+      album: {
+        kind: "inAlbum",
+        people: [withColor(self, 0), withColor(adder, 3), withColor(ben, 1)],
+        former: [],
+      },
+      presence: (k) =>
+        k === B
+          ? { connected: false, lastSeenAt: NOW - DAY, identity: ids[k] }
+          : { connected: true, identity: ids[k] },
+      yourColor: 0,
+      now: NOW,
+    });
+    if (result.kind !== "inAlbum") throw new Error("expected an in-album result");
+    expect(result.others).toEqual([
+      { key: ADDER, name: "Ada", connected: true, identity: "id-a", color: 3 },
+      { key: B, name: "Ben", connected: false, lastSeenAt: NOW - DAY, identity: "id-b", color: 1 },
+    ]);
+    expect(result.yourColor).toBe(0);
+  });
+
+  it("a person with no colour and no identity has neither key, and yourColor is left off", () => {
+    const result = run({ held: [[ADDER, has("p1")]] });
+    expect(result.others[0]).toStrictEqual({ key: ADDER, name: "Ada", connected: true });
+    expect(result).not.toHaveProperty("yourColor");
   });
 
   it("self is the adder", () => {
     const own = { id: "p1", driveKey: SELF, memberName: "Me" };
-    expect(run({ photo: own, people: [self, ben], held: [[B, has()]] })).toEqual({
+    expect(run({ photo: own, people: [self, onB], held: [[B, has()]] })).toEqual({
       kind: "inAlbum",
       here: true,
       previewHere: false,
@@ -569,7 +604,7 @@ describe("holdersFor", () => {
 
   it("a person reports", () => {
     const result = run({ people: [self, adder, ben], held: [[B, has("p1")]] });
-    expect(result.others).toEqual([adder, ben]);
+    expect(result.others).toEqual([onA, onB]);
     expect(result.unsure).toEqual([]);
   });
 
@@ -585,30 +620,28 @@ describe("holdersFor", () => {
       presence: away,
     });
     expect(result.waiting).toEqual([
-      { ...ben, connected: false, lastSeenAt: 5 },
+      { ...ben, connected: false, lastSeenAt: 5, identity: "x" },
       { ...cy, connected: true },
     ]);
-    expect(result.waiting[0]).not.toHaveProperty("identity");
-    expect(result.waiting[1]).not.toHaveProperty("lastSeenAt");
   });
 
   it("a person who reports without the photo is waiting", () => {
     const result = run({ people: [self, adder, ben], held: [[B, has("p2")]] });
-    expect(result.others).toEqual([adder]);
+    expect(result.others).toEqual([onA]);
     expect(result.unsure).toEqual([]);
     expect(result.waiting).toEqual([onB]);
   });
 
   it("a person who reports only a preview is in previews, not waiting", () => {
     const result = run({ people: [self, adder, ben], held: [[B, report([], ["p1"])]] });
-    expect(result.previews).toEqual([ben]);
+    expect(result.previews).toEqual([onB]);
     expect(result.waiting).toEqual([]);
-    expect(result.others).toEqual([adder]);
+    expect(result.others).toEqual([onA]);
   });
 
   it("a person with the full photo and its preview is only in others", () => {
     const result = run({ people: [self, adder, ben], held: [[B, report(["p1"], ["p1"])]] });
-    expect(result.others).toEqual([adder, ben]);
+    expect(result.others).toEqual([onA, onB]);
     expect(result.previews).toEqual([]);
   });
 
@@ -620,7 +653,7 @@ describe("holdersFor", () => {
 
   it("a silent person is unsure, not waiting", () => {
     const result = run({ people: [self, adder, ben], held: [[B, silent]] });
-    expect(result.unsure).toEqual([ben]);
+    expect(result.unsure).toEqual([onB]);
     expect(result.waiting).toEqual([]);
   });
 
@@ -658,12 +691,12 @@ describe("holdersFor", () => {
 
   it("a silent person is unsure", () => {
     const result = run({ people: [self, adder, ben], held: [[B, silent]] });
-    expect(result.others).toEqual([adder]);
-    expect(result.unsure).toEqual([ben]);
+    expect(result.others).toEqual([onA]);
+    expect(result.unsure).toEqual([onB]);
   });
 
   it("a person with no report is unsure", () => {
-    expect(run({ people: [self, adder, ben] }).unsure).toEqual([ben]);
+    expect(run({ people: [self, onA, onB] }).unsure).toEqual([onB]);
   });
 
   it("the adder is never unsure", () => {
@@ -681,13 +714,13 @@ describe("holdersFor", () => {
         ["0".repeat(64), has("p1")],
       ],
     });
-    expect(result.others).toEqual([adder, ben2, ben, cy]);
+    expect(result.others).toEqual([onA, on(ben2), onB, onC]);
     const unsure = run({ people: [self, adder, cy, ben, ben2] }).unsure;
-    expect(unsure).toEqual([ben2, ben, cy]);
+    expect(unsure).toEqual([on(ben2), onB, onC]);
   });
 
   it("ignores a holder who is not in people", () => {
-    expect(run({ held: [[B, has("p1")]] }).others).toEqual([adder]);
+    expect(run({ held: [[B, has("p1")]] }).others).toEqual([onA]);
   });
 
   it("lists former names that had the photo", () => {
@@ -751,7 +784,7 @@ describe("holdersFor", () => {
       const at = NOW - HOLDER_QUIET_AFTER_MS;
       const r = run({ people, held: benHolds, presence: away(false, at) });
       expect(r.others.map((m: { name: string }) => m.name)).toEqual(["Ada"]);
-      expect(r.quiet).toEqual([{ key: B, name: "Ben", lastSeenAt: at }]);
+      expect(r.quiet).toEqual([{ key: B, name: "Ben", connected: false, lastSeenAt: at }]);
     });
 
     it("keeps a phone never seen fresh", () => {
@@ -772,7 +805,7 @@ describe("holdersFor", () => {
         presence: (k) => (k === ADDER ? { connected: false, lastSeenAt: at } : { connected: true }),
       });
       expect(r.others).toEqual([]);
-      expect(r.quiet).toEqual([{ key: ADDER, name: "Ada", lastSeenAt: at }]);
+      expect(r.quiet).toEqual([{ key: ADDER, name: "Ada", connected: false, lastSeenAt: at }]);
     });
 
     it("leaves a silent record in unsure", () => {

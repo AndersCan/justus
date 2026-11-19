@@ -708,9 +708,13 @@ describe("who has each photo", () => {
     });
     expect(pushes.some((p) => p.cause === "holders")).toBe(true);
     const back = (await reopened.list(s.nilsFolderId)).find((p) => p.name === "sunset.jpg")!;
-    expect(back.holders).toMatchObject({ kind: "inAlbum", quiet: [] });
+    expect(back.holders).toMatchObject({
+      kind: "inAlbum",
+      quiet: [],
+      yourColor: expect.any(Number),
+    });
     expect(back.holders!.kind === "inAlbum" && back.holders!.others).toEqual([
-      expect.not.objectContaining({ lastSeenAt: expect.anything() }),
+      expect.objectContaining({ connected: true }),
     ]);
     expect(back.holders!.kind === "inAlbum" && back.holders!.others[0]!.key).toBe(adminKey);
     await reopened.close();
