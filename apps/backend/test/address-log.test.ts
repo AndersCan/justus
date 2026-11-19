@@ -97,17 +97,16 @@ it("notes the far end of a stream on connect and changeRemote", () => {
   ]);
 });
 
-it("stamps a stream's far end again each time it writes or receives data", async () => {
+it("stamps a stream's far end again each time it receives data, not when it writes", () => {
   const log = emptyAddressLog();
   const stream = watchAddresses(stubUdx(), log).createStream(8);
-  stream.write("early");
+  stream.listeners.data();
   expect(log.streams).toEqual({});
   stream.connect("sock", 1, 9000, "10.0.0.1");
   log.streams["10.0.0.1:9000"] = 0;
+  // A write to a far end that has gone (a restarted phone's old port) proves nothing is there.
   expect(stream.write("x")).toBe(true);
-  const afterWrite = log.streams["10.0.0.1:9000"];
-  expect(afterWrite).toBeGreaterThan(0);
-  log.streams["10.0.0.1:9000"] = 0;
+  expect(log.streams["10.0.0.1:9000"]).toBe(0);
   stream.listeners.data();
   expect(log.streams["10.0.0.1:9000"]).toBeGreaterThan(0);
 });

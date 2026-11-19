@@ -46,14 +46,9 @@ export function watchAddresses<U extends UdxLike>(udx: U, log: AddressLog): U {
     const stream = createStream(id, opts);
     const connect = stream.connect.bind(stream);
     const changeRemote = stream.changeRemote.bind(stream);
-    const write = stream.write.bind(stream);
     let far = "";
     const stamp = () => {
       if (far) log.streams[far] = Date.now();
-    };
-    stream.write = (...args: unknown[]) => {
-      stamp();
-      return write(...args);
     };
     stream.on("data", stamp);
     stream.connect = (
