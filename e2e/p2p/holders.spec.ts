@@ -46,6 +46,19 @@ async function expectHoldersLine(page, step, phone, text) {
   });
 }
 
+/** Opens the open photo's sheet, expects its last lines to say no server keeps a copy and then that outside copies aren't listed, and closes it. */
+async function expectSheetLastLines(page, step, phone) {
+  await page.locator("[data-holders-row]").click();
+  const sheet = page.getByRole("dialog", { name: words("photo_holders.who_has_this_photo") });
+  await expect(
+    sheet.locator('p:has([data-copy-id="photo_holders.no_server_keeps_a_copy"])'),
+    `${step} · ${phone}'s phone: the sheet's last lines`,
+  ).toHaveText(
+    `${words("photo_holders.no_server_keeps_a_copy")} ${words("photo_holders.copies_outside_justus_not_listed")}`,
+  );
+  await sheet.getByRole("button", { name: words("photo_holders.close") }).click();
+}
+
 /** The Members row line for a friend whose phone is off. */
 function phoneOff(when) {
   return words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
@@ -376,6 +389,8 @@ test("every holders line reads right on both phones from add to delete, across a
     "Ben",
     words("holders.on_and_your_phone", { names: "Ada's" }),
   );
+  await expectSheetLastLines(a, "reload", "Ada");
+  await expectSheetLastLines(b, "reload", "Ben");
   await closePhoto(a);
   await closePhoto(b);
 

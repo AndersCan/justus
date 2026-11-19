@@ -366,4 +366,12 @@ describe("holdersSheet outside Justus", () => {
       "Copies someone saved or sent outside Justus aren't on this list.",
     );
   });
+  it("says no server keeps a copy, before the outside-Justus line", () => {
+    const el = draw(holdersSheet(photo(h({ others: [m("Ben")] })), nobody));
+    const line = el.querySelectorAll('[data-copy-id="photo_holders.no_server_keeps_a_copy"]');
+    expect(line.length).toBe(1);
+    expect(line[0]?.closest("p")?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      `${copy("photo_holders.no_server_keeps_a_copy")} ${copy("photo_holders.copies_outside_justus_not_listed")}`,
+    );
+  });
 });
