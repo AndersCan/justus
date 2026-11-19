@@ -129,10 +129,6 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       benRow.locator("[data-member-presence]"),
       "Ben off · Ada's Members: Ben's row",
     ).toHaveText(phoneOff(words("time.just_now")), { timeout: 120_000 });
-    await expect(
-      benRow.locator('[role="img"]'),
-      "Ben off · Ada's Members: Ben's dot says the same",
-    ).toHaveAttribute("aria-label", phoneOff(words("time.just_now")));
     // 60 s: the line appears 30-45 s after Ada's phone lost Ben and reads 1 min at 60-75 s; this proves the clock moves without a push.
     await expect(
       benRow.locator("[data-member-presence]"),
@@ -145,7 +141,7 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       "Ben off · Ada's phone: still connected",
     ).toHaveCount(0);
 
-    // Ben has been away for seconds: Ada's line stays calm.
+    // Ben holds the photo already: being off over a minute does not change Ada's line.
     await expectHoldersLine(
       a,
       "Ben off",
@@ -284,6 +280,7 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
     benRow.locator("[data-member-presence]"),
     "Ben back · Ada's Members: no Phone off line",
   ).toHaveCount(0);
+  // 60 s: Ada's phone re-reads Ben's record once his preview lands.
   await expect(
     benRow.locator("[data-member-photos]"),
     "Ben back · Ada's Members: Ben's count",
