@@ -1,11 +1,11 @@
 ---
 title: "Whole app"
-description: "Every machine in Justus on one board, and a dotted line for each message one machine sends another."
+description: "Every machine in Justus as one box, and a dotted line from each machine to the one it tells."
 ---
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-This board is `justusMachine` in `apps/web/src/machines/app.ts`: every machine the app runs, side by side. A dotted line starts at the state the sender was in and ends at the arrow that took the message.
+This board is `justusMachine` in `apps/web/src/machines/app.ts`: one box per machine the app runs, and a dotted line from each machine to the one it tells. Click a box to see its states; click its name at the top to see every machine again.
 
 <Machine
   src="apps/web/src/machines/app.ts"

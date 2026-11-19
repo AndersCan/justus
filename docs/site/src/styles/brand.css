@@ -13,3 +13,8 @@
   --sl-color-gray-7: rgb(var(--surface));
   --sl-color-black: rgb(var(--canvas));
 }
+
+/* The viz keeps a zoomed machine's name in view; on this site it must sit below the fixed header. */
+.viz:not(:fullscreen):has(.part-title) .viz-bar {
+  top: calc(var(--sl-nav-height) + var(--sl-mobile-toc-height, 0rem));
+}
