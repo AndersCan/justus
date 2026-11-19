@@ -1,5 +1,6 @@
 import { copy } from "../copy/copy";
 import { friendsActor } from "../machines/friends-machine";
+import { presenceClockActor } from "../machines/presence-clock-machine";
 import { syncActor } from "../machines/sync-machine";
 import { buildPeople, nameList } from "../utils/people";
 import { toast } from "./toast";
@@ -11,7 +12,12 @@ export function droppedNames(d: DroppedIn): string[] {
   const status = syncActor.snapshot().context.status;
   const known =
     status && status.folder.id === d.folderId
-      ? buildPeople(status, [], friendsActor.snapshot().context.friends).people
+      ? buildPeople(
+          status,
+          [],
+          friendsActor.snapshot().context.friends,
+          presenceClockActor.snapshot().context,
+        ).people
       : [];
   return d.people.map(
     (p) => known.find((k) => k.key === p.key)?.name ?? (p.name || copy("people.unknown_device")),

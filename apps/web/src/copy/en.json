@@ -615,22 +615,15 @@
     "who": "Album members",
     "screen": ""
   },
+  "people.phone_off_last_seen": {
+    "text": "Phone off, {when}",
+    "status": "draft",
+    "where": "Album › Invite & members › member row",
+    "who": "Album members",
+    "screen": ""
+  },
   "people.not_connected_yet": {
     "text": "hasn't connected yet",
-    "status": "draft",
-    "where": "Album › Members › text",
-    "who": "Album members",
-    "screen": ""
-  },
-  "people.of_connected": {
-    "text": "{connected} of {others} connected",
-    "status": "draft",
-    "where": "Album › Members › text",
-    "who": "Album members",
-    "screen": ""
-  },
-  "people.just_you": {
-    "text": "Just you",
     "status": "draft",
     "where": "Album › Members › text",
     "who": "Album members",
@@ -1246,7 +1239,7 @@
     "screen": "album"
   },
   "album.connected_means_they_have_justus": {
-    "text": "Connected means they have Justus open and your phone can reach them right now.",
+    "text": "Connected means they have Justus open and your phone can reach them right now. Phone off means your phone can't reach theirs: it may be switched off, offline or have Justus closed.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",

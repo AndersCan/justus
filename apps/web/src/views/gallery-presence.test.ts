@@ -18,7 +18,7 @@ const status = (otherConnected: boolean) =>
 
 const draw = (s: never, connectingTo: string | undefined) => {
   const host = document.createElement("div");
-  render(presenceStrip(s, null, connectingTo), host);
+  render(presenceStrip(s, null, connectingTo, { now: Date.now() }), host);
   const label = host.querySelector("span.inline-flex");
   return { text: label?.textContent?.replace(/\s+/g, " ").trim(), html: label?.innerHTML ?? "" };
 };
@@ -45,5 +45,24 @@ describe("presenceStrip", () => {
   test("alone wins over connecting", () => {
     const alone = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
     expect(draw(alone as never, "Ada").text).toBe("Only you so far");
+  });
+
+  test("a friend lost 10 s ago still counts as connected; at 30 s he does not", () => {
+    const now = 1_000_000;
+    const lostAt = (ago: number) =>
+      ({
+        folder: { id: "f1" },
+        members: [
+          { key: "k0", name: "Me", connected: true },
+          { key: "k1", name: "Ada", admin: true, connected: false, lastSeenAt: now - ago },
+        ],
+      }) as never;
+    const at = (s: never) => {
+      const host = document.createElement("div");
+      render(presenceStrip(s, null, undefined, { now }), host);
+      return host.querySelector("span.inline-flex")?.textContent?.replace(/\s+/g, " ").trim();
+    };
+    expect(at(lostAt(10_000))).toBe("1 connected now");
+    expect(at(lostAt(30_000))).toBe("Nobody connected right now");
   });
 });

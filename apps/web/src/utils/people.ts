@@ -1,4 +1,5 @@
 import type { JoinRequest, SyncStatus } from "@justus/core";
+import { presenceOf, type PresenceClock } from "./presence";
 import { formatRelative } from "./time";
 
 import { copy } from "../copy/copy";
@@ -26,8 +27,10 @@ export type Person = {
   role: "admin" | "collaborator" | "viewer" | "waiting";
   you: boolean;
   connected: boolean;
-  /** "connected", "last seen 2h ago" or "hasn't connected yet"; empty on your own row. */
+  /** "connected", "Phone off, last seen 2h ago" or "hasn't connected yet"; empty on your own row. */
   presence: string;
+  /** The row prints its presence words: always when the phone is not connected, else only for a same-name row. False on your own row. */
+  showPresence: boolean;
   /** Another row shows the same name, so the row prints its presence words. Unset otherwise. */
   sameName?: true;
 };
@@ -44,10 +47,6 @@ export type RequestRow = JoinRequest & {
 
 export type People = {
   people: Person[];
-  connectedCount: number;
-  total: number;
-  /** Header chip text, e.g. "3 of 5 connected". */
-  chip: string;
   /** Pending join requests for the active album (Admin only). */
   requests: RequestRow[];
 };
@@ -88,19 +87,17 @@ export function requestsHint(rows: RequestRow[]): string {
 }
 
 /** Presence line for one member. Wording is "connected", never "online". */
-export function presenceLabel(
+export function presenceWords(
   m: { connected: boolean; lastSeenAt?: number },
-  now = Date.now(),
+  clock: PresenceClock,
 ): string {
-  if (m.connected) return copy("people.connected");
-  return m.lastSeenAt
-    ? copy("people.last_seen", { when: formatRelative(m.lastSeenAt, now) })
-    : copy("people.not_connected_yet");
-}
-
-/** Chip text counts the others only: you are always connected to yourself. */
-function chipText(others: number, connected: number): string {
-  return others > 0 ? copy("people.of_connected", { connected, others }) : copy("people.just_you");
+  const kind = presenceOf(m, clock);
+  if (kind === "connected") return copy("people.connected");
+  if (kind === "neverConnected" || m.lastSeenAt === undefined)
+    return copy("people.not_connected_yet");
+  return copy("people.phone_off_last_seen", {
+    when: copy("people.last_seen", { when: formatRelative(m.lastSeenAt, clock.now) }),
+  });
 }
 
 function ownRole(folder: SyncStatus["folder"] | undefined): Person["role"] {
@@ -136,13 +133,13 @@ function withSameName(
   return best === undefined ? row : { ...row, sameNameIn: best.presence };
 }
 
-/** View-model for the People sheet and the header chip. The first member the
+/** View-model for the People sheet. The first member the
  * backend reports is this device, which always counts as connected. */
 export function buildPeople(
   status: SyncStatus | null,
   requests: JoinRequest[],
   friends: Record<string, string> = {},
-  now = Date.now(),
+  clock: PresenceClock,
 ): People {
   const members = status?.members ?? [];
   const people = members
@@ -165,22 +162,23 @@ export function buildPeople(
         viewer: m.viewer === true,
         role: you ? ownRole(status?.folder) : otherRole(m),
         you,
-        connected: m.connected,
-        presence: you ? "" : presenceLabel(m, now),
+        connected: you || presenceOf(m, clock) === "connected",
+        presence: you ? "" : presenceWords(m, clock),
+        showPresence: !you && presenceOf(m, clock) !== "connected",
       };
     })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));
   const counts = new Map<string, number>();
   for (const p of people) counts.set(nameKey(p.name), (counts.get(nameKey(p.name)) ?? 0) + 1);
-  for (const p of people) if ((counts.get(nameKey(p.name)) ?? 0) > 1) p.sameName = true;
-  const connectedCount = members.filter((m) => m.connected).length;
+  for (const p of people)
+    if ((counts.get(nameKey(p.name)) ?? 0) > 1) {
+      p.sameName = true;
+      p.showPresence = !p.you;
+    }
   const folderId = status?.folder.id;
   const isAdmin = status?.folder.role === "creator";
   return {
     people,
-    connectedCount,
-    total: members.length,
-    chip: chipText(members.length - 1, connectedCount - 1),
     requests: isAdmin
       ? requests
           .filter((r) => r.folderId === folderId)

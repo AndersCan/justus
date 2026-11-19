@@ -93,7 +93,12 @@ describe("letting a Viewer add photos", () => {
       type: "LET_VIEWER_ADD_PHOTOS",
       payload: { folderId: "f1", memberKey: "k" },
     } as never);
-    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    const vm = peopleViewModel(actor.snapshot(), {
+      status: null,
+      requests: [],
+      friends: {},
+      presence: { now: 0 },
+    });
     expect(actor.snapshot().path[0]).toBe("lettingViewerAddPhotos");
     expect(vm.busy).toBe(true);
   });
@@ -222,7 +227,7 @@ describe("peopleViewModel", () => {
     folder: { id: "f1", role: "creator" },
     members: [{ key: "me", name: "Ann", admin: true, connected: true }],
   } as any;
-  const deps = { status, requests: [], friends: {} };
+  const deps = { status, requests: [], friends: {}, presence: { now: 0 } };
 
   test("closed, from the initial snapshot", () => {
     const actor = peopleMachine.create({ gateway: {} as any });
@@ -277,7 +282,12 @@ describe("making a Collaborator a Viewer", () => {
     });
     actor.send({ type: "OPEN" } as never);
     actor.send({ type: "MAKE_VIEWER", payload: { folderId: "f1", memberKey: "k" } } as never);
-    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    const vm = peopleViewModel(actor.snapshot(), {
+      status: null,
+      requests: [],
+      friends: {},
+      presence: { now: 0 },
+    });
     expect(actor.snapshot().path[0]).toBe("makingViewer");
     expect(vm.busy).toBe(true);
   });
@@ -328,7 +338,12 @@ describe("taking back a friend's invite", () => {
     people.open();
     people.takeBackInvite("f1", "k1", "Sam");
     await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("couldNotTakeBackInvite"));
-    const vm = peopleViewModel(peopleActor.snapshot(), { status: null, requests: [], friends: {} });
+    const vm = peopleViewModel(peopleActor.snapshot(), {
+      status: null,
+      requests: [],
+      friends: {},
+      presence: { now: 0 },
+    });
     expect(vm.takeBackError).toBe("boom");
     expect(vm.error).toBeNull();
     people.takeBackInvite("f1", "k1", "Sam");
@@ -343,7 +358,12 @@ describe("taking back a friend's invite", () => {
       type: "TAKE_BACK_INVITE",
       payload: { folderId: "f", identity: "k", name: "" },
     } as never);
-    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    const vm = peopleViewModel(actor.snapshot(), {
+      status: null,
+      requests: [],
+      friends: {},
+      presence: { now: 0 },
+    });
     expect(vm.busy).toBe(true);
     mock.takeBackOffer.mockResolvedValue([new Error("boom"), null]);
     people.takeBackInvite("f1", "k1", "Sam");

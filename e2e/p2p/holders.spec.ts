@@ -113,11 +113,10 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
 
   const resumeBen = await pausePhone(instances[1]);
   try {
-    // 90 s: Ada's phone drops a gone peer when its connection times out, about 33 s.
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ben off · Ada's phone: still connected",
-    ).toHaveCount(0, { timeout: 90_000 });
+    ).toHaveCount(0, { timeout: 120_000 });
 
     // Ben has been away for seconds: Ada's line stays calm.
     await expectHoldersLine(
@@ -259,11 +258,10 @@ test("every holders line reads right on both phones from add to delete, across a
 
   const resume = await pausePhone(instances[1]);
   try {
-    // 90 s: Ada's phone drops a gone peer when its connection times out, about 33 s.
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ben off · Ada's phone: still connected",
-    ).toHaveCount(0, { timeout: 90_000 });
+    ).toHaveCount(0, { timeout: 120_000 });
     await expectHoldersLine(
       a,
       "Ben off",

@@ -51,7 +51,7 @@ describe("album header presence while connecting", () => {
 
   test("the connecting dot is the neutral dot, not the amber one", () => {
     const host = document.createElement("div");
-    render(presenceStrip(status as never, null, "Ada"), host);
+    render(presenceStrip(status as never, null, "Ada", { now: Date.now() }), host);
     const dot = host.querySelector("span.inline-flex > span")!;
     expect(dot.className).toContain("bg-surface");
     expect(dot.className).not.toContain("bg-warn");

@@ -18,6 +18,8 @@ import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { friendsActor } from "../machines/friends-machine";
 import { requestRowOf, type RequestRow } from "../utils/people";
+import { presenceClockActor } from "../machines/presence-clock-machine";
+import { presenceOf, type PresenceClock } from "../utils/presence";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
@@ -442,11 +444,14 @@ export function presenceStrip(
   status: SyncStatus,
   lastSync: number | null,
   connectingTo: string | undefined,
+  clock: PresenceClock,
 ) {
   const alone = status.members.length <= 1;
   const others = status.members.length - 1;
   // Members first, self at index 0 (always "connected" to itself).
-  const connected = status.members.slice(1).filter((m) => m.connected).length;
+  const connected = status.members
+    .slice(1)
+    .filter((m) => presenceOf(m, clock) === "connected").length;
   // `peers` counts any swarm connection (not only members), so presence is
   // read from the member list.
   const online = connected > 0;
@@ -831,11 +836,14 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
             requestLineText(requestRowOf(oldest, friendsActor.snapshot().context.friends), waiting),
           )
         : status
-          ? watch(reachActor, (r) =>
-              presenceStrip(
-                status,
-                page.lastSync,
-                connectionGivenUp(r) ? undefined : (unreachableMember(status) ?? undefined),
+          ? watch(presenceClockActor, (pc) =>
+              watch(reachActor, (r) =>
+                presenceStrip(
+                  status,
+                  page.lastSync,
+                  connectionGivenUp(r) ? undefined : (unreachableMember(status) ?? undefined),
+                  pc.context,
+                ),
               ),
             )
           : null;
