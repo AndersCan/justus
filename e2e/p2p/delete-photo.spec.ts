@@ -6,7 +6,8 @@
  *   pnpm test:e2e-p2p -g "deletes only their own photo"
  *
  * A delete also reaches a phone that was off, Ada's album page names Ben's phone until it drops the
- * photo, also after her own restart, and her phone says so when it does:
+ * photo, also after her own restart, and her phone says so when it does. Opened from Photos > All with
+ * another album open, the photo reads the same sheet and its delete toast names Ben:
  *
  *   pnpm test:e2e-p2p e2e/p2p/delete-photo.spec.ts -g "while Ben's phone is off"
  *
@@ -85,6 +86,24 @@ async function recordToasts(page) {
     }).observe(document.body, { childList: true, subtree: true });
   });
   return () => page.evaluate(() => window.__toasts ?? []);
+}
+
+// Each row of the open "Who has this photo" sheet: its name and its badge's colour ("outline" when it has none).
+async function sheetRows(page, name) {
+  await page.getByRole("button", { name: words("gallery.view", { name }) }).click();
+  await page.locator("[data-holders-row]").click();
+  const sheet = page.getByRole("dialog", { name: words("photo_holders.who_has_this_photo") });
+  const rows = await sheet
+    .locator("li")
+    .evaluateAll((lis) =>
+      lis.map((li) => [
+        li.querySelector(".text-fg")?.textContent?.trim(),
+        li.querySelector("span[aria-hidden]")?.getAttribute("style") ?? "outline",
+      ]),
+    );
+  await sheet.getByRole("button", { name: words("photo_holders.close") }).click();
+  await page.getByRole("button", { name: words("lightbox.close") }).click();
+  return rows;
 }
 
 async function expectBenLine(a: Page, text: string | RegExp) {
@@ -277,7 +296,8 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
   instancePages,
   instances,
 }) => {
-  test.setTimeout(240_000);
+  // +30 s over the off-wait: a second album and two sheet reads.
+  test.setTimeout(270_000);
   const [a, b] = instancePages;
   const AWAY_ALBUM = "Away trip";
   const KEEP = "away-keep.png";
@@ -368,6 +388,18 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       "Ben off · Ada's phone: still connected",
     ).toHaveCount(0, { timeout: 120_000 });
 
+    const albumA = new URL(a.url()).pathname;
+    const inAlbum = await sheetRows(a, GONE);
+    expect(inAlbum, "Ben off · Ada's sheet in its album").toEqual([
+      ["You", expect.stringMatching(/^background:/)],
+      ["Ben", expect.stringMatching(/^background:/)],
+    ]);
+    // Ada's last album is now another one, as when she browses Photos > All after opening it.
+    await createAlbum(a, "Other trip", "other.png", 55);
+    await a.getByRole("link", { name: words("gallery.all"), exact: true }).click();
+    expect(await sheetRows(a, GONE), "Ben off · Photos > All, other album open").toEqual(inAlbum);
+    const toastsBefore = await recordToasts(a);
+
     await view(GONE).click();
     await a.getByRole("button", { name: words("lightbox.more_options") }).click();
     await a.getByRole("menuitem", { name: words("lightbox.delete_2") }).click();
@@ -380,6 +412,17 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
     await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
     // 20 s: a local delete.
     await expect(view(GONE)).toHaveCount(0, { timeout: 20_000 });
+    await expect
+      .poll(toastsBefore, {
+        message: "Ben off · Photos > All: the delete toast says Ben sees it later",
+      })
+      .toContainEqual(
+        expect.stringContaining(words("lightbox.will_see_it_when_connected", { list: "Ben" })),
+      );
+    // Back to Away trip: the still-to-drop line is on its page.
+    await a.goto(albumA);
+    // 20 s: the album list reloads after the page loads.
+    await expect(view(KEEP)).toBeVisible({ timeout: 20_000 });
     // 20 s: the status read after the delete.
     await expect(stillLine, "Ben off · Ada's album page: Ben's phone still has it").toHaveText(
       stillWords,
@@ -393,7 +436,6 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       })
       .toEqual([goneId]);
 
-    const albumA = new URL(a.url()).pathname;
     await restartPhone(a, instances[0]);
     await a.goto(albumA);
     // 60 s: Ada's phone starts again and reads Ben's record from its own copy while he is off.
