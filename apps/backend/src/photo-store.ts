@@ -3542,6 +3542,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (rt.record.role === "reader") {
       return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
     }
+    if (rt.record.handover?.written)
+      return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
     const [displayErr, display] = readImport(filePath);
     if (displayErr) return [displayErr, null];
     // With a thumbnail, `filePath` is a display copy the adding device made
