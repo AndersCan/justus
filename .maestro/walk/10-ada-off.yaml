@@ -1,0 +1,21 @@
+appId: no.cankode.justus
+---
+# Step 10 of the release walk: Ada's phone was frozen just before this flow. Ben closes her photo, opens
+# the album's Members list, and Ada's row says Phone off, last seen just now or 1 min ago (the connection
+# drops in ~33 s, the rule waits 30 s, the clock ticks every 15 s). Words come in with -e from the catalogue.
+- tapOn:
+    text: ${CLOSE}
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${MEMBERS}
+    waitToSettleTimeoutMs: 500
+# The Members card sits below the invite panel; its heading is upper-cased, so find its first line.
+- scrollUntilVisible:
+    element:
+      text: ${EVERYONE}
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ${PHONE_OFF}
+    timeout: 150000

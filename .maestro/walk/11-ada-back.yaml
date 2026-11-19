@@ -1,0 +1,7 @@
+appId: no.cankode.justus
+---
+# Step 11: Ada's phone runs again. Ben goes back from the Members list to the album, which reads 1 connected now.
+- back
+- extendedWaitUntil:
+    visible: ${CONNECTED_NOW}
+    timeout: 120000
