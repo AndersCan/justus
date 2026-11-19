@@ -147,10 +147,6 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
     await expect(a.getByRole("link", { name: `Invite & members of ${album}` })).toHaveCount(0);
     await pausePhone(instances[0]);
 
-    // Ben's phone took a copy of each of Ada's photos first: both open on Ben's phone with hers off.
-    await b.goto(benAlbumPath);
-    for (const name of PHOTOS) await expectLoaded(b, name);
-
     // Ben reads the notice and sees Cy's request with the same three words.
     await b.goto(benAlbumPath.replace("/albums/", "/sharing/"));
     await expect(b.getByText(words("notices.made_admin", { fromName: "Ada", album }))).toBeVisible({
@@ -182,10 +178,13 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
     ).toBeVisible({ timeout: 60_000 });
     await expect(rows, "Cy's list: only Cy and Ben").toHaveCount(2);
 
-    // Ben's phone restarts once Cy is in and still serves Ada's photos to her.
+    // Ben's phone took a copy of each of Ada's photos first: after a restart, both open on Ben's
+    // phone with hers off.
     await restartPhone(b, instances[1]);
+    await b.goto(benAlbumPath);
+    for (const name of PHOTOS) await expectLoaded(b, name);
 
-    // Cy sees and opens Ada's photos, served by Ben's phone while hers is off.
+    // Cy sees and opens Ada's photos while Ada's phone is off.
     await c.goto(cyAlbumPath);
     for (const name of PHOTOS) await expectLoaded(c, name);
 
