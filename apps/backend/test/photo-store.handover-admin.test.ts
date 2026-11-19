@@ -4,7 +4,6 @@
  * is not the Admin is refused; the new Admin serves the code after a restart.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { listsDigest } from "../src/albums/handover.ts";
@@ -75,7 +74,6 @@ function phone(
     server: new FakeLoopbackServer(),
   });
   if (held) holdingDone(deps.network, held);
-  mkdirSync(deps.cacheDir, { recursive: true });
   const net = watchNet(deps.network);
   return { deps, node, net, store: createPhotoStore(deps) };
 }

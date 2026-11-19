@@ -12,7 +12,7 @@
  * own drive and can read its `/requests.json` outbox.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
@@ -26,7 +26,6 @@ function buildStore(name: string, hub: FakeHub) {
     deviceName: name,
     onChanged: (c) => changes.push({ folderId: c.folderId }),
   });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
   return { store, changes, deps, identity };

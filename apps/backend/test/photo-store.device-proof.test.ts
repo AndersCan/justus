@@ -4,7 +4,7 @@
  * a copied claim.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { identityMessage } from "../src/membership/records.ts";
@@ -13,7 +13,6 @@ import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.
 
 function device(hub: FakeHub, name: string) {
   const deps = fakeStoreDeps({ hub, deviceName: name });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
   return { deps, store, identity };

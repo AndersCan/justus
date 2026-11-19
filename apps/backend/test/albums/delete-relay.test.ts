@@ -3,7 +3,7 @@
  * was away hears it when the Admin's phone is gone. Over the checked fake drives.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
 import { PASS_ON_DELETE_MS } from "../../src/albums/lifecycle.ts";
@@ -27,7 +27,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string): Phone
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, store: createPhotoStore(deps) };
 }
 

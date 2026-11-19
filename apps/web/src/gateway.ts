@@ -101,9 +101,10 @@ export const gateway = {
   turnOffInvite: (folderId: string) => invoke(photoEvents.photos.turnOffInvite(folderId)),
   saveInviteLink: (folderId: string, expiresAt: number) =>
     invoke(photoEvents.photos.saveInviteLink(folderId, expiresAt)),
-  /** Asks a saved friend's phone, by key alone, to offer them the album; they join as a Viewer (`reader`) or Collaborator (`member`). Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
+  /** Admin only: takes back the invite sent to one saved friend. */
   takeBackOffer: (folderId: string, identity: string) =>
     invoke(photoEvents.photos.takeBackOffer(folderId, identity)),
+  /** Asks a saved friend's phone, by key alone, to offer them the album; they join as a Viewer (`reader`) or Collaborator (`member`). Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
   offerAlbum: (folderId: string, identity: string, role: "reader" | "member") =>
     invoke(photoEvents.photos.offerAlbum(folderId, identity, role)),
   /** Joins the album a friend's invite offers; the Admin's phone lets this phone in without an Accept step. */

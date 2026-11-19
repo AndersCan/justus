@@ -3,7 +3,6 @@
  * and Ada taps Stay Admin before or while her phone acts on the reply.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
@@ -62,7 +61,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string, holdRe
   const slow = { on: false };
   slowing(deps.drives as never, slow);
   const ready = holdReady ? holdingReady(deps.network) : undefined;
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, ready, slow, store: createPhotoStore(deps) };
 }
 type Phone = ReturnType<typeof phone>;

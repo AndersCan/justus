@@ -16,7 +16,6 @@ import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
   const deps = fakeStoreDeps({ server: new FakeLoopbackServer() });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   return { store, deps };
 }

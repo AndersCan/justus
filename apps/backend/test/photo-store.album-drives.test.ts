@@ -6,7 +6,6 @@
  * fresh install now has no album at all: photos only live in albums.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, type FakeHub, type FakeNode } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
@@ -14,7 +13,6 @@ import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.
 /** A device on the checked fakes; devices share drives through their hub. */
 function device(hub: FakeHub, name: string) {
   const deps = fakeStoreDeps({ hub, deviceName: name });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
   return { deps, store, identity };

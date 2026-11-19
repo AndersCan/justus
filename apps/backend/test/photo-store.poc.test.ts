@@ -14,7 +14,6 @@
  * `store.list`. Proving the store proves the path the web rides on.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
@@ -22,7 +21,6 @@ function buildStore() {
   const deps = fakeStoreDeps();
   // addBytes stages uploads into cacheDir, which the production runtime
   // pre-creates; mirror that here so staging doesn't throw.
-  mkdirSync(deps.cacheDir, { recursive: true });
   return createPhotoStore(deps);
 }
 

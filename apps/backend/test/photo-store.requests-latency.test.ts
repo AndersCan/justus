@@ -6,7 +6,6 @@
  * latency to a single timeout regardless of N.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import {
   addFakeNode,
@@ -35,7 +34,6 @@ describe("#88 requests() must not multiply per-peer latency across unreachable p
     const reachablePeer = reachableDrive.key;
 
     const deps = fakeStoreDeps({ hub, deviceName: "Creator", driveOpenTimeoutMs: timeoutMs });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
 
     await store.ready();

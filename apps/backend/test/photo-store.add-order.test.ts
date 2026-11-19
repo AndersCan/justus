@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, afterEach } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
@@ -11,7 +10,6 @@ afterEach(() => {
 describe("photos added in a run get strictly increasing stamps", () => {
   it("never repeats a stamp, even when the clock stands still or steps back", async () => {
     const deps = fakeStoreDeps({ hub: createFakeHub(), deviceName: "X" });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
     await store.createFolder("Mine");

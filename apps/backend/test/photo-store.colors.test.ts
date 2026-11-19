@@ -1,6 +1,6 @@
 /** The Admin's phone gives each person one colour seat and every phone reports the same one. */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
@@ -22,7 +22,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   setFakeNodeConnected({ hub, node, connected: true });
   const server = new FakeLoopbackServer();
   const deps = fakeStoreDeps({ hub, node, deviceName, server });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { node, deps, store: createPhotoStore(deps) };
 }
 

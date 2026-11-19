@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { deletedSince, goneSince, vanishedDrives, type Listing } from "../../src/photos/deleted.ts";
+import { goneSince, vanishedDrives, type Listing } from "../../src/photos/deleted.ts";
+
+const deletedSince = (...a: Parameters<typeof goneSince>) => goneSince(...a).map((g) => g.photo);
 
 const drive = { name: "drive" };
 const other = { name: "other" };

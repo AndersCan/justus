@@ -4,7 +4,7 @@
  * neither is asked or answered. Real-swarm delivery is `p2p-scenarios.ts` V1.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeTmpDir } from "./tmp-dirs.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
@@ -23,7 +23,6 @@ function build(name: string, hub: FakeHub, extra: Extra = {}) {
     ...extra,
     onChanged: (c) => changes.push(c),
   });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
   const topic = () => deps.drives.discoveryKeyOf(identity());

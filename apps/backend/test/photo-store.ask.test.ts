@@ -4,7 +4,7 @@
  * registry react. Real-swarm delivery is covered in `p2p-scenarios.ts`.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeCrypto from "node:crypto";
 import { inviteTopic } from "../src/membership/invite.ts";
@@ -30,7 +30,6 @@ import { makeTmpDir } from "./tmp-dirs.ts";
 
 function buildStore(name: string, hub: FakeHub, deps: Partial<FakeStoreDeps> = {}) {
   const full = fakeStoreDeps({ hub, deviceName: name, ...deps });
-  mkdirSync(full.cacheDir, { recursive: true });
   return { store: createPhotoStore(full), deps: full };
 }
 

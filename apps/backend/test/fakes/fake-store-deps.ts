@@ -88,7 +88,7 @@ export class FakeLoopbackServer {
 
 export type FakeStoreDeps = PhotoStoreDeps & { hub: FakeHub; node: FakeNode };
 
-/** A photo store's deps on the checked fakes. Devices share drives only when they share `hub`. */
+/** A photo store's deps on the checked fakes; its `cacheDir` exists. Devices share drives only when they share `hub`. */
 export function fakeStoreDeps(
   overrides: Partial<PhotoStoreDeps> & { hub?: FakeHub; node?: FakeNode } = {},
 ): FakeStoreDeps {
@@ -99,7 +99,7 @@ export function fakeStoreDeps(
     setFakeNodeConnected({ hub, node, connected: true });
   }
   const storageDir = overrides.storageDir ?? makeTmpDir("justus-fake-");
-  return {
+  const deps = {
     storageDir,
     cacheDir: join(storageDir, "cache"),
     server: new FakeLoopbackServer(),
@@ -115,6 +115,8 @@ export function fakeStoreDeps(
     hub,
     node,
   } as FakeStoreDeps;
+  nodeFs.mkdirSync(deps.cacheDir, { recursive: true });
+  return deps;
 }
 
 /** Same storage, node and options; a fresh drive store and network, as after an app restart. */

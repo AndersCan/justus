@@ -3,7 +3,6 @@
  * the ones it added. Phones share one hub on the checked fakes.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
@@ -19,7 +18,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   setFakeNodeConnected({ hub, node, connected: true });
   const server = new FakeLoopbackServer();
   const deps = fakeStoreDeps({ hub, node, deviceName, server });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, server, store: createPhotoStore(deps) };
 }
 type Phone = ReturnType<typeof phone>;

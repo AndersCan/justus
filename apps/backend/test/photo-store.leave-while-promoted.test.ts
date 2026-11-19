@@ -5,7 +5,6 @@
  * share one hub on the checked fakes.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
@@ -22,7 +21,6 @@ function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
 

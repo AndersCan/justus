@@ -3,7 +3,6 @@
  * while every other record read keeps waiting for replication.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
@@ -14,7 +13,6 @@ describe("peer record read timeout", () => {
     const seen: { path: string; timeout: number | undefined }[] = [];
     const hub = createFakeHub();
     const deps = fakeStoreDeps({ hub, deviceName: "Creator" });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
 

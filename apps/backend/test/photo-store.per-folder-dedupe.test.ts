@@ -11,7 +11,6 @@
  * all; the test still guards the per-folder scoping.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
@@ -21,7 +20,6 @@ function buildDevices(names: string[]) {
   const hub = createFakeHub();
   const devices = names.map((name) => {
     const deps = fakeStoreDeps({ hub, deviceName: name });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     return { store, deps };
   });

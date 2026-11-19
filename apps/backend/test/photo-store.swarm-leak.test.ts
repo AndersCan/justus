@@ -16,7 +16,6 @@
  */
 import createTestnet from "hyperdht/testnet";
 import { afterAll, beforeAll, describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createP2pLog } from "../src/p2p-log.ts";
@@ -47,7 +46,6 @@ function buildDevices(names: string[], bootstrap: string[]) {
         })
       : undefined;
     const deps = fakeStoreDeps({ hub, deviceName: name, ...(network ? { network } : {}) });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     return { store, deps, network: deps.network };
   });

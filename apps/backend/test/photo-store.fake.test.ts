@@ -40,9 +40,6 @@ function buildStore() {
     onChanged: (c) => changes.push({ folderId: c.folderId }),
   });
   const store = createPhotoStore(deps);
-  // addBytes stages uploads into cacheDir, which the production runtime
-  // pre-creates — mirror that here so staging doesn't throw.
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { store, deps, offline, changes };
 }
 
@@ -164,9 +161,6 @@ function buildDevices(names: string[]) {
       deviceName: name,
       onChanged: (c) => changes.push({ folderId: c.folderId }),
     });
-    // addBytes stages uploads into cacheDir, which the production runtime
-    // pre-creates — mirror that here so staging doesn't throw.
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     return { store, changes, deps };
   });
@@ -440,7 +434,6 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
 describe("createFolder gives each new album a drive of its own", () => {
   it("never reuses the device's own drive or another album's", async () => {
     const deps = fakeStoreDeps();
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
     const { folders: before } = await store.folders();
