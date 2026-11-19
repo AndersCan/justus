@@ -24,7 +24,8 @@ async function setup(initial: SeenRecord | Error = record()) {
 
 const listed = (albums: { albumId: string; photoIds: string[] }[]) =>
   ({ type: "ALBUMS_LISTED", payload: { albums } }) as never;
-const opened = (albumId: string) => ({ type: "ALBUM_OPENED", payload: { albumId } }) as never;
+const opened = (albumId: string, photoIds: string[] = []) =>
+  ({ type: "ALBUM_OPENED", payload: { albumId, photoIds } }) as never;
 const looked = (photos: { albumId: string; photoId: string }[]) =>
   ({ type: "PHOTOS_LOOKED", payload: { photos } }) as never;
 const ended = () => ({ type: "VISIT_ENDED" }) as never;
@@ -87,14 +88,35 @@ describe("seen machine", () => {
     expect(port.write).not.toHaveBeenCalled();
   });
 
-  test("opening an album remembers it once", async () => {
+  test("opening an album remembers it", async () => {
     const { actor, port } = await setup();
-    actor.send(opened("f1"));
     actor.send(opened("f1"));
     expect(port.write).toHaveBeenCalledTimes(1);
     expect(port.read).toHaveBeenCalledTimes(1);
     expect(port.write).toHaveBeenCalledWith(record({}, "f1"));
     expect(ctxOf(actor).lastAlbum).toBe("f1");
+  });
+
+  test("opening an album saves its photos as known and keeps them new until the visit ends", async () => {
+    const { actor, port } = await setup(record({ f1: ["a"] }));
+    actor.send(opened("f1", ["a", "b"]));
+    expect(port.write).toHaveBeenCalledWith(record({ f1: ["a", "b"] }, "f1"));
+    expect(isNewPhoto(ctxOf(actor), { id: "b", folderId: "f1" })).toBe(true);
+    actor.send(ended());
+    expect(isNewPhoto(ctxOf(actor), { id: "b", folderId: "f1" })).toBe(false);
+  });
+
+  test("opening an album with no record saves only the last album", async () => {
+    const { actor, port } = await setup();
+    actor.send(opened("f1", ["a"]));
+    expect(port.write).toHaveBeenCalledWith(record({}, "f1"));
+  });
+
+  test("a photo that arrives after the open is still new after the visit", async () => {
+    const { actor } = await setup(record({ f1: ["a"] }));
+    actor.send(opened("f1", ["a", "b"]));
+    actor.send(ended());
+    expect(isNewPhoto(ctxOf(actor), { id: "c", folderId: "f1" })).toBe(true);
   });
 
   test("a failed save is logged and the next change writes the full record", async () => {

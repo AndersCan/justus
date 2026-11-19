@@ -33,7 +33,7 @@ function listAlbums() {
 
 let opened: string | undefined;
 
-/** The album page on screen is remembered as the last album, once per visit. */
+/** The album page on screen saves its photos as known and is remembered as the last album, once per visit, after its photos are listed. */
 function markOpened() {
   const page = currentPage();
   if (page?.route !== "photoAlbum") {
@@ -44,8 +44,14 @@ function markOpened() {
   if (opened === albumId || seenReady(seenActor.snapshot()) !== "ready") return;
   const folder = foldersActor.snapshot().context.folders.find((x) => x.id === albumId);
   if (folder === undefined || folder.notice?.kind === "removed") return;
+  const gallerySnap = galleryActor.snapshot();
+  if (!galleryViewModel(gallerySnap, null).settled) return;
   opened = albumId;
-  seen.albumOpened(albumId);
+  const photos = photosInScope(gallerySnap.context.photos, { kind: "album", id: albumId });
+  seen.albumOpened(
+    albumId,
+    photos.map((p) => p.id),
+  );
 }
 
 function onChange() {

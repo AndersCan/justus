@@ -338,8 +338,14 @@ function adderDot(adder: TileAdder) {
 }
 
 /** One grid tile. `within` is the grid it sits in (the lightbox steps through
- * it). With `adder` it shows who added the photo. */
-export function photoTile(photo: Photo, within: Photo[], adder?: TileAdder) {
+ * it). With `adder` it shows who added the photo. Only an album page's tiles
+ * (`scope` "album") count looks. */
+export function photoTile(
+  photo: Photo,
+  within: Photo[],
+  adder?: TileAdder,
+  scope?: PhotoScope["kind"],
+) {
   return html`
     <figure
       data-motion-key=${photoKey(photo)}
@@ -352,7 +358,7 @@ export function photoTile(photo: Photo, within: Photo[], adder?: TileAdder) {
           ? copy("gallery.view", { name: photo.name })
           : copy("gallery.view_added_by", { name: photo.name, adder: adder.name })
       }
-      ${lookedAt(photo)}
+      ${scope === "album" ? lookedAt(photo) : nothing}
       @click=${() => openLightbox(photo, within)}
       @keydown=${(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -415,6 +421,7 @@ function photoTimeline(
   sort: PhotoSort,
   density: Density,
   members?: readonly SyncMember[],
+  scope?: PhotoScope["kind"],
 ) {
   const ordered = sortPhotos(photos, sort);
   return repeat(
@@ -431,7 +438,7 @@ function photoTimeline(
         </h2>
         <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
           ${repeat(group.photos, photoKey, (p) =>
-            photoTile(p, ordered, members === undefined ? undefined : tileAdder(p, members)),
+            photoTile(p, ordered, members === undefined ? undefined : tileAdder(p, members), scope),
           )}
         </div>
       </div>
@@ -463,7 +470,8 @@ export function scopePhotos(
         photos.length === 0
           ? view.empty()
           : html`
-              ${sortControl(view.sort)} ${photoTimeline(photos, view.sort, view.density, members)}
+              ${sortControl(view.sort)}
+              ${photoTimeline(photos, view.sort, view.density, members, view.scope.kind)}
               <footer class="pt-6 text-center text-xs text-muted">
                 ${t("gallery.photo", { count: photos.length })}
               </footer>

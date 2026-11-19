@@ -91,9 +91,12 @@ describe("last album", () => {
     expect(h.opened).not.toHaveBeenCalled();
     h.page = { route: "photoAlbum", params: { id: "f1" } };
     h.pageFns.forEach((fn) => fn());
+    expect(h.opened).not.toHaveBeenCalled();
+    galleryA.state.settled = true;
+    h.pageFns.forEach((fn) => fn());
     seenA.change();
     expect(h.opened).toHaveBeenCalledTimes(1);
-    expect(h.opened).toHaveBeenCalledWith("f1");
+    expect(h.opened).toHaveBeenCalledWith("f1", []);
   });
 });
 
