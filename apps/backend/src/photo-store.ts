@@ -4382,39 +4382,42 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (keyHex !== ownDrive.key) noteVersionGap(keyHex, false);
     if (c) c.identityKey = keyHex;
-    if (keyHex !== ownDrive.key) {
-      void deliverAnswers(keyHex).catch(answerErr("deliver"));
-      for (const ask of state.asks) {
-        if (ask.status === "waiting" && ask.owner === keyHex) void sendAsk(ask);
-      }
-      // A Join tapped while we were offline: the friend is here, finish it.
-      if (
-        state.folders.some(
-          (f) => f.role === "creator" && (f.invited?.includes(keyHex) || f.moving?.[keyHex]),
-        )
-      ) {
-        void acceptOfferedFriend(keyHex).catch(answerErr("acceptOffered"));
-      }
-      for (const seen of [...moveSeen]) if (seen.startsWith(`${keyHex}:`)) moveSeen.delete(seen);
-      void deliverMoveOffers(keyHex).catch(answerErr("moveOffer"));
-      for (const rt of runtimes.values()) {
-        if (rt.record.handover?.to.identity === keyHex) {
-          void deliverHandover(rt).catch(answerErr("handover"));
-        }
-      }
-      void tellHandoverDone(keyHex).catch(answerErr("handoverDone"));
-      void deliverOwedOffers(keyHex).catch(answerErr("owedOffer"));
-      void tellAdminYouDeleted(keyHex).catch(answerErr("copyDeleted"));
-      // An accepted ask whose join failed earlier: the Admin is here again.
-      for (const ask of state.asks) {
-        if (ask.status === "accepted" && ask.owner === keyHex) {
-          void completeAccepted(ask).catch(answerErr("complete"));
-        }
-      }
-    }
+    if (keyHex !== ownDrive.key && setupDone) sendWaitingTo(keyHex);
     if (!isNew) return;
     peerIdentities.add(keyHex);
     announceRequestInbox();
+  }
+
+  /** Everything this phone has waiting for `identity`. Runs once start-up has ended: before, the albums are still loading. */
+  function sendWaitingTo(identity: string) {
+    void deliverAnswers(identity).catch(answerErr("deliver"));
+    for (const ask of state.asks) {
+      if (ask.status === "waiting" && ask.owner === identity) void sendAsk(ask);
+    }
+    // A Join tapped while we were offline: the friend is here, finish it.
+    if (
+      state.folders.some(
+        (f) => f.role === "creator" && (f.invited?.includes(identity) || f.moving?.[identity]),
+      )
+    ) {
+      void acceptOfferedFriend(identity).catch(answerErr("acceptOffered"));
+    }
+    for (const seen of [...moveSeen]) if (seen.startsWith(`${identity}:`)) moveSeen.delete(seen);
+    void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
+    for (const rt of runtimes.values()) {
+      if (rt.record.handover?.to.identity === identity) {
+        void deliverHandover(rt).catch(answerErr("handover"));
+      }
+    }
+    void tellHandoverDone(identity).catch(answerErr("handoverDone"));
+    void deliverOwedOffers(identity).catch(answerErr("owedOffer"));
+    void tellAdminYouDeleted(identity).catch(answerErr("copyDeleted"));
+    // An accepted ask whose join failed earlier: the Admin is here again.
+    for (const ask of state.asks) {
+      if (ask.status === "accepted" && ask.owner === identity) {
+        void completeAccepted(ask).catch(answerErr("complete"));
+      }
+    }
   }
 
   /** Saved state 1 → 2: every album we started moves to a new key, every other
@@ -6323,11 +6326,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     resumeOwed();
     resumeDeleted();
-    for (const rt of runtimes.values()) {
-      for (const identity of Object.keys(rt.record.moving ?? {})) {
-        void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
-      }
-    }
+    for (const identity of connectedIdentities()) sendWaitingTo(identity);
   }
 
   /** Joins the album with `key`. `via` is set when the Admin accepted an ask: the
