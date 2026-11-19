@@ -12,6 +12,7 @@ import { pngOf, runColour } from "../add-photos.js";
 import {
   askToJoin,
   copyInviteLink,
+  closePhoto,
   createAlbum,
   pausePhone,
   resumeAll,
@@ -51,6 +52,14 @@ test("Ben gets Cy's photos and reads that Cy joined Summer in place of his own l
   const benConnected = a.getByText(words("gallery.connected_now", { connected: 1 }));
   // 60 s: Ada's phone shows Ben connected before he goes off; without this the off-wait below can pass at once.
   await expect(benConnected, "Ben on · Ada's phone: connected").toBeVisible({ timeout: 60_000 });
+  // Ada's phone must know what Ben holds before he goes; until his report arrives it lists him as unsure and shows no "wait" line.
+  await a.getByRole("button", { name: words("gallery.view", { name: FILE }) }).click();
+  // 60 s: Ben's report reaches Ada's phone; the line names him as holder or as showing a preview, either way he is no longer unsure.
+  await expect(
+    a.locator(".justus-holders-text"),
+    "Ada's phone: names Ben on the first photo",
+  ).toHaveText(/Ben's/, { timeout: 60_000 });
+  await closePhoto(a);
   try {
     const resumeBen = await pausePhone(instances[1]);
     // 90 s: Ada's phone drops a gone peer when its connection times out; until then Ben's phone is only slow, not off.
