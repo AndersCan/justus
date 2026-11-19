@@ -246,6 +246,14 @@ run_walk() {
       pnpm exec playwright test --config playwright.walk.config.ts )
 }
 
+# The update walk: the last release on Ben's phone, then this build installed over it.
+run_update_walk() {
+  ( cd "$REPO_ROOT" && JUSTUS_WALK_SERIAL="$SERIAL" JUSTUS_WALK_OUT="$OUT_DIR/walk-update" \
+      JUSTUS_WALK_APK="$REPO_ROOT/$APK" JUSTUS_WALK_ADB="$ADB" \
+      JUSTUS_WALK_FROM="$JUSTUS_WALK_FROM" JUSTUS_WALK_FROM_TAG="$JUSTUS_WALK_FROM_TAG" \
+      pnpm exec playwright test --config playwright.update-walk.config.ts )
+}
+
 # The share-in flow shares two photos from the Files app: put them in Downloads, make the media
 # store list them, and tell the flow which package is Files.
 DOCUMENTS_UI="$("$ADB" -s "$SERIAL" shell pm list packages documentsui | tr -d '\r' | sed -n 's/^package://p' | grep -v '^com.android.providers' | head -n 1)"
@@ -301,10 +309,17 @@ if [[ "$WALK" == 1 ]]; then
   mkdir -p "$OUT_DIR/walk"
   if prepare_chrome && run_walk; then
     echo "✓ Release walk passed on $SERIAL."
-    exit 0
+    echo
+    echo "▶ Running the update walk from ${JUSTUS_WALK_FROM_TAG} ..."
+    mkdir -p "$OUT_DIR/walk-update"
+    if run_update_walk; then
+      echo "✓ Update walk passed on $SERIAL."
+      exit 0
+    fi
+    echo "✗ Update walk FAILED: see $OUT_DIR/walk-update/update-walk-summary.md — capturing diagnostics..."
   fi
   echo
-  echo "✗ Release walk FAILED: see $OUT_DIR/walk/walk-summary.md — capturing diagnostics..."
+  echo "✗ Walk FAILED: see $OUT_DIR/walk/walk-summary.md — capturing diagnostics..."
 else
   echo
   echo "▶ Running Maestro flows from $FLOWS_DIR ..."

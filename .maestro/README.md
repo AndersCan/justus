@@ -56,3 +56,5 @@ which changes every launch.
 ## Release walk
 
 Actions › release-walk › Run workflow walks Ada (web, Chromium) and Ben (the release APK) through an invite: `e2e/device/release-walk.walk.ts` with Ben's steps in `.maestro/walk/`, outside `flows/*.yaml`. A branch dispatch walks main's deployed invite page.
+
+After the join walk, the update walk (`e2e/device/update-walk.update.ts`, `playwright.update-walk.config.ts`) puts the last release (the last `v*` tag, built by `scripts/walk-from.sh`) on Ben's phone, joins Ada's album "Walk" on it (Ada runs that release's own server), installs this build over it with `adb install -r`, and checks Walk and its photo are still on his phone. Both builds must be built on one machine (same debug key).
