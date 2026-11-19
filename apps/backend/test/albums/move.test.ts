@@ -290,6 +290,13 @@ describe("copyOwnEntries and countShownPhotos", () => {
     expect(await copyOwnEntries(from, to, new Set())).toBe(0);
   });
 
+  it("is repeatable after the source's photo bytes were cleared", async () => {
+    const { from, to } = await twoDrives();
+    await copyOwnEntries(from, to, new Set());
+    await clearMovedPhotos(from);
+    expect(await copyOwnEntries(from, to, new Set())).toBe(0);
+  });
+
   it("keeps each copied photo's metadata", async () => {
     const drives = phone();
     const from = await drives.openOwn("old");

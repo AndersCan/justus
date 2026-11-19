@@ -166,9 +166,9 @@ export async function copyOwnEntries(
     for await (const entry of to.list(dir)) have.set(entry.path, entry.size);
     for await (const entry of from.list(dir)) {
       if (removedIds.has(idOfPath(entry.path))) continue;
+      if (have.get(entry.path) === entry.size) continue;
       const bytes = await from.readBytes(entry.path);
       if (!bytes) throw new Error(`follow: cannot read ${entry.path}`);
-      if (have.get(entry.path) === bytes.byteLength) continue;
       await to.put(entry.path, bytes, { metadata: entry.metadata });
       if (dir === "/photos") copied++;
     }

@@ -83,7 +83,7 @@ async function ask(drive: Drive, path: string) {
 }
 
 describe("old drives after a Remove", () => {
-  it("after a Remove, the old keys open no photo of the Admin's the removed phone never opened", async () => {
+  it("after a Remove, the old keys open no photo the removed phone never opened", async () => {
     const net = await realNet();
     nets.push(net);
     const ada = await net.peer("Ada");
@@ -102,8 +102,19 @@ describe("old drives after a Remove", () => {
     await addPhoto(ada, folderId, "one.jpg", 10);
     await addPhoto(ada, folderId, "two.jpg", 40);
 
+    const cyAlbum = await eventually(
+      () => albumIn(cy.store, shareKey),
+      (a) => a?.role === "member",
+      "Cy a member of the album",
+      30_000,
+    ).then((a) => a!);
+    await ok(cy.store.setActive(cyAlbum.id));
+    await addPhoto(cy, cyAlbum.id, "cy.jpg", 100);
+    const cyOld = cyAlbum.driveKey;
     const oldOnAda = await open(ada, shareKey);
     const [one, two] = await pathsOn(oldOnAda, 2);
+    const cyOnAda = await open(ada, cyOld);
+    const [cyPaths] = await pathsOn(cyOnAda, 1);
     const oldOnBen = await open(ben, shareKey);
     expect(await ask(oldOnBen, one!.photo)).toBe("here");
     expect(await ask(oldOnBen, one!.thumb)).toBe("here");
@@ -123,8 +134,14 @@ describe("old drives after a Remove", () => {
       60_000,
     );
     await eventually(
-      async () => cleared(ada, "moved") && cleared(cy, "followed"),
-      Boolean,
+      async () =>
+        [
+          cleared(ada, "moved"),
+          cleared(cy, "followed"),
+          cleared(cy, "own"),
+          cleared(ada, "copied"),
+        ].join(),
+      (r) => r === "true,true,true,true",
       "Ada and Cy to clear the old drive",
       60_000,
     );
@@ -140,6 +157,9 @@ describe("old drives after a Remove", () => {
       15_000,
     );
 
+    const cyOnBen = await open(ben, cyOld);
+    expect(await ask(cyOnBen, cyPaths!.photo)).toBe("timedOut");
+    expect(await ask(cyOnBen, cyPaths!.thumb)).toBe("timedOut");
     expect(await ask(oldOnBen, two!.photo)).toBe("timedOut");
     expect(await ask(oldOnBen, two!.thumb)).toBe("timedOut");
     expect(await ask(oldOnBen, one!.photo)).toBe("here");
@@ -148,6 +168,10 @@ describe("old drives after a Remove", () => {
     const onCy = await open(cy, moved.shareKey);
     const kept = await pathsOn(onCy, 2);
     expect(kept.map((k) => k.photo)).toEqual([one!.photo, two!.photo]);
+    for (const peer of [ada, cy]) {
+      const names = (await peer.store.list({ all: true })).map((p) => p.name);
+      expect(names).toContain("cy.jpg");
+    }
     expect(await ask(onCy, two!.photo)).toBe("here");
   }, 90_000);
 
