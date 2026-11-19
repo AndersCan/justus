@@ -3191,6 +3191,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
                   ? { kind: "removed" }
                   : { kind: "inAlbum", people, former: rt.former },
                 presence: (k) => memberPresence(presence, k),
+                yourColor: people.find((p) => p.self)?.color,
                 now,
               }),
             }

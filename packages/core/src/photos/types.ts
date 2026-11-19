@@ -13,10 +13,14 @@ export type HolderMember = PhotoMember & {
   connected: boolean;
   /** When this phone last reached theirs (ms epoch, this phone's clock). Unset if never. */
   lastSeenAt?: number;
+  /** Their identity key, the same in every album, for the friend name you saved. Unset until their `/device.json` names it. */
+  identity?: string;
+  /** Their colour seat in the photo's album, as on Members. Unset until the Admin's phone has given one. */
+  color?: number;
 };
 
 /** A phone that has a full copy but has not been connected for a while: when it last was (ms epoch, this phone's clock). */
-export type QuietHolder = PhotoMember & { lastSeenAt: number };
+export type QuietHolder = HolderMember & { lastSeenAt: number };
 
 /** Who has a full copy of a photo, as their phones last told this one, on a phone still in the album. */
 export type InAlbumHolders = {
@@ -26,19 +30,21 @@ export type InAlbumHolders = {
   /** This phone has the photo's preview (thumbnail) but not the full copy. Always false when `here`. */
   previewHere: boolean;
   /** Current album people other than this phone with a full copy, the adder always included. Sorted by name, then key. */
-  others: PhotoMember[];
+  others: HolderMember[];
   /** Holders not connected now and last connected 3 days ago or more. Never in `others`. Newest `lastSeenAt` first, then name, then key. */
   quiet: QuietHolder[];
   /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */
-  unsure: PhotoMember[];
+  unsure: HolderMember[];
   /** Current album people (not this phone, not the adder) whose phone said what it holds, without this photo or its preview. Sorted like `others`. Each carries their phone's presence, so the line can say a friend's phone is off wherever the photo is opened. */
   waiting: HolderMember[];
   /** Current album people (not this phone, not in `others`) whose phone said it showed this photo's preview but has no full copy. Sorted like `others`. */
-  previews: PhotoMember[];
+  previews: HolderMember[];
   /** Names of people the Admin removed who had a copy when they went; they keep it. Sorted, unique. */
   former: string[];
   /** Names of people who left the album and had a copy when they went; their phone deleted it, so they are not holders. Sorted, unique. */
   left: string[];
+  /** Your colour seat in the photo's album, as on your own Members row. Unset until the Admin's phone has given one. */
+  yourColor?: number;
 };
 
 /** This phone was removed from the album: it hears no other phone, so it knows only its own copy. */

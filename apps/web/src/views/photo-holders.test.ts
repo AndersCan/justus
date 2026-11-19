@@ -7,7 +7,7 @@ import { holdersRow, holdersSheet } from "./photo-holders";
 import { memberColor } from "../utils/palette";
 import type { Person } from "../utils/people";
 
-const m = (name: string) => ({ key: name, name });
+const m = (name: string) => ({ key: name, name, connected: true });
 const w = (name: string, connected = true) => ({ key: name, name, connected });
 function photo(holders: PhotoHolders | undefined): Photo {
   return {
@@ -172,7 +172,9 @@ const initialsOfRow = (li: Element) => li.querySelector("span[aria-hidden]")?.te
 
 describe("holdersSheet colours", () => {
   it("shows a keyed row with its Members name, initials and colour", () => {
-    const el = draw(holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada" }] })), people));
+    const el = draw(
+      holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada", connected: true }] })), people),
+    );
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Mum");
     expect(initialsOfRow(row)).toBe("MU");
@@ -196,7 +198,7 @@ describe("holdersSheet colours", () => {
   it("shows a key that is not on Members, and former people, outlined", () => {
     const el = draw(
       holdersSheet(
-        photo(h({ unsure: [{ key: "k9", name: "Old phone" }], former: ["Ola"] })),
+        photo(h({ unsure: [{ key: "k9", name: "Old phone", connected: true }], former: ["Ola"] })),
         people,
       ),
     );
@@ -206,7 +208,9 @@ describe("holdersSheet colours", () => {
     expect(rows[2].querySelector("span[aria-hidden]")?.className).toContain("ui-avatar-outline");
   });
   it("shows a hasn't-said-yet keyed row with its Members name and colour", () => {
-    const el = draw(holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old" }] })), people));
+    const el = draw(
+      holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old", connected: true }] })), people),
+    );
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Cy");
     expect(fillOf(row)).toBe(`background:${memberColor(2)}`);
@@ -222,7 +226,7 @@ describe("holdersSheet colours", () => {
       holdersSheet(
         photo(
           h({
-            others: [{ key: "k1", name: "Ada" }],
+            others: [{ key: "k1", name: "Ada", connected: true }],
             waiting: [{ key: "k2", name: "Cy", connected: true }],
           }),
         ),
@@ -280,7 +284,12 @@ describe("holdersSheet previews", () => {
 describe("holdersSheet quiet phones", () => {
   const now = new Date(2025, 5, 18, 9, 0).getTime();
   const friday = new Date(2025, 5, 13, 20, 0).getTime();
-  const q = (name: string, lastSeenAt: number) => ({ key: name, name, lastSeenAt });
+  const q = (name: string, lastSeenAt: number) => ({
+    key: name,
+    name,
+    connected: false,
+    lastSeenAt,
+  });
   const headings = (el: HTMLElement) =>
     [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
 
