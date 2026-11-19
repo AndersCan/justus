@@ -240,6 +240,18 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     if (recorder) {
       const seen = await recorder.stop();
       const facts = traceFacts(seen.trace);
+      writeFileSync(join(out, "diag-trace.txt"), seen.trace);
+      for (const l of seen.trace.split("\n")) {
+        if (!/(sendto|write)\(\d+<TCP[^>]*->(?!127\.0\.0\.1)[^>]*>, "\\x16/.test(l)) continue;
+        const hex = l.split('>, "')[1].split('", ')[0].split("\\x").slice(1);
+        const text = hex.map((h) => String.fromCharCode(parseInt(h, 16))).join("");
+        console.log(
+          "SNI " +
+            l.split(/\s+/)[0] +
+            " " +
+            (text.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+/g) ?? []).join(" "),
+        );
+      }
       console.log(
         seen.trace
           .split("\n")

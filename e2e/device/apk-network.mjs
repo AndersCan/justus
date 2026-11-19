@@ -23,7 +23,7 @@ export function recordApkNetwork({ adb, serial, app }) {
     `rm -f ${TRACE}`,
     `until pid=$(pidof -s ${app}); do sleep 0.05; done`,
     `echo "recorder $$ $pid"`,
-    `exec strace -f -qq -ttt -yy -v -xx -s 64 -e trace=bind,connect,sendto,sendmsg,sendmmsg -e signal=none -o ${TRACE} -p $pid`,
+    `exec strace -f -qq -ttt -yy -v -xx -s 2000 -e trace=bind,connect,sendto,sendmsg,sendmmsg,write -e signal=none -o ${TRACE} -p $pid`,
   ].join("; ");
   const child = spawn(adb, ["-s", serial, "shell", script], { stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "";
