@@ -28,8 +28,9 @@ const phoneOff = (when) =>
   words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
 // Off for 30-60 s reads "just now", then "1 min ago": the two cover the first 2 minutes.
 const OFF_WORDS = [phoneOff(words("time.just_now")), phoneOff(words("time.min_ago", { min: 1 }))];
-// Never a prefix such as "Phone off.*": it would match the Members footer's "Phone off means ...".
-const PHONE_OFF = `(${OFF_WORDS.map(exact).join("|")})`;
+// Maestro reads the whole Members row as one text, so match the words inside it. Never a prefix such as
+// "Phone off.*": it would match the footer's "Phone off means ...".
+const PHONE_OFF = `.*(${OFF_WORDS.map(exact).join("|")}).*`;
 const CONNECTED_NOW = words("gallery.connected_now", { connected: 1 });
 
 const ALBUM = "Walk";
