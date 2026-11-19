@@ -90,10 +90,13 @@ Use this for internal failure events (`PAYMENT_FAILED`, timeouts, retries) witho
 
 ```ts
 import { assertMatchesModel } from "@mantaq/test";
+import { test } from "vitest";
+import { createCounter } from "./counter";
+import { counterModel } from "./counter-model";
 
 test("the counter app matches its model", async () => {
   await assertMatchesModel({
-    model: createCounterModel,
+    model: () => counterModel.create(),
     start: () => createCounter(3),
     events: {
       increment: (app) => app.increment(),
@@ -115,6 +118,19 @@ Adapter rules:
 Defaults: a fresh model and app per walk, 100 walks of up to 30 events, fixed seed, state compared after every event. It also fails when a model edge was never taken. Events with data need `payloads: { event: [...] }`.
 
 Guide: https://anderscan.github.io/mantaq/guides/app-without-mantaq/
+
+### A web page
+
+Run `assertMatchesModel` inside a `@playwright/test` test. Every adapter function is async.
+
+- `start` runs `page.goto(url)` and returns the page: a fresh document per walk. Never `page.setContent` on the same page: its scripts run again in the old window.
+- Find controls as a person does (`getByRole`, `getByLabel`) and read only what is on screen (visible text, `isVisible`, `aria-*`). Never page variables or page functions.
+- Name each model event for what a person does (`typeEmail`, `pressSignUp`): the failure table prints these names as the steps to reproduce.
+- An event the page cannot take right now does nothing: when its control can be hidden, check `isVisible()` and return.
+- Each `events` entry ends when the page shows the result. Wait for that result (`await page.getByRole("status").waitFor()`), never a fixed sleep. `state` only reads.
+- `fill("")` on an empty field fires no `input` event: pick payload samples a person would type.
+- `use: { actionTimeout: 5_000 }` in `playwright.config.ts`, so a wrong locator fails in seconds.
+- `test.setTimeout(180_000)`: Playwright's default 30 s is too short for 100 walks of real clicks.
 
 ## Coverage (Harness + Traversal)
 
@@ -153,6 +169,15 @@ Run the whole test file to refresh the sidecar, and commit it. With `CI` set, a 
 
 A journey through an effect's answer injects that answer right after the send that started the effect: `actor.send(turnOffLink.create(...)); actor.inject({ type: "linkOffFailed", payload: { folderId } });`. Do not await between the two, or the real answer arrives first.
 
+## When a change breaks a walk
+
+After you change a machine, run every test file that imports its file, whole files so `__runs__` stays complete (`rg -l "<file name without .ts>" -g '*.test.ts'`). Use the repo's test runner; not on PATH: `node_modules/.bin/<runner>`. For each failing walk, ask: once the ask is done, are its title and steps still true?
+
+- Yes: your change broke it. Fix the machine, never the walk's test, until it passes with its `__runs__` entry unchanged.
+- No: the ask changes it. Name the walk with its `run=` link and ask before you change or delete it; leave it failing until the person answers. Name it in the Walks: block with its run= link (SKILL.md "Change a machine").
+
+`git status --short` lists the `__runs__` files you changed; `git diff` on them must show only walks you added or the ask changes. Any other changed walk is a silent re-record, so undo it. The failing test prints `on the board: ?machine=<id>&step=…`, one `step=` per step, the last is where it failed. That address is for you alone, never a link in a reply, docs, an issue or a PR.
+
 ## Design Gate
 
 <!-- docs-check: skip -->
@@ -182,7 +207,7 @@ With `@mantaq/test` 2.0 the `*` any-node (`m.onAny`) counts in coverage: it is o
 
 ## Messages Between Machines
 
-To check that no message between your machines was dropped in a run, step it with `createDriver` from `@mantaq/inspect/drive` and read `after[].message`: `sender` is the part that sent it (`""` is the machine itself, `null` is unknown), and `dropped` is `"noHandler"` when the receiver had no handler in its state, else `null`. Needs `@mantaq/inspect` 0.37 or later.
+To check that no message between your machines was dropped in a run, step it with `createDriver` from `@mantaq/inspect/drive` and read `after[].message`: `sender` is the part that sent it (`""` is the machine itself, `null` is unknown, or a part sending itself), and `dropped` is `"noHandler"` when the receiver had no handler in its state, else `null`. Needs `@mantaq/inspect` 0.37 or later.
 
 <!-- docs-check: skip -->
 

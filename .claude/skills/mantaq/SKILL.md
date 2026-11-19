@@ -1,7 +1,7 @@
 ---
 name: mantaq
 description: >-
-  Create and use actor-model state machines with @mantaq/core in your own project. Philosophy, mental model, conventions. Also for any ask to design, plan or rethink a feature or a rule, even when it names no machine ("design this with me", "show me the design", "who can delete photos?", "show me how X works"): the answer is a machine drawn on the live viz page with recorded walks, not a written design. Also for drafting two designs of one feature to compare side by side ("draft two designs for Z"). Also sets mantaq up in a Vite project and opens the live viewer on a machine. Read sibling files (designing.md, sugar.md, patterns.md, testing.md, reviewing.md) when the task touches those areas.
+  Use whenever you edit, fix or finish a mantaq machine (a file calling `machine(`), however small ("send X back to Y", "finish this rule"): its recorded walks must pass or be named in the reply. Create and use actor-model state machines with @mantaq/core in your own project. Philosophy, mental model, conventions. Also for any ask to design, plan or rethink a feature or a rule, even when it names no machine ("design this with me", "show me the design", "who can delete photos?", "show me how X works"): the answer is a machine drawn on the live viz page with recorded walks, not a written design. Also for two designs of a feature or of a change across machines ("draft two designs for Z", "show me two ways"). Also for testing an app or web page that does not use mantaq against a model (`assertMatchesModel`, Playwright). Also sets mantaq up in a Vite project and opens the live viewer on a machine. Read sibling files (designing.md, sugar.md, patterns.md, testing.md, reviewing.md) when the task touches those areas.
 allowed-tools: Read Grep Glob Edit Write Bash Shell
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: Read Grep Glob Edit Write Bash Shell
 
 Actor-model state machine library for TypeScript. `npm install @mantaq/core`. Minimal primitives: states + events, context, effects, regions, one injectable clock.
 
-**Written against:** `@mantaq/core` 0.9, `@mantaq/sugar` 3.0, `@mantaq/test` 2.1, `@mantaq/traversal` 0.3, `@mantaq/inspect` 0.44, `@mantaq/viz` 0.37. Sibling files share this stamp.
+**Written against:** `@mantaq/core` 0.9, `@mantaq/sugar` 3.0, `@mantaq/test` 2.1, `@mantaq/traversal` 0.3, `@mantaq/inspect` 0.48, `@mantaq/viz` 0.41. Sibling files share this stamp.
 
 ## Trust the installed package over this skill
 
@@ -84,6 +84,19 @@ Rule of thumb: a question about _where we go_ belongs in a transition; a questio
 
 To build an app or feature from a machine, or to give it to another agent, write its brief instead of describing it from memory: `machineBrief` from `@mantaq/inspect` (0.33 or later) turns `inspectFile`'s machines into Markdown (start state, arrows with conditions, entry effects, ignored events, event payloads). Keep it true with a test, `inspectFile` taking an absolute path: `await expect(machines.map(machineBrief).join("\n")).toMatchFileSnapshot("./<machine>-brief.md")`. Paste the brief in the reply; never retype it.
 
+## Change a machine
+
+After any edit to a machine, run every test file that imports its file before you reply (`testing.md` "When a change breaks a walk"). A walk is a test recorded in `__runs__`. End the reply with a `Walks:` block, one line per walk that broke or that the ask changed:
+
+- `"<title>" broke at step <n>: <why>. Fixed: <machine change>.`
+- `"<title>" changes with the ask: <what it does now>. <link>`
+
+For example:
+
+- `"A dish cooked while the waiter is on a break is lost" changes with the ask: the waiter never goes on a break, so no dish is lost. Remove the break? https://anderscan.github.io/mantaq/guides/design-gate/?machine=cook&run=A%20dish%20cooked%20while%20the%20waiter%20is%20on%20a%20break%20is%20lost`
+
+None: `Walks: all pass unchanged.` Every line except "broke … Fixed" ends with `<link>`; a line without one is wrong. When you stop to ask the person, build the link from the walk's title before you reply. `<link>` is the walk's full published `run=` URL (designing.md section 3), never a bare `?machine=…`.
+
 ## Live design
 
 To set mantaq up, design or explain a machine with the live viz page, read `designing.md`.
@@ -95,5 +108,5 @@ A design ask that changes what the app does today: your FINAL answer to the pers
 - `designing.md`. Design a machine in the code, with the live page open
 - `sugar.md`. Sugar helpers: what exists and when to use each
 - `patterns.md`. Recipes: async effects, retries, regions, event sourcing
-- `testing.md`. Virtual clock, `@mantaq/test`, coverage
+- `testing.md`. Virtual clock, `@mantaq/test`, coverage, testing an app or a web page against its model
 - `reviewing.md`. Review your actor code against mantaq conventions
