@@ -3562,6 +3562,13 @@
     "who": "Album owners, when someone leaves",
     "screen": ""
   },
+  "notices.joined_this_album": {
+    "text": "{name} joined this album.",
+    "status": "draft",
+    "where": "Album › notice",
+    "who": "Album members, when someone new joins after them",
+    "screen": ""
+  },
   "notices.you_left": {
     "text": "You left “{albumName}”.",
     "status": "draft",

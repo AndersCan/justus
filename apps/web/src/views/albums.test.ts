@@ -32,6 +32,7 @@ const mock = vi.hoisted(() => ({
   handOverAlbum: vi.fn(),
   setActive: vi.fn(),
   dismissWhoLeft: vi.fn(),
+  dismissWhoJoined: vi.fn(),
   ask: vi.fn(),
   linkTurnedOff: vi.fn(),
 }));
@@ -49,6 +50,7 @@ vi.mock("../gateway", () => ({
     handOverAlbum: mock.handOverAlbum,
     setActive: mock.setActive,
     dismissWhoLeft: mock.dismissWhoLeft,
+    dismissWhoJoined: mock.dismissWhoJoined,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -1076,6 +1078,21 @@ describe("a failed dismiss of the who-left line", () => {
     folders.dismissWhoLeft("a", "Summer");
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("Couldn't dismiss the notice for “Summer”."),
+    );
+  });
+});
+
+describe("a failed dismiss of the who-joined line", () => {
+  test("says it couldn't dismiss the notice, by album name", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    mock.folders.mockResolvedValue([null, { folders: [album("a")], activeFolderId: "a" }]);
+    mock.dismissWhoJoined.mockResolvedValue([new Error("NOT_MEMBER"), null]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.dismissWhoJoined("a", "Autumn");
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Couldn't dismiss the notice for “Autumn”."),
     );
   });
 });

@@ -119,3 +119,21 @@ export function whoLeftNotice(folder: FolderSummary, disabled: boolean) {
     () => folders.dismissWhoLeft(folder.id, folder.name),
   );
 }
+
+/** The line for one person who joined an album after this phone's owner. */
+export function whoJoinedText(name: string): string {
+  return copy("notices.joined_this_album", { name });
+}
+
+/** One notice for the people who joined the album, one sentence per name and one Dismiss (it clears them all); none when nobody joined. */
+export function whoJoinedNotice(folder: FolderSummary, disabled: boolean) {
+  const names = folder.whoJoined ?? [];
+  if (names.length === 0) return null;
+  return noticeRow(
+    "who-joined:" + folder.id,
+    names.map(whoJoinedText).join(" "),
+    folder.name,
+    disabled,
+    () => folders.dismissWhoJoined(folder.id, folder.name),
+  );
+}
