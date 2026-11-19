@@ -595,4 +595,33 @@ describe("device record", () => {
     );
     expect("whoLeft" in member, "Trip: list: a Member never sees it").toBe(false);
   });
+  it("everyone but the Admin names who joined, only when someone did and no notice stands", () => {
+    const view = (
+      role: "creator" | "member",
+      whoJoined: { name: string }[] | undefined,
+      notice?: object,
+    ) => {
+      const src = readerSource({ role });
+      return albumSummary(
+        {
+          ...src,
+          record: { ...src.record, whoJoined, ...(notice ? { notice } : {}) },
+        } as typeof src,
+        { ownIdentity: "me" },
+      );
+    };
+    expect(
+      view("member", [{ name: "Cy" }, { name: "Di" }]).whoJoined,
+      "Trip: member sees names",
+    ).toEqual(["Cy", "Di"]);
+    expect("whoJoined" in view("creator", [{ name: "Cy" }]), "Trip: the Admin never sees it").toBe(
+      false,
+    );
+    expect("whoJoined" in view("member", []), "Trip: empty shows no key").toBe(false);
+    expect("whoJoined" in view("member", undefined), "Trip: unset shows no key").toBe(false);
+    expect(
+      "whoJoined" in view("member", [{ name: "Cy" }], { kind: "removed" }),
+      "Trip: a notice hides it",
+    ).toBe(false);
+  });
 });

@@ -76,6 +76,7 @@ export type AlbumSummarySource = {
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
     whoLeft?: string[];
+    whoJoined?: { name: string }[];
     handover?: { to: { name: string; key: string }; written?: boolean };
   };
   selfDrive: { key: string };
@@ -124,6 +125,9 @@ export function albumSummary(
     addedAt: record.createdAt,
     ...(record.notice ? { notice: record.notice } : {}),
     ...(role === "creator" && record.whoLeft?.length ? { whoLeft: record.whoLeft } : {}),
+    ...(role !== "creator" && !record.notice && record.whoJoined?.length
+      ? { whoJoined: record.whoJoined.map((j) => j.name) }
+      : {}),
     ...(waitingFor.length > 0 ? { waitingFor } : {}),
     ...(role === "creator" && record.handover
       ? {

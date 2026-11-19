@@ -185,6 +185,7 @@ import {
   type DeviceSource,
 } from "./presence/presence";
 import { oneAtATime } from "./membership/one-at-a-time";
+import { listedPeople, nextWhoJoined, type JoinedPerson } from "./membership/who-joined";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 import {
   dropOwed,
@@ -410,6 +411,10 @@ type FolderRecord = {
   notice?: FolderNotice;
   /** Creator: names of people who left on their own, oldest first, until the Admin dismisses the line. */
   whoLeft?: string[];
+  /** Not creator: the latest `addedAt` this phone has dealt with; unset on albums from before this field, which start silently. */
+  joinedUpTo?: number;
+  /** Not creator: people the Admin let in after this phone, oldest first, until dismissed. */
+  whoJoined?: JoinedPerson[];
   /** Absent: shown. `archived`: hidden on this phone, still synced. The other
    * two mark work that a restart must finish. */
   lifecycle?: "archived" | "leaving" | "deleting";
@@ -570,6 +575,7 @@ export interface PhotoStore {
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the line naming who left an album (Admin). */
   dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  dismissWhoJoined(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes a declined ask off this phone; the link can be asked through again. */
@@ -1161,6 +1167,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       if (names.length > 0) out.whoLeft = names;
     }
+    if (typeof f.joinedUpTo === "number" && Number.isFinite(f.joinedUpTo) && f.joinedUpTo >= 0) {
+      out.joinedUpTo = f.joinedUpTo;
+    }
+    if (Array.isArray(f.whoJoined)) {
+      const joined = f.whoJoined.flatMap((j): JoinedPerson[] => {
+        if (!isTextJSON(j) || typeof j.key !== "string" || !isHexKey(j.key)) return [];
+        const name = peerName(j.name, "");
+        return name === "" ? [] : [{ key: j.key.toLowerCase(), name }];
+      });
+      if (joined.length > 0) out.whoJoined = joined;
+    }
     return out;
   }
 
@@ -1557,6 +1574,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         // The Admin's drive may now hand the album to another phone, or to this one.
         if (rt && drive === rt.folderDrive && rt.record.role !== "creator") {
+          void noteWhoJoined(rt).catch((e) =>
+            log("error", { where: "noteWhoJoined", folder: short(folderId), err: errText(e) }),
+          );
           void advanceAdmin(rt).catch((e) =>
             log("error", { where: "advanceAdmin", folder: short(folderId), err: errText(e) }),
           );
@@ -1966,6 +1986,41 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await refreshFormer(rt);
     refreshHeldOfEveryone(rt);
     if (await dropCaughtUpEarlier(rt)) await refreshMembersFor(rt);
+    void noteWhoJoined(rt).catch((e) =>
+      log("error", { where: "noteWhoJoined", folder: short(rt.record.id), err: errText(e) }),
+    );
+  }
+
+  const oneJoinPassPerAlbum = oneAtATime();
+
+  /** Not the Admin: names the people the Admin let in after this phone, from her lists. */
+  function noteWhoJoined(rt: FolderRuntime): Promise<void> {
+    return oneJoinPassPerAlbum(rt.record.id, async () => {
+      const { record } = rt;
+      if (record.notice) return;
+      if (record.lifecycle === "leaving" || record.lifecycle === "deleting") return;
+      const registry = await readRegistryIn(rt.folderDrive);
+      const viewers = await readViewers(rt.folderDrive, { log });
+      const next = nextWhoJoined(
+        {
+          ...(record.joinedUpTo === undefined ? {} : { joinedUpTo: record.joinedUpTo }),
+          ...(record.whoJoined ? { whoJoined: record.whoJoined } : {}),
+        },
+        {
+          selfKey: selfKeyOf(rt),
+          adminKey: adminKeyOf(rt),
+          people: listedPeople(registry, viewers.viewers),
+        },
+      );
+      if (next === undefined) return;
+      for (const target of [record, state.folders.find((f) => f.id === record.id)]) {
+        if (!target) continue;
+        target.joinedUpTo = next.joinedUpTo;
+        if (next.whoJoined) target.whoJoined = next.whoJoined;
+      }
+      saveState();
+      deps.onChanged({ cause: "enroll", folderId: record.id });
+    });
   }
 
   const droppingEarlier = new Set<string>();
@@ -6216,6 +6271,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         driveKey: enrolled ? selfKey : "",
         createdAt: old?.record.createdAt ?? Date.now(),
         ...(old?.record.lifecycle ? { lifecycle: old.record.lifecycle } : {}),
+        ...(old ? {} : { joinedUpTo: 0 }),
         ...(via ? { invite: via.invite, selfNs: via.selfNs } : {}),
         ...(adminChain ? { adminChain } : {}),
         ...(old
@@ -7187,6 +7243,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async dismissWhoJoined(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
+      for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+        if (target) delete target.whoJoined;
+      }
+      saveState();
+      return ok({ ok: true });
+    },
+
     async dismissAlbumNotice(folderId) {
       await readyPromise;
       const found = state.gone.find(
@@ -7386,6 +7453,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     deleteAlbum: refuse,
     leaveAlbum: refuse,
     dismissWhoLeft: refuse,
+    dismissWhoJoined: refuse,
     dismissAlbumNotice: refuse,
     dismissDeclinedAsk: refuse,
     cancelAsk: refuse,

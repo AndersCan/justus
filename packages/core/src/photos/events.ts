@@ -229,6 +229,12 @@ export const photoSpecs = {
     args: {} as { folderId: string },
     result: {} as { ok: boolean },
   },
+  dismissWhoJoined: {
+    pluginId: "justus.photos",
+    name: "photos.dismissWhoJoined",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
   dismissDeclinedAsk: {
     pluginId: "justus.photos",
     name: "photos.dismissDeclinedAsk",
@@ -508,6 +514,11 @@ export const photoEvents = {
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );
+    },
+    dismissWhoJoined(
+      folderId: string,
+    ): InvokeEnvelope<"photos.dismissWhoJoined", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.dismissWhoJoined, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
     dismissWhoLeft(
       folderId: string,
