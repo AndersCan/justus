@@ -552,7 +552,7 @@ export const joinRequestMachine = machine("joinRequest", {
           /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. The open declined sheet takes no answer. */
           m.on(from, {
             event: requestAnswered,
-            to: [joinedAlbum, from],
+            to: [joinedAlbum],
             handler: (e) => {
               const answer = e.payload;
               return answer.answer === "accepted" && answer.folderId !== undefined
