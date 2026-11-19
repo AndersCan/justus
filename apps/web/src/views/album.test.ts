@@ -30,8 +30,7 @@ import {
   adminLineText,
 } from "./album";
 import { open } from "../machines/router-machine";
-import { VALID_FOR_MS, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
-import { formatRelative, linkEndText } from "../utils/time";
+import { VALID_FOR_MS } from "../machines/sharing/invite-link-machine";
 import { memberColor } from "../utils/palette";
 import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import { toast } from "./toast";
@@ -624,32 +623,44 @@ describe("album join requests", () => {
     expect(flat(host)).toContain("Dad wants to join Trip");
   });
 
-  test("a request through one of your links says which, and a link of no known length does not", () => {
-    const host = document.createElement("div");
-    const madeAt = 1_700_000_000_000;
-    const base = ask("a", true, "maple river stone");
-    const row = (span: number) => ({
-      ...base,
-      name: "Dad",
-      friend: false,
-      link: { madeAt, endsAt: madeAt + span },
-    });
-    for (const kind of ["10m", "1h", "1d", "7d"] as const) {
-      render(requestIdentity(row(VALID_FOR_MS[kind]), null), host);
-      const line = host.querySelector('[data-copy-id="album.asked_with_link"]');
-      expect(line?.textContent).toBe(
-        copy("album.asked_with_link", {
-          when: formatRelative(base.requestedAt),
-          kind: VALID_FOR_LABEL[kind],
-          made: linkEndText(madeAt),
-        }),
-      );
-      expect(host.querySelector('[data-copy-id="album.asked"]')).toBeNull();
-    }
-    for (const plain of [{ ...base, name: "Dad", friend: false }, row(30 * 60_000)]) {
-      render(requestIdentity(plain, null), host);
-      expect(host.querySelector('[data-copy-id="album.asked"]')).not.toBeNull();
-      expect(host.querySelector('[data-copy-id="album.asked_with_link"]')).toBeNull();
+  test("a request through a link says its kind and when it was made, never a clock time", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 19, 15, 0));
+    try {
+      const host = document.createElement("div");
+      const base = ask("a", true, "maple river stone");
+      const row = (kind: keyof typeof VALID_FOR_MS, madeAt: Date) => ({
+        ...base,
+        name: "Dad",
+        friend: false,
+        link: { madeAt: madeAt.getTime(), endsAt: madeAt.getTime() + VALID_FOR_MS[kind] },
+      });
+      const cases = [
+        [row("1d", new Date(2026, 10, 19, 8, 10)), "1\u2011day link made this morning"],
+        [row("10m", new Date(2026, 10, 19, 14, 55)), "10\u2011minute link made this afternoon"],
+        [row("1h", new Date(2026, 10, 18, 19)), "1\u2011hour link made yesterday evening"],
+        [row("7d", new Date(2026, 10, 12, 23, 59)), "7\u2011day link made on 12 Nov"],
+        [row("7d", new Date(2025, 11, 31, 9)), "7\u2011day link made on 31 Dec 2025"],
+      ] as const;
+      for (const [r, tail] of cases) {
+        render(requestIdentity(r, null), host);
+        const line = host.querySelector('[data-copy-id="album.asked_with_link"]');
+        expect(line?.textContent).toBe(`Asked just now with the ${tail}`);
+        expect(line?.textContent).not.toMatch(/\d\d:\d\d|your/);
+      }
+      const odd = {
+        ...base,
+        name: "Dad",
+        friend: false,
+        link: { madeAt: 1, endsAt: 1 + 30 * 60_000 },
+      };
+      for (const plain of [{ ...base, name: "Dad", friend: false }, odd]) {
+        render(requestIdentity(plain, null), host);
+        expect(host.querySelector('[data-copy-id="album.asked"]')).not.toBeNull();
+        expect(host.querySelector('[data-copy-id="album.asked_with_link"]')).toBeNull();
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 

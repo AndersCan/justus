@@ -152,7 +152,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   const askRow = a.locator("li", { hasText: `wants to join “${ALBUM}”` });
   await expect(askRow).toBeVisible({ timeout: 60_000 });
   await expect(askRow).toContainText(`Three words ${code}`);
-  const oneDay = words("invite_link.1_day");
+  const oneDay = words("link_kind.1_day");
   await expect(askRow.locator('[data-copy-id="album.asked_with_link"]')).toContainText(oneDay);
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
 

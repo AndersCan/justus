@@ -39,7 +39,7 @@ Nils (Admin) made "Spain 2026" and wants Maya to see and add photos.
 - _Link expired._ Maya sees "This link has expired. Ask Nils for a new one." No request reaches Nils.
 - _Link cancelled._ Same screen and same text as expired.
 - _Declined._ Maya sees "Nils did not accept your request." Nothing is shared.
-- _Request from an unknown name._ The name is what the requester typed; Nils cannot verify it. The request shows the name, which of the Admin's links it came through (for example "Asked 5 min ago with your link for 1 day, made Tue 13 Nov 10:42"), and only Nils can accept it. Verifying who a requester is stays out of scope.
+- _Request from an unknown name._ The name is what the requester typed; Nils cannot verify it. The request shows the name, which of the Admin's links it came through (for example "Asked 5 min ago with the 1-day link made this morning"), and only Nils can accept it. Verifying who a requester is stays out of scope.
 - _Maya cancels_ while reviewing or waiting: nothing is sent, or the request is withdrawn.
 
 ## Story 2: a big group where everyone adds photos
