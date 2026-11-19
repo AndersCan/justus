@@ -1070,6 +1070,20 @@
     "who": "Admins answering requests",
     "screen": ""
   },
+  "album.removed_by_you": {
+    "text": "You removed {name} {when}",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering a request from someone they removed",
+    "screen": ""
+  },
+  "album.removed_by": {
+    "text": "{by} removed {name} {when}",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering a request from someone an earlier Admin removed",
+    "screen": ""
+  },
   "album.declined_unnamed": {
     "text": "Declined that request",
     "status": "draft",

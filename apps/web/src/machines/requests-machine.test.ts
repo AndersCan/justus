@@ -536,6 +536,15 @@ describe("accept all as Viewers", () => {
     ];
     expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
   });
+
+  test("viewerAcceptKeys skips phones removed earlier", () => {
+    const list = [
+      request("f1", "a", true),
+      { ...request("f1", "b", true), removedEarlier: { name: "B", at: 1 } },
+      request("f1", "c", true),
+    ];
+    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
+  });
 });
 
 describe("requestsViewModel", () => {

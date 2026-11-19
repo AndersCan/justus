@@ -2,7 +2,7 @@
 import { focusOnArrival } from "./arrival-focus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
-import type { SyncStatus } from "@justus/core";
+import type { JoinRequest, SyncStatus } from "@justus/core";
 import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
@@ -475,6 +475,7 @@ describe("album people motion", () => {
 describe("album join requests", () => {
   const ask = (requesterKey: string, viaInvite: boolean, checkCode?: string) => ({
     declinedEarlier: undefined as boolean | undefined,
+    removedEarlier: undefined as JoinRequest["removedEarlier"],
     requesterIdentity: undefined as string | undefined,
     folderId: "f1",
     folderName: "Trip",
@@ -1022,6 +1023,38 @@ describe("album join requests", () => {
     expect(flagged).toHaveLength(1);
     expect(flagged[0]!.textContent).toContain("bo");
     expect(button(host, "Accept all 2, can only look")).toBeDefined();
+  });
+
+  test("a request from someone removed says who removed them and when, and is left out of Accept all", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 19, 15, 0));
+    try {
+      const host = await show([
+        ask("nils", true),
+        {
+          ...ask("bo", true),
+          removedEarlier: { name: "Bo", at: new Date(2026, 10, 19, 8, 10).getTime() },
+        },
+        {
+          ...ask("ola", true),
+          removedEarlier: { name: "Ola", at: new Date(2026, 10, 12, 9, 0).getTime(), by: "Ada" },
+        },
+        ask("kim", true),
+      ]);
+      const card = (key: string) =>
+        [...host.querySelectorAll<HTMLElement>("li")].find((li) =>
+          flat(li).includes(`${key} wants`),
+        )!;
+      const text = (key: string, id: string) =>
+        card(key).querySelector(`[data-copy-id="${id}"]`)?.textContent;
+      expect(text("bo", "album.removed_by_you")).toBe("You removed Bo this morning");
+      expect(text("ola", "album.removed_by")).toBe("Ada removed Ola on 12 Nov");
+      expect(text("nils", "album.removed_by_you")).toBeUndefined();
+      expect(text("nils", "album.removed_by")).toBeUndefined();
+      expect(button(host, "Accept all 2, can only look")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("two invite requests show Accept all 2, can only look below the list", async () => {
