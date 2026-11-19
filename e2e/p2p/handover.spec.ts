@@ -117,6 +117,12 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
         { message: "the album leaves Ada's phone", timeout: 90_000, intervals: [200] },
       )
       .toBe(false);
+    // Ada's open page follows without a reload: it leaves the album page, and the waiting line goes.
+    await expect(a, "Ada's page leaves the album she handed on").toHaveURL(/\/sharing$/, {
+      timeout: 30_000,
+    });
+    await expect(a.getByText(words("album.handing_over", { album, name: "Ben" }))).toHaveCount(0);
+    await expect(a.getByRole("link", { name: `Invite & members of ${album}` })).toHaveCount(0);
     await pausePhone(instances[0]);
 
     // Ben reads the notice and sees Cy's request with the same three words.
