@@ -296,6 +296,8 @@ export function holdersFor(input: {
         /** Current album people; self may be in it. */
         people: ReadonlyArray<PhotoMember & { color?: number }>;
         former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
+        /** Album drives of Admins who handed the album on; their photos stay, their phones no longer count. */
+        pastAdmins?: ReadonlySet<string>;
       }
     | { kind: "removed" };
   /** Whether this phone is connected to each person now, and when it last was. */
@@ -308,9 +310,11 @@ export function holdersFor(input: {
   const { photo, selfKey, held, album, presence, yourColor, now } = input;
   const here = photo.driveKey === selfKey || holds(held.get(selfKey), photo.id);
   if (album.kind === "removed") return { kind: "removed", here };
-  const { people, former } = album;
+  const { people, former, pastAdmins } = album;
   const others = new Map<string, HolderMember>();
-  if (photo.driveKey !== selfKey) {
+  const gone =
+    pastAdmins?.has(photo.driveKey) === true && !people.some((p) => p.key === photo.driveKey);
+  if (photo.driveKey !== selfKey && !gone) {
     const adder = people.find((p) => p.key === photo.driveKey);
     others.set(
       photo.driveKey,
