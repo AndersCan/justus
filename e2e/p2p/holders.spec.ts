@@ -1,6 +1,6 @@
 /**
  * Two real bare instances, one story: Ada adds a photo, Ben joins, his phone has the preview, he opens it, Ben's phone is
- * taken off and back, Ada adds a photo while Ben's phone is off and its line names him, Ada adds two more photos and Members says what Ben's phone holds, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
+ * taken off and back, Ada reads his row say Phone off and count up, Ada adds a photo while Ben's phone is off and its line names him, Ada adds two more photos and Members says what Ben's phone holds, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
  * photo" line is read on the phones that have one; a wrong line fails with the step, the phone,
  * and both texts.
  *
@@ -44,6 +44,11 @@ async function expectHoldersLine(page, step, phone, text) {
   await expect(line, `${step} · ${phone}'s phone: holders line`).toHaveText(text, {
     timeout: 60_000,
   });
+}
+
+/** The Members row line for a friend whose phone is off. */
+function phoneOff(when) {
+  return words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
 }
 
 async function stateOf(page, instance) {
@@ -104,19 +109,41 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
   instancePages,
   instances,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   const [a, b] = instancePages;
   await shareAlbum(instancePages, QUIET_ALBUM);
   await closePhoto(a);
   await closePhoto(b);
   const albumPath = new URL(a.url()).pathname;
+  const memberRows = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const benRow = memberRows.locator("[data-member-key]", { hasText: "Ben" });
 
   const resumeBen = await pausePhone(instances[1]);
   try {
+    await a
+      .getByRole("link", { name: /Invite & members/ })
+      .first()
+      .click();
+    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
+    await expect(
+      benRow.locator("[data-member-presence]"),
+      "Ben off · Ada's Members: Ben's row",
+    ).toHaveText(phoneOff(words("time.just_now")), { timeout: 120_000 });
+    await expect(
+      benRow.locator('[role="img"]'),
+      "Ben off · Ada's Members: Ben's dot says the same",
+    ).toHaveAttribute("aria-label", phoneOff(words("time.just_now")));
+    // 60 s: the line appears 30-45 s after Ada's phone lost Ben and reads 1 min at 60-75 s; this proves the clock moves without a push.
+    await expect(
+      benRow.locator("[data-member-presence]"),
+      "Ben off 1 min · Ada's Members: Ben's row",
+    ).toHaveText(phoneOff(words("time.min_ago", { min: 1 })), { timeout: 60_000 });
+
+    await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ben off · Ada's phone: still connected",
-    ).toHaveCount(0, { timeout: 120_000 });
+    ).toHaveCount(0);
 
     // Ben has been away for seconds: Ada's line stays calm.
     await expectHoldersLine(
@@ -145,6 +172,23 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       { timeout: 60_000 },
     );
     await closePhoto(a);
+
+    await a
+      .getByRole("link", { name: /Invite & members/ })
+      .first()
+      .click();
+    // 60 s: Ada's phone re-reads Ben's record after each of his changes.
+    await expect(
+      benRow.locator("[data-member-photos]"),
+      "Ben off, new photo · Ada's Members: Ben's count",
+    ).toHaveText(
+      words("members.and_waiting", {
+        line: words("members.has_photos", { full: 1, total: 2 }),
+        n: 1,
+      }),
+      { timeout: 60_000 },
+    );
+    await a.goto(albumPath);
 
     // Ada's phone remembers Ben was last seen 5 days ago, across a restart.
     const at = Date.now() - 5 * 24 * 3600 * 1000;
@@ -215,6 +259,40 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
     "Ben back",
     "Ada",
     words("holders.on_and_your_phone", { names: "Ben's" }),
+  );
+
+  // Ben's phone fetches the waiting photo's preview after it reconnects.
+  await closePhoto(a);
+  await a.getByRole("button", { name: `View ${LATER}` }).click();
+  // 60 s: Ben's phone fetches the preview after reconnecting.
+  await expect(
+    a.locator(".justus-holders-text"),
+    "Ben back · Ada's phone: the new photo's line",
+  ).toHaveText(
+    words("holders.line_and_preview", {
+      line: words("holders.on_your_phone"),
+      preview: words("holders.preview_on_names", { names: "Ben's", n: 1 }),
+    }),
+    { timeout: 60_000 },
+  );
+  await closePhoto(a);
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  await expect(
+    benRow.locator("[data-member-presence]"),
+    "Ben back · Ada's Members: no Phone off line",
+  ).toHaveCount(0);
+  await expect(
+    benRow.locator("[data-member-photos]"),
+    "Ben back · Ada's Members: Ben's count",
+  ).toHaveText(
+    words("members.and_previews", {
+      line: words("members.has_photos", { full: 1, total: 2 }),
+      n: 1,
+    }),
+    { timeout: 60_000 },
   );
 });
 
