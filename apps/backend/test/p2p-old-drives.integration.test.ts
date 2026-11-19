@@ -177,6 +177,74 @@ describe("old drives after a Remove", () => {
     expect(await ask(onCy, two!.photo)).toBe("here");
   }, 90_000);
 
+  it("a phone that was off at the Remove clears the old drive when it follows, though the Admin's phone restarted first", async () => {
+    const net = await realNet();
+    nets.push(net);
+    const ada = await net.peer("Ada");
+    const ben = await net.peer("Ben");
+    const cy = await net.peer("Cy");
+    const created = await ok(ada.store.createFolder("Trip"));
+    const { id: folderId, shareKey, invite } = created.folder;
+    await ok(ada.store.setActive(folderId));
+    const benKey = await letIn(ada, ben, folderId, invite!.code);
+    await letIn(ada, cy, folderId, invite!.code);
+    const side = await ok(cy.store.createFolder("Side"));
+    await letIn(cy, ben, side.folder.id, side.folder.invite!.code);
+    await addPhoto(ada, folderId, "one.jpg", 10);
+    await addPhoto(ada, folderId, "two.jpg", 40);
+    await eventually(
+      () => albumIn(cy.store, shareKey),
+      (a) => a?.role === "member",
+      "Cy a member of the album",
+      30_000,
+    );
+
+    const [, two] = await pathsOn(await open(ada, shareKey), 2);
+    const oldOnBen = await open(ben, shareKey);
+    await pathsOn(oldOnBen, 2);
+    const oldOnCy = await open(cy, shareKey);
+    expect(await ask(oldOnCy, two!.photo)).toBe("here");
+
+    await cy.stop();
+    await ok(ada.store.removeMember(folderId, benKey));
+    const moved = (await ada.store.folders()).folders.find((f) => f.id === folderId)!;
+    await eventually(
+      async () => ada.events.some((e) => e.event === "move.cleared" && e.fields.why === "moved"),
+      Boolean,
+      "Ada to clear the old drive",
+      60_000,
+    );
+    await ada.stop();
+
+    const cyBack = await net.peer("Cy", cy.storageDir);
+    await net.peer("Ada", ada.storageDir);
+    await eventually(
+      async () =>
+        cyBack.events.some((e) => e.event === "move.cleared" && e.fields.why === "followed"),
+      Boolean,
+      "Cy, back after the Remove, a member on the new key",
+      60_000,
+    );
+    await eventually(
+      async () => (await albumIn(cyBack.store, moved.shareKey))?.role,
+      (role) => role === "member",
+      "Cy a member on the new key",
+      30_000,
+    );
+
+    await addPhoto(cyBack, side.folder.id, "control.jpg", 70);
+    const sideOnCy = await open(cyBack, side.folder.shareKey);
+    const [control] = await pathsOn(sideOnCy, 1);
+    const sideOnBen = await open(ben, side.folder.shareKey);
+    await eventually(
+      () => ask(sideOnBen, control!.photo),
+      (r) => r === "here",
+      "Ben reaching Cy after the Remove",
+      15_000,
+    );
+    expect(await ask(oldOnBen, two!.photo)).toBe("timedOut");
+  }, 120_000);
+
   it("an Admin whose phone restarted before it cleared the old drive clears it at the next start", async () => {
     const net = await realNet();
     nets.push(net);
