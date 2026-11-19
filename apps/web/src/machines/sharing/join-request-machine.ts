@@ -516,7 +516,7 @@ export const joinRequestMachine = machine("joinRequest", {
           /** An answer that arrives with no sheet open still counts: accepted opens the album, declined says so. */
           m.on(from, {
             event: requestAnswered,
-            to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates, from],
+            to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates],
             handler: (e) => {
               if (e.payload.answer === "linkOff") {
                 const row = asked(e.payload.code);
@@ -553,14 +553,14 @@ export const joinRequestMachine = machine("joinRequest", {
           m.on(from, {
             event: requestAnswered,
             to: [joinedAlbum, from],
-            handler: (e, { actor }) => {
+            handler: (e) => {
               const answer = e.payload;
               return answer.answer === "accepted" && answer.folderId !== undefined
                 ? {
                     state: joinedAlbum.create({ folderId: answer.folderId }),
                     emit: [openAlbum.create({ folderId: answer.folderId })],
                   }
-                : { state: from.create(actor.snapshot().payload as JoinScreen) };
+                : {};
             },
           });
         }
@@ -765,17 +765,17 @@ export const joinRequestMachine = machine("joinRequest", {
           /** The Admin answered. Only an answer for this request counts. */
           m.on(from, {
             event: requestAnswered,
-            to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates, from],
+            to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates],
             handler: (e, { actor }) => {
               const invite = actor.snapshot().payload as JoinScreen;
-              if (e.payload.code !== invite.code) return { state: from.create(invite) };
+              if (e.payload.code !== invite.code) return {};
               if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
               if (e.payload.answer === "linkOff") {
                 return { state: stoppedScreen(e.payload.why, invite) };
               }
               const folderId = e.payload.folderId;
               return folderId === undefined
-                ? { state: from.create(invite) }
+                ? {}
                 : {
                     state: joinedAlbum.create({ folderId }),
                     emit: [openAlbum.create({ folderId })],

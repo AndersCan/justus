@@ -572,6 +572,52 @@ describe("ask again", () => {
   });
 });
 
+describe("an answer for another request changes nothing", () => {
+  const OTHER = "c".repeat(64);
+
+  test("a send that is running keeps running", async () => {
+    let asks = 0;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    const s = setup({
+      port: { ask: async () => (asks++, await gate, [undefined, {}]) },
+    });
+    await s.send("openLink", { text: LINK });
+    s.actor.send({ type: "askToJoin" } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("sendingRequest");
+    s.actor.send({
+      type: "requestAnswered",
+      payload: { code: OTHER, answer: "declined" },
+    } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("sendingRequest");
+    release();
+    await s.actor.settled();
+    expect(asks).toBe(1);
+  });
+
+  test("a link check that is running keeps running", async () => {
+    let checks = 0;
+    const s = setup({
+      port: {
+        checkLink: () => (checks++, new Promise(() => {})),
+        ask: async () => [undefined, {}],
+      },
+    });
+    s.actor.send({ type: "openLink", payload: { text: LINK } } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingLink");
+    s.actor.send({
+      type: "requestAnswered",
+      payload: { code: OTHER, answer: "declined" },
+    } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingLink");
+    expect(checks).toBe(1);
+  });
+});
+
 describe("link states", () => {
   test("a link after an unusable link opens its screen", async () => {
     const s = setup();
