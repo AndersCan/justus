@@ -86,6 +86,10 @@ describe("first listing of an album", () => {
 describe("last album", () => {
   it("remembers the album page on screen, once per visit, not a removed one", () => {
     foldersA.state.context.folders = [{ id: "f1" }, { id: "f2", notice: { kind: "removed" } }];
+    galleryA.state.context.photos = [
+      { id: "a", folderId: "f1" },
+      { id: "z", folderId: "f2" },
+    ];
     h.page = { route: "photoAlbum", params: { id: "f2" } };
     h.pageFns.forEach((fn) => fn());
     expect(h.opened).not.toHaveBeenCalled();
@@ -96,7 +100,7 @@ describe("last album", () => {
     h.pageFns.forEach((fn) => fn());
     seenA.change();
     expect(h.opened).toHaveBeenCalledTimes(1);
-    expect(h.opened).toHaveBeenCalledWith("f1", []);
+    expect(h.opened).toHaveBeenCalledWith("f1", ["a"]);
   });
 });
 

@@ -135,7 +135,7 @@ export const seenMachine = machine("seen", {
             const { albumId, photoIds } = e.payload;
             const ids = ctx.known[albumId];
             const have = new Set(ids);
-            const added = ids === undefined ? [] : photoIds.filter((id) => !have.has(id));
+            const added = photoIds.filter((id) => !have.has(id));
             const known =
               ids === undefined ? ctx.known : { ...ctx.known, [albumId]: [...ids, ...added] };
             const next = { ...ctx, known, lastAlbum: albumId };

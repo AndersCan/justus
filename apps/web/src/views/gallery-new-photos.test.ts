@@ -129,14 +129,6 @@ describe("new photo marks", () => {
 });
 
 describe("looks", () => {
-  it("only an album page's tiles count looks", () => {
-    const p = photo("b");
-    draw(photoTile(p as never, photos as never, undefined, "all"));
-    expect(lookedAt).not.toHaveBeenCalled();
-    draw(photoTile(p as never, photos as never, undefined, "album"));
-    expect(lookedAt).toHaveBeenCalledWith(p);
-  });
-
   it("the album page counts looks and Photos > All does not", () => {
     vi.spyOn(galleryActor, "snapshot").mockReturnValue({ context: { photos } } as never);
     const drawScope = (scope: never) =>
