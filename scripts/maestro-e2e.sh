@@ -242,6 +242,7 @@ prepare_chrome() {
 
 run_walk() {
   ( cd "$REPO_ROOT" && JUSTUS_WALK_SERIAL="$SERIAL" JUSTUS_WALK_OUT="$OUT_DIR/walk" \
+      JUSTUS_WALK_APK="$REPO_ROOT/$APK" JUSTUS_WALK_ADB="$ADB" \
       pnpm exec playwright test --config playwright.walk.config.ts )
 }
 
