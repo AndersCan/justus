@@ -3059,7 +3059,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     members: Record<string, { key: string; name: string }>,
     e: { key: string; name: string },
   ): { key: string; name: string } | undefined {
-    if (rt.record.adminChain?.includes(e.key)) return undefined;
     const identity = presence.identities.get(e.key);
     const mine = rt.record.formerSelf?.includes(e.key) === true;
     return Object.values(members).find(
