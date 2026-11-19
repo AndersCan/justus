@@ -77,7 +77,8 @@ test("Ben gets Cy's photos and reads that Cy joined Summer in place of his own l
       })),
     );
     for (const name of files) {
-      const tile = (page) => page.getByRole("button", { name: `View ${name}` }).locator("img");
+      const tile = (page) =>
+        page.getByRole("button", { name: words("gallery.view", { name }) }).locator("img");
       // 20 s: two adds and their listing on Cy's phone.
       await expect(tile(c)).toBeAttached({ timeout: 20_000 });
       // 60 s: the photos travel from Cy's phone to Ada's.
@@ -85,17 +86,18 @@ test("Ben gets Cy's photos and reads that Cy joined Summer in place of his own l
     }
     const waits = a.locator('[data-copy-id^="gallery.photos_wait"]');
     // 60 s: Ada's phone lists Cy's photos as waiting; without this the later count of 0 proves nothing.
-    // The count only: Ada may still show Ben's phone under a device name while he is off.
     await expect(
       a.locator('[data-copy-id="gallery.photos_wait_for_one"]'),
       "Ada's line while Ben is paused",
-    ).toHaveText(/^2 photos wait for .+'s phone$/, {
+    ).toHaveText(words("gallery.photos_wait_for_one", { count: 2, name: "Ben" }), {
       timeout: 60_000,
     });
     resumeBen();
     for (const name of files) {
       // 90 s: Ben's phone hears of Cy from Ada's lists, then opens Cy's photos.
-      await expect(b.getByRole("button", { name: `View ${name}` }).locator("img")).toBeAttached({
+      await expect(
+        b.getByRole("button", { name: words("gallery.view", { name }) }).locator("img"),
+      ).toBeAttached({
         timeout: 90_000,
       });
     }
