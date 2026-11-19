@@ -132,6 +132,12 @@ describe("handing an album to a Collaborator", () => {
         (m: { admin: boolean; handedBy?: string }) => m.admin && m.handedBy === "Ada",
       ),
     );
+    for (const p of [s.ben, s.cy]) {
+      const named = (await p.store.status()).members.filter(
+        (m: { handedBy?: string }) => m.handedBy !== undefined,
+      );
+      expect(named.map((m: { admin: boolean }) => m.admin)).toEqual([true]);
+    }
     await s.close();
   });
 

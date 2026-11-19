@@ -146,7 +146,6 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
     await expect(a.getByText(words("album.handing_over", { album, name: "Ben" }))).toHaveCount(0);
     await expect(a.getByRole("link", { name: `Invite & members of ${album}` })).toHaveCount(0);
     await pausePhone(instances[0]);
-    await restartPhone(b, instances[1]);
 
     // Ben's phone took a copy of each of Ada's photos first: both open on Ben's phone with hers off.
     await b.goto(benAlbumPath);
@@ -170,6 +169,8 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
 
     // Cy gets in; the people list names Ben as the Admin and does not list Ada.
     await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    // Each phone gives the album its own id, so Cy's page has its own path.
+    const cyAlbumPath = new URL(c.url()).pathname;
     await c.goto("/sharing");
     await c.getByRole("link", { name: `Invite & members of ${album}` }).click();
     const rows = c.locator("li[data-member-key]");
@@ -180,17 +181,12 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
       "Cy's list: Ada left and handed the album to Ben",
     ).toBeVisible({ timeout: 60_000 });
     await expect(rows, "Cy's list: only Cy and Ben").toHaveCount(2);
-    await b.goto("/sharing");
-    await b.getByRole("link", { name: `Invite & members of ${album}` }).click();
-    await expect(
-      b
-        .locator("li[data-member-key]")
-        .getByText(words("member.handed_to", { fromName: "Ada", album, name: "Ben" })),
-      "Ben's list says it too",
-    ).toBeVisible({ timeout: 30_000 });
+
+    // Ben's phone restarts once Cy is in and still serves Ada's photos to her.
+    await restartPhone(b, instances[1]);
 
     // Cy sees and opens Ada's photos, served by Ben's phone while hers is off.
-    await c.goto(benAlbumPath);
+    await c.goto(cyAlbumPath);
     for (const name of PHOTOS) await expectLoaded(c, name);
 
     // Ben, the Admin, deletes one of Ada's photos; it leaves Cy's phone too.
