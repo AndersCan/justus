@@ -240,6 +240,13 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     if (recorder) {
       const seen = await recorder.stop();
       const facts = traceFacts(seen.trace);
+      console.log(
+        seen.trace
+          .split("\n")
+          .filter((l) => /connect\(/.test(l) && !/127\.0\.0\.1|::1\b|AF_UNIX/.test(l))
+          .map((l) => `CONNECT ${l.slice(0, 220)}`)
+          .join("\n"),
+      );
       record = seen.error
         ? `Ben's app could not be recorded: ${seen.error}`
         : `Ben's app (pid ${seen.pid}) recorded: ${facts.lines} lines, ${facts.binds} binds, ${facts.dhtMessages} DHT messages, ${facts.streamPackets} stream packets.`;
