@@ -677,4 +677,59 @@ describe("albumHeader line for a joined album", () => {
     joinActor.send(albumClosed.create());
     expect(draw(album)).not.toContain("You're now in");
   });
+
+  test("the joined line takes the place of You're now in", () => {
+    accept("f1");
+    const text = draw({ ...album, whoJoined: ["Cy"] });
+    expect(text).toContain("Cy joined this album.");
+    expect(text).not.toContain("You're now in");
+  });
+});
+
+describe("albumHeader when people joined", () => {
+  const draw = (album: Record<string, unknown>, foldersSettled = false) => {
+    const host = document.createElement("div");
+    const page = {
+      status: null,
+      folders: [album],
+      requests: [],
+      photos: [],
+      lastSync: Date.now(),
+      foldersSettled,
+    };
+    render(albumHeader(page as never, album as never), host);
+    return host;
+  };
+  const base = { id: "f1", name: "Trip", role: "member", members: 3 };
+  const sel = "[aria-label='Dismiss notice about Trip']";
+
+  test("a member reads one line naming each person who joined, with one Dismiss", () => {
+    const host = draw({ ...base, whoJoined: ["Cy", "Di"] }, true);
+    const lines = [...host.querySelectorAll("[role=status]")].map((e) => e.textContent?.trim());
+    expect(lines).toEqual(["Cy joined this album. Di joined this album."]);
+    expect(host.querySelectorAll(sel)).toHaveLength(1);
+  });
+
+  test("no line when nobody joined", () => {
+    expect(draw(base).textContent).not.toContain("joined this album");
+  });
+
+  test("Dismiss is off until the album list is settled", () => {
+    const album = { ...base, whoJoined: ["Cy"] };
+    expect(draw(album, false).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(true);
+    expect(draw(album, true).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(false);
+  });
+
+  test("Dismiss asks the folders machine to clear this album's line", () => {
+    const send = vi.spyOn(foldersActor, "send").mockImplementation(() => {});
+    draw({ ...base, whoJoined: ["Cy"] }, true)
+      .querySelector<HTMLButtonElement>(sel)
+      ?.click();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      type: "DISMISS_WHO_JOINED",
+      payload: { folderId: "f1", name: "Trip" },
+    });
+    send.mockRestore();
+  });
 });

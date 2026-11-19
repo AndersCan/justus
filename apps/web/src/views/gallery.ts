@@ -55,7 +55,7 @@ import {
 import { ownerShown } from "../utils/invite-link";
 import { joinActor, joinedNow } from "../machines/sharing/join-request";
 import { stillToDropLine } from "./still-to-drop";
-import { joinedNotice, whoLeftNotice } from "./notices";
+import { joinedNotice, whoJoinedNotice, whoLeftNotice } from "./notices";
 import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
@@ -867,12 +867,14 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
         </a>
       </div>
       ${watch(joinActor, (j) =>
-        joinedNow(j)?.folderId === album.id && album.notice === undefined
+        joinedNow(j)?.folderId === album.id &&
+        album.notice === undefined &&
+        !album.whoJoined?.length
           ? joinedNotice(album.name)
           : null,
       )}
-      ${whoLeftNotice(album, !page.foldersSettled)} ${slot}
-      ${album.notice === undefined && status ? stillToDropLine(status) : null}
+      ${whoJoinedNotice(album, !page.foldersSettled)} ${whoLeftNotice(album, !page.foldersSettled)}
+      ${slot} ${album.notice === undefined && status ? stillToDropLine(status) : null}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
       ${newPhotosLine(page.photos, album.id)} ${albumAddRow(page, album)}
     </div>

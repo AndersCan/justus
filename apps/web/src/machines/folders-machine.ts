@@ -31,6 +31,7 @@ export const FOLDERS_STATES = [
   "deletingAlbum",
   "dismissingDeletedNotice",
   "dismissingWhoLeft",
+  "dismissingWhoJoined",
   "couldNotLoadAlbums",
   "couldNotCreateAlbum",
   "couldNotOpenAlbum",
@@ -67,7 +68,8 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
       state === "stayingAdmin" ||
       state === "deletingAlbum" ||
       state === "dismissingDeletedNotice" ||
-      state === "dismissingWhoLeft",
+      state === "dismissingWhoLeft" ||
+      state === "dismissingWhoJoined",
     /** The albums are listed and nothing is in flight: fine, or the last action failed. */
     settled:
       state === "showingAlbums" ||
@@ -108,6 +110,8 @@ const deletingAlbum = state("deletingAlbum")();
 const dismissingDeletedNotice = state("dismissingDeletedNotice")();
 /** The line naming who left an album is being dismissed. */
 const dismissingWhoLeft = state("dismissingWhoLeft")();
+/** The line naming who joined an album is being dismissed. */
+const dismissingWhoJoined = state("dismissingWhoJoined")();
 /** The albums could not be loaded; the person can try again. */
 const couldNotLoadAlbums = state("couldNotLoadAlbums")();
 
@@ -149,6 +153,8 @@ const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();
 const dismissDeletedNotice = event("DISMISS_DELETED_NOTICE")<AlbumTarget>();
 /** The Admin dismissed the line naming who left an album. */
 const dismissWhoLeft = event("DISMISS_WHO_LEFT")<AlbumTarget>();
+/** A member dismissed the line naming who joined an album. */
+const dismissWhoJoined = event("DISMISS_WHO_JOINED")<AlbumTarget>();
 /** The person dismisses the line saying they left an album. */
 const dismissYouLeft = event("DISMISS_YOU_LEFT")();
 /** Archiving, restoring, leaving, deleting or dismissing did not work. */
@@ -190,7 +196,8 @@ type AlbumChange =
   | "leave"
   | "delete"
   | "dismiss"
-  | "dismissWhoLeft";
+  | "dismissWhoLeft"
+  | "dismissWhoJoined";
 
 type FoldersContext = {
   /** The name others see; the backend holds it, so status and onboarding report it here. */
@@ -228,6 +235,7 @@ type FoldersPort = Pick<
   | "deleteAlbum"
   | "dismissAlbumNotice"
   | "dismissWhoLeft"
+  | "dismissWhoJoined"
 >;
 
 /** The states where the album list is shown and the person can act on it. */
@@ -256,6 +264,7 @@ const changeStates = [
   ["delete", deletingAlbum, deleteAlbum],
   ["dismiss", dismissingDeletedNotice, dismissDeletedNotice],
   ["dismissWhoLeft", dismissingWhoLeft, dismissWhoLeft],
+  ["dismissWhoJoined", dismissingWhoJoined, dismissWhoJoined],
 ] as const;
 
 type ChangeKind = (typeof changeStates)[number][0];
@@ -304,6 +313,7 @@ function runChange(
     delete: port.deleteAlbum,
     dismiss: port.dismissAlbumNotice,
     dismissWhoLeft: port.dismissWhoLeft,
+    dismissWhoJoined: port.dismissWhoJoined,
   };
   let refused = false;
   const fail = (message: string) => emit(albumChangeFailed.create({ message, refused }));
@@ -366,6 +376,7 @@ export const foldersMachine = machine("folders", {
         deleteAlbum,
         dismissDeletedNotice,
         dismissWhoLeft,
+        dismissWhoJoined,
         dismissYouLeft,
       ],
       internal: [
@@ -395,6 +406,7 @@ export const foldersMachine = machine("folders", {
         deletingAlbum,
         dismissingDeletedNotice,
         dismissingWhoLeft,
+        dismissingWhoJoined,
         couldNotLoadAlbums,
         couldNotCreateAlbum,
         couldNotOpenAlbum,
@@ -840,6 +852,20 @@ export const foldersMachine = machine("folders", {
           sends: [loaded, albumChangeFailed],
           fn: (args) => runChange(port, args),
         });
+        for (const at of settledStates) {
+          /** A member dismisses the line naming who joined; the screen shows it is busy. */
+          m.on(at, {
+            event: dismissWhoJoined,
+            to: [dismissingWhoJoined],
+            handler: startChange("dismissWhoJoined", dismissingWhoJoined),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(dismissingWhoJoined, {
+          name: "dismissingWhoJoined",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
         for (const [, inFlight] of changeStates) {
           /** The change is done and the lists are current. */
           m.on(inFlight, {
@@ -941,4 +967,6 @@ export const folders = {
     foldersActor.send(dismissDeletedNotice.create({ folderId, name })),
   dismissWhoLeft: (folderId: string, name: string) =>
     foldersActor.send(dismissWhoLeft.create({ folderId, name })),
+  dismissWhoJoined: (folderId: string, name: string) =>
+    foldersActor.send(dismissWhoJoined.create({ folderId, name })),
 };

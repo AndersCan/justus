@@ -430,6 +430,7 @@ describe("album lifecycle in the folders machine", () => {
       deleteAlbum: ok(),
       dismissAlbumNotice: ok(),
       dismissWhoLeft: ok(),
+      dismissWhoJoined: ok(),
       ...port,
     };
     const actor = foldersMachine.create({ gateway: gw as any });
@@ -462,6 +463,7 @@ describe("album lifecycle in the folders machine", () => {
     ["DELETE_ALBUM", "deletingAlbum", "deleteAlbum"],
     ["DISMISS_DELETED_NOTICE", "dismissingDeletedNotice", "dismissAlbumNotice"],
     ["DISMISS_WHO_LEFT", "dismissingWhoLeft", "dismissWhoLeft"],
+    ["DISMISS_WHO_JOINED", "dismissingWhoJoined", "dismissWhoJoined"],
   ] as const)("%s is busy in %s and calls %s", async (type, busy, call) => {
     const { actor, gw } = await loaded();
     send(actor, type, trip);
