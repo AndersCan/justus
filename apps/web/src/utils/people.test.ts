@@ -5,7 +5,7 @@ import type { RequestRow } from "./people";
 import {
   buildPeople,
   clashFriend,
-  presenceLabel,
+  presenceWords,
   nameList,
   requestRowOf,
   requestsHint,
@@ -57,11 +57,11 @@ describe("buildPeople viewers", () => {
         { key: "c", name: "Ana", admin: false, connected: false },
       ],
     } as SyncStatus;
-    const [, nils, vera, ana] = buildPeople(s, [], {}, NOW).people;
+    const [, nils, vera, ana] = buildPeople(s, [], {}, { now: NOW }).people;
     expect(nils.viewer).toBe(true);
     expect(nils.presence).toBe("connected");
     expect(vera.viewer).toBe(true);
-    expect(vera.presence).toMatch(/^last seen/);
+    expect(vera.presence).toMatch(/^Phone off, last seen/);
     expect(ana.viewer).toBe(false);
     expect(ana.presence).toBe("hasn't connected yet");
   });
@@ -79,7 +79,7 @@ describe("buildPeople friends", () => {
     }) as SyncStatus;
 
   it("shows the friend name, keeps the own name, and marks the row", () => {
-    const p = buildPeople(withIdentity(), [], { "i-maya": "Mum" }, NOW).people;
+    const p = buildPeople(withIdentity(), [], { "i-maya": "Mum" }, { now: NOW }).people;
     expect(p.find((x) => x.key === "a")).toMatchObject({
       name: "Mum",
       ownName: "Maya",
@@ -93,47 +93,43 @@ describe("buildPeople friends", () => {
     other.folder = { id: "f2", role: "member" } as SyncStatus["folder"];
     other.members[1] = { ...other.members[1]!, key: "different-drive" };
     const friends = { "i-maya": "Mum" };
-    const first = buildPeople(withIdentity(), [], friends, NOW).people;
-    const second = buildPeople(other, [], friends, NOW).people;
+    const first = buildPeople(withIdentity(), [], friends, { now: NOW }).people;
+    const second = buildPeople(other, [], friends, { now: NOW }).people;
     expect(second.find((x) => x.admin)?.name).toBe("Mum");
     expect(first.find((x) => x.admin)?.name).toBe("Mum");
   });
 
   it("never makes you a friend or tappable", () => {
-    const p = buildPeople(withIdentity(), [], { "i-me": "Me" }, NOW).people;
+    const p = buildPeople(withIdentity(), [], { "i-me": "Me" }, { now: NOW }).people;
     expect(p[0]).toMatchObject({ you: true, name: "Nils", friend: false, tappable: false });
   });
 
   it("does not make a member without an identity tappable", () => {
-    const alex = buildPeople(withIdentity(), [], {}, NOW).people.find((x) => x.key === "b");
+    const alex = buildPeople(withIdentity(), [], {}, { now: NOW }).people.find(
+      (x) => x.key === "b",
+    );
     expect(alex).toMatchObject({ tappable: false, friend: false });
   });
 });
 
 describe("buildPeople", () => {
-  it("counts connected members and writes the chip text", () => {
-    const p = buildPeople(status("member"), [], {}, NOW);
-    expect(p.chip).toBe("1 of 2 connected");
-    expect(p.connectedCount).toBe(2);
-  });
-
   it("lists you first, then the Admin, with presence wording", () => {
-    const p = buildPeople(status("member"), [], {}, NOW);
+    const p = buildPeople(status("member"), [], {}, { now: NOW });
     expect(p.people.map((x) => x.name)).toEqual(["Nils", "Maya", "Alex"]);
     expect(p.people[0].presence).toBe("");
-    expect(p.people[1].presence).toBe("last seen 2 hr ago");
+    expect(p.people[1].presence).toBe("Phone off, last seen 2 hr ago");
     expect(p.people[2].presence).toBe("connected");
   });
 
   it("shows pending requests for this album to the Admin only", () => {
     const reqs = [request("f1"), request("other")];
-    expect(buildPeople(status("creator"), reqs, {}, NOW).requests).toHaveLength(1);
-    expect(buildPeople(status("member"), reqs, {}, NOW).requests).toHaveLength(0);
+    expect(buildPeople(status("creator"), reqs, {}, { now: NOW }).requests).toHaveLength(1);
+    expect(buildPeople(status("member"), reqs, {}, { now: NOW }).requests).toHaveLength(0);
   });
 
   it("names a request by your friend name when its identity is saved", () => {
     const reqs = [{ ...request("f1"), requesterName: "Ben", requesterIdentity: "id-ben" }];
-    const [r] = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, NOW).requests;
+    const [r] = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, { now: NOW }).requests;
     expect(r).toMatchObject({ name: "Dad", friend: true, requesterName: "Ben" });
   });
 
@@ -142,7 +138,7 @@ describe("buildPeople", () => {
       { ...request("f1"), requesterName: "Ben", requesterIdentity: "id-x" },
       { ...request("f1"), requesterName: "Zoe" },
     ];
-    const rows = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, NOW).requests;
+    const rows = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, { now: NOW }).requests;
     expect(rows.map((r) => [r.name, r.friend])).toEqual([
       ["Ben", false],
       ["Zoe", false],
@@ -150,14 +146,33 @@ describe("buildPeople", () => {
   });
 
   it("handles no status", () => {
-    expect(buildPeople(null, [], {}, NOW).chip).toBe("Just you");
+    expect(buildPeople(null, [], {}, { now: NOW }).people).toEqual([]);
   });
 });
 
-describe("presenceLabel", () => {
+describe("presenceWords", () => {
+  const at = (ago: number) => ({ connected: false, lastSeenAt: NOW - ago });
   it("never says online", () => {
-    expect(presenceLabel({ connected: true })).toBe("connected");
-    expect(presenceLabel({ connected: false })).toBe("hasn't connected yet");
+    expect(presenceWords({ connected: true }, { now: NOW })).toBe("connected");
+    expect(presenceWords({ connected: false }, { now: NOW })).toBe("hasn't connected yet");
+  });
+  it("says connected for a gap under 30 s and Phone off from 30 s", () => {
+    expect(presenceWords(at(29_999), { now: NOW })).toBe("connected");
+    expect(presenceWords(at(30_000), { now: NOW })).toBe("Phone off, last seen just now");
+  });
+  it("prints the row line for an off friend and not for a connected one", () => {
+    const [you, maya, alex] = buildPeople(status("member"), [], {}, { now: NOW }).people;
+    expect([you!.showPresence, maya!.showPresence, alex!.showPresence]).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect([maya!.connected, alex!.connected]).toEqual([false, true]);
+  });
+  it("a friend lost 10 s ago still counts as connected", () => {
+    const s = status("member");
+    s.members[1] = { ...s.members[1]!, lastSeenAt: NOW - 10_000 };
+    expect(buildPeople(s, [], {}, { now: NOW }).people[1]!.connected).toBe(true);
   });
 });
 
@@ -207,7 +222,7 @@ describe("buildPeople name clash", () => {
       admin(),
       [ask("r1", "Ben", "id-ben"), ask("r2", " dad ", "id-x"), ask("r3", "DAD")],
       friends,
-      NOW,
+      { now: NOW },
     ).requests;
     expect(rows.find((r) => r.requesterKey === "r1")).not.toHaveProperty("clash");
     expect(rows.find((r) => r.requesterKey === "r2")).toMatchObject({
@@ -222,13 +237,13 @@ describe("buildPeople name clash", () => {
       admin(),
       [ask("r1", "Ben", "id-ben")],
       { "id-ben": "Dad", z: "Ben" },
-      NOW,
+      { now: NOW },
     ).requests;
     expect(rows[0]).not.toHaveProperty("clash");
   });
 
   it("marks members that are not you or a friend", () => {
-    const p = buildPeople(admin(), [], friends, NOW).people;
+    const p = buildPeople(admin(), [], friends, { now: NOW }).people;
     const by = (k: string) => p.find((x) => x.key === k)!;
     expect(by("m2").clash).toBe("Dad");
     expect(by("m3").clash).toBe("Dad");
@@ -237,7 +252,7 @@ describe("buildPeople name clash", () => {
   });
 
   it("marks nobody without friends", () => {
-    const vm = buildPeople(admin(), [ask("r2", "dad", "id-x")], {}, NOW);
+    const vm = buildPeople(admin(), [ask("r2", "dad", "id-x")], {}, { now: NOW });
     expect(vm.requests.some((r) => "clash" in r)).toBe(false);
     expect(vm.people.some((x) => "clash" in x)).toBe(false);
   });
@@ -325,7 +340,7 @@ describe("person role", () => {
       } as SyncStatus,
       [],
       {},
-      NOW,
+      { now: NOW },
     ).people;
 
   it("own row role follows the album", () => {
@@ -375,24 +390,31 @@ describe("same name", () => {
     requesterIdentity: "i2",
     ...over,
   });
-  const threeDays = copy("people.last_seen", { when: copy("time.ago", { days: 3 }) });
+  const threeDays = copy("people.phone_off_last_seen", {
+    when: copy("people.last_seen", { when: copy("time.ago", { days: 3 }) }),
+  });
   const old = NOW - 3 * 86_400_000;
 
   it("flags both rows with the same name, not other rows", () => {
-    const vm = buildPeople(withBens(ben("k1", "i1", old), ben("k3", "i3", old)), [], {}, NOW);
+    const vm = buildPeople(
+      withBens(ben("k1", "i1", old), ben("k3", "i3", old)),
+      [],
+      {},
+      { now: NOW },
+    );
     expect(vm.people.map((p) => p.sameName === true)).toEqual([false, false, true, true]);
   });
 
   it("ignores case and spacing, and a lone name is unflagged", () => {
     const s = withBens(ben("k1", "i1", old));
     const m = [...s.members, { key: "k9", name: " ben ", admin: false, connected: true }];
-    const vm = buildPeople({ ...s, members: m } as SyncStatus, [], {}, NOW);
+    const vm = buildPeople({ ...s, members: m } as SyncStatus, [], {}, { now: NOW });
     expect(vm.people.filter((p) => p.sameName).length).toBe(2);
-    expect(buildPeople(s, [], {}, NOW).people.some((p) => p.sameName)).toBe(false);
+    expect(buildPeople(s, [], {}, { now: NOW }).people.some((p) => p.sameName)).toBe(false);
   });
 
   it("the request carries the presence of the Ben already in", () => {
-    const vm = buildPeople(withBens(ben("k1", "i1", old)), [ask({})], {}, NOW);
+    const vm = buildPeople(withBens(ben("k1", "i1", old)), [ask({})], {}, { now: NOW });
     expect(vm.requests[0]!.sameNameIn).toBe(threeDays);
   });
 
@@ -401,43 +423,47 @@ describe("same name", () => {
       withBens(ben("k1", "i1", old), ben("k3", "i3", NOW - 86_400_000 * 1)),
       [ask({ requesterName: " ben" })],
       {},
-      NOW,
+      { now: NOW },
     );
     expect(vm.requests[0]!.sameNameIn).toBe(
-      copy("people.last_seen", { when: copy("time.ago", { days: 1 }) }),
+      copy("people.phone_off_last_seen", {
+        when: copy("people.last_seen", { when: copy("time.ago", { days: 1 }) }),
+      }),
     );
     const live = buildPeople(
       withBens(ben("k1", "i1", old), ben("k3", "i3", undefined, true)),
       [ask({})],
       {},
-      NOW,
+      { now: NOW },
     );
     expect(live.requests[0]!.sameNameIn).toBe(copy("people.connected"));
   });
 
   it("the most recent match wins wherever it sits in the list", () => {
-    const day = copy("people.last_seen", { when: copy("time.ago", { days: 1 }) });
+    const day = copy("people.phone_off_last_seen", {
+      when: copy("people.last_seen", { when: copy("time.ago", { days: 1 }) }),
+    });
     const recentFirst = withBens(ben("k3", "i3", NOW - 86_400_000), ben("k1", "i1", old));
-    expect(buildPeople(recentFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(day);
+    expect(buildPeople(recentFirst, [ask({})], {}, { now: NOW }).requests[0]!.sameNameIn).toBe(day);
     const liveFirst = withBens(ben("k3", "i3", undefined, true), ben("k1", "i1", old));
-    expect(buildPeople(liveFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(
+    expect(buildPeople(liveFirst, [ask({})], {}, { now: NOW }).requests[0]!.sameNameIn).toBe(
       copy("people.connected"),
     );
   });
 
   it("matches the shown names: a saved friend name counts, the typed name under it does not", () => {
     const savedAsBen = withBens({ ...ben("k1", "i1", old), name: "Benjamin" });
-    expect(buildPeople(savedAsBen, [ask({})], { i1: "Ben" }, NOW).requests[0]!.sameNameIn).toBe(
-      threeDays,
-    );
+    expect(
+      buildPeople(savedAsBen, [ask({})], { i1: "Ben" }, { now: NOW }).requests[0]!.sameNameIn,
+    ).toBe(threeDays);
     const askerSaved = withBens(ben("k1", "i1", old));
-    const row = buildPeople(askerSaved, [ask({})], { i2: "Benjamin" }, NOW).requests[0]!;
+    const row = buildPeople(askerSaved, [ask({})], { i2: "Benjamin" }, { now: NOW }).requests[0]!;
     expect(row.sameNameIn).toBeUndefined();
   });
 
   it("has no line for the same phone, the same key, another name or an empty name", () => {
     const s = withBens(ben("k1", "i1", old));
-    const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
+    const some = (r: JoinRequest) => buildPeople(s, [r], {}, { now: NOW }).requests[0]!.sameNameIn;
     expect(some(ask({ requesterIdentity: "i1" }))).toBeUndefined();
     expect(some(ask({ requesterKey: "k1" }))).toBeUndefined();
     expect(some(ask({ requesterName: "Dee" }))).toBeUndefined();
@@ -447,7 +473,7 @@ describe("same name", () => {
   it("without an identity on either side the key decides", () => {
     const { identity: _identity, ...noId } = ben("k1", "i1", old);
     const s = withBens(noId as ReturnType<typeof ben>);
-    const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
+    const some = (r: JoinRequest) => buildPeople(s, [r], {}, { now: NOW }).requests[0]!.sameNameIn;
     expect(some(ask({ requesterIdentity: undefined }))).toBe(threeDays);
     expect(some(ask({ requesterIdentity: undefined, requesterKey: "k1" }))).toBeUndefined();
   });
@@ -459,13 +485,13 @@ describe("same name", () => {
       { ...s, members: [own, ben("k1", "i1", old)] } as SyncStatus,
       [],
       {},
-      NOW,
+      { now: NOW },
     );
     expect(vm.people.map((p) => p.sameName === true)).toEqual([true, true]);
   });
 
   it("the own row never matches", () => {
-    const vm = buildPeople(status("creator"), [ask({ requesterName: "Nils" })], {}, NOW);
+    const vm = buildPeople(status("creator"), [ask({ requesterName: "Nils" })], {}, { now: NOW });
     expect(vm.requests[0]!.sameNameIn).toBeUndefined();
   });
 });

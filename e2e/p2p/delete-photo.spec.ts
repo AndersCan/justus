@@ -363,11 +363,11 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
   let aToasts;
   const resumeBen = await pausePhone(instances[1]);
   try {
-    // 90 s: Ada's phone drops a gone peer when its connection times out, 24-34 s.
+    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ben off · Ada's phone: still connected",
-    ).toHaveCount(0, { timeout: 90_000 });
+    ).toHaveCount(0, { timeout: 120_000 });
 
     await view(GONE).click();
     await a.getByRole("button", { name: words("lightbox.more_options") }).click();
@@ -575,11 +575,11 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   let bToasts;
   const resumeAda = await pausePhone(instances[0]);
   try {
-    // 90 s: Ben's phone drops a gone peer when its connection times out, 24-34 s.
+    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
     await expect(
       b.getByText(words("gallery.connected_now", { connected: 1 })),
       "Ada off · Ben's phone: still connected",
-    ).toHaveCount(0, { timeout: 90_000 });
+    ).toHaveCount(0, { timeout: 120_000 });
 
     await viewB(GONE).click();
     await b.getByRole("button", { name: words("lightbox.more_options") }).click();

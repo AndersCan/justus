@@ -1,6 +1,7 @@
 import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
+import type { PresenceClock } from "../utils/presence";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { requests } from "./requests-machine";
 import type { JoinRequest, SyncStatus } from "@justus/core";
@@ -124,11 +125,16 @@ function isOfferGone(err: unknown) {
  * saved friend names. */
 export function peopleViewModel(
   s: Snapshot<PeopleContext>,
-  deps: { status: SyncStatus | null; requests: JoinRequest[]; friends: Record<string, string> },
+  deps: {
+    status: SyncStatus | null;
+    requests: JoinRequest[];
+    friends: Record<string, string>;
+    presence: PresenceClock;
+  },
 ) {
   const state = nameOf(s);
   return {
-    ...buildPeople(deps.status, deps.requests, deps.friends),
+    ...buildPeople(deps.status, deps.requests, deps.friends, deps.presence),
     open: state !== "peopleSheetClosed",
     busy:
       state === "removingMember" ||

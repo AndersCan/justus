@@ -55,8 +55,8 @@ function escaped(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The words for a Ben who was connected and is gone: "last seen …". */
-const NOT_CONNECTED = `(?:${escaped(words("people.last_seen", { when: "§" }).split("§")[0])}.+)`;
+/** The words for a Ben who was connected and is gone: "Phone off, last seen …". */
+const NOT_CONNECTED = `(?:${escaped(words("people.phone_off_last_seen", { when: words("people.last_seen", { when: "§" }) }).split("§")[0])}.+)`;
 
 /** A regex for `id`'s text with the not-connected words in place of the presence placeholder. */
 function withNotConnected(id, params) {
@@ -119,11 +119,11 @@ test("a reinstalled Ben's request says a Ben is already in, and Members and the 
 
     // The old phone is gone.
     await pausePhone(instances[1]);
-    // 90 s: Ada's phone drops a gone peer when its connection times out, about 33 s.
+    // 120 s: a frozen phone's connection times out in about 33 s, then the off rule waits 30 s and the clock moves every 15 s.
     await expect(
       a.getByText(words("gallery.connected_now", { connected: 1 })),
       "old Ben off · Ada's phone: not connected to him",
-    ).toHaveCount(0, { timeout: 90_000 });
+    ).toHaveCount(0, { timeout: 120_000 });
 
     // The new Ben asks with the same link.
     await askToJoin(c, link, album);

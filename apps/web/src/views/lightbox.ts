@@ -20,6 +20,8 @@ import { foldersActor } from "../machines/folders-machine";
 import { canRemove, roleFor, whyNoDelete } from "../utils/can-remove";
 import { toast } from "./toast";
 import { deleteDetail, deletedMessage } from "../utils/holders";
+import { presenceClockActor } from "../machines/presence-clock-machine";
+import type { PresenceClock } from "../utils/presence";
 import { buildPeople } from "../utils/people";
 import { friendsActor } from "../machines/friends-machine";
 import { syncActor } from "../machines/sync-machine";
@@ -98,13 +100,21 @@ if (typeof document !== "undefined") {
 }
 
 /** Everyone in the album the photo is in, when it is the open one; none otherwise. */
-function peopleIn(status: SyncStatus | null | undefined, folderId: string | undefined) {
+function peopleIn(
+  status: SyncStatus | null | undefined,
+  folderId: string | undefined,
+  clock: PresenceClock,
+) {
   if (!status || status.folder.id !== folderId) return [];
-  return buildPeople(status, [], friendsActor.snapshot().context.friends).people;
+  return buildPeople(status, [], friendsActor.snapshot().context.friends, clock).people;
 }
 
 function albumPeople(folderId: string | undefined) {
-  return peopleIn(syncActor.snapshot().context.status, folderId);
+  return peopleIn(
+    syncActor.snapshot().context.status,
+    folderId,
+    presenceClockActor.snapshot().context,
+  );
 }
 
 function albumOthers(folderId: string | undefined) {
@@ -282,9 +292,11 @@ export function lightboxView() {
   return watch(lightboxActor, (s) => {
     const photo = s.context.photo;
     if (!photo) return null;
-    return watch(syncActor, (sync) => {
-      const people = peopleIn(sync.context.status, photo.folderId);
-      return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone")}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
-    });
+    return watch(syncActor, (sync) =>
+      watch(presenceClockActor, (pc) => {
+        const people = peopleIn(sync.context.status, photo.folderId, pc.context);
+        return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone")}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+      }),
+    );
   });
 }

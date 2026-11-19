@@ -1939,9 +1939,27 @@ describe("album member status", () => {
     const after = ul.nextElementSibling!;
     expect(after.tagName).toBe("P");
     expect(after.textContent?.trim()).toBe(
-      "Connected means they have Justus open and your phone can reach them right now.",
+      "Connected means they have Justus open and your phone can reach them right now. Phone off means your phone can't reach theirs: it may be switched off, offline or have Justus closed.",
     );
     expect(section.textContent).not.toContain("Viewers see every photo");
+  });
+
+  test("a friend whose phone is off reads Phone off, last seen on the row; a connected one has no line", async () => {
+    const offStatus = {
+      ...status,
+      members: status.members.map((m) =>
+        m.key === "k2" ? { ...m, lastSeenAt: Date.now() - 2 * 3_600_000 } : m,
+      ),
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: offStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const [, kim, zed] = memberRows(host);
+    expect(kim!.querySelector("[data-member-presence]")).toBeNull();
+    const line = zed!.querySelector("[data-member-presence]")!.textContent?.trim();
+    expect(line).toBe("Phone off, last seen 2 hr ago");
+    expect(zed!.querySelector('[aria-label="' + line + '"]')).not.toBeNull();
   });
 
   test("repro 662: own row line is the role part only, with and without photos", async () => {

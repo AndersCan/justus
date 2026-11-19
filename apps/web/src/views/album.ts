@@ -10,6 +10,7 @@ import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
+import { presenceClockActor } from "../machines/presence-clock-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
   allAcceptedAsViewers,
@@ -457,7 +458,7 @@ function memberRow(
         ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${memberLine(p.role)}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.sameName && !p.you ? html`<p class="truncate text-xs text-muted">${p.presence}</p>` : null}
+      ${memberLine(p.role)}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.showPresence ? html`<p class="text-xs text-muted" data-member-presence>${p.presence}</p>` : null}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -1015,15 +1016,18 @@ export function albumView(id: string) {
   return watch(peopleActor, (ps) =>
     watch(syncActor, (ss) =>
       watch(requestsActor, (rs) =>
-        watch(friendsActor, (fs) => {
-          const syncVm = syncViewModel(ss);
-          const vm = peopleViewModel(ps, {
-            status: syncVm.status,
-            requests: rs.context.requests,
-            friends: fs.context.friends,
-          });
-          return albumBody(id, vm, syncVm, fs.context.friends, requestsViewModel(rs));
-        }),
+        watch(friendsActor, (fs) =>
+          watch(presenceClockActor, (pc) => {
+            const syncVm = syncViewModel(ss);
+            const vm = peopleViewModel(ps, {
+              status: syncVm.status,
+              requests: rs.context.requests,
+              friends: fs.context.friends,
+              presence: pc.context,
+            });
+            return albumBody(id, vm, syncVm, fs.context.friends, requestsViewModel(rs));
+          }),
+        ),
       ),
     ),
   );

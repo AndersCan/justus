@@ -18,7 +18,7 @@ const status = (otherConnected: boolean) =>
 
 const draw = (s: never, connectingTo: string | undefined) => {
   const host = document.createElement("div");
-  render(presenceStrip(s, null, connectingTo), host);
+  render(presenceStrip(s, null, connectingTo, { now: Date.now() }), host);
   const label = host.querySelector("span.inline-flex");
   return { text: label?.textContent?.replace(/\s+/g, " ").trim(), html: label?.innerHTML ?? "" };
 };
