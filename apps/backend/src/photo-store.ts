@@ -76,6 +76,7 @@ import {
   readViewers,
   openAlbum,
   pendingJoinRequests,
+  linkTurnsAway,
   acceptJoinRequest,
   readJoinRequests,
   writeJoinRequest,
@@ -116,8 +117,8 @@ import {
   DRIVE_FIELD_BOX,
   boxKeyOf,
   sealedAskBytes,
+  parseSealedAsk,
   validLinkEnd,
-  inLinkTime,
   isLinkOffWhy,
   type EarlierEntry,
   type LinkTime,
@@ -255,6 +256,7 @@ export const PhotoError = {
   ALBUM_NOT_CHANGED: "justus.photos/album-not-changed",
   ADMIN_CANNOT_LEAVE: "justus.photos/admin-cannot-leave",
   INVALID_LINK_TIME: "justus.photos/invalid-link-time",
+  LINK_NOT_FOUND: "justus.photos/link-not-found",
   REQUEST_CANCELLED: "justus.photos/request-cancelled",
   HANDOVER_REFUSED: "justus.photos/handover-refused",
   HANDOVER_MOVE_OPEN: "justus.photos/handover-move-open",
@@ -572,6 +574,8 @@ export interface PhotoStore {
   ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
   /** Admin only: remembers when a link just made stops working; asks sent outside every link's time are turned away. */
   saveInviteLink(folderId: string, expiresAt: number): Promise<EitherResult<{ ok: boolean }>>;
+  /** Admin only: the album's link that ends at `endsAt` stops working now. Asks made with it are turned away and their askers told "ended"; its waiting requests leave the list. Other links and people already in are untouched. Ending an ended link changes nothing. */
+  endInviteLink(folderId: string, endsAt: number): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. `role` is what the friend becomes when they tap Join; defaults to Collaborator (`member`). */
   offerAlbum(
     folderId: string,
@@ -1000,9 +1004,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               Number.isFinite(l.to) &&
               l.from <= l.to
                 ? [
-                    typeof l.by === "string"
-                      ? { from: l.from, to: l.to, by: peerName(l.by, DEFAULT_ASK_OWNER) }
-                      : { from: l.from, to: l.to },
+                    {
+                      from: l.from,
+                      to: l.to,
+                      ...(typeof l.by === "string"
+                        ? { by: peerName(l.by, DEFAULT_ASK_OWNER) }
+                        : {}),
+                      ...(typeof l.ended === "number" && Number.isFinite(l.ended)
+                        ? { ended: l.ended }
+                        : {}),
+                    },
                   ]
                 : [],
             )
@@ -5164,6 +5175,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return out;
   }
 
+  /** Adds the link end each ask's seal carries, for asks through the current code of an album
+   * this phone is Admin of. Asks whose seal does not open keep none. */
+  async function withLinkEnds(text: string, asked: AskedCode[]): Promise<AskedCode[]> {
+    const current = new Set(
+      [...runtimes.values()].flatMap((rt) =>
+        rt.record.role === "creator" && rt.record.invite ? [rt.record.invite.code] : [],
+      ),
+    );
+    if (!asked.some((a) => current.has(a.code))) return asked;
+    const entries = Object.values(parseRequestsFile(text)?.requests ?? {}) as unknown[];
+    const out: AskedCode[] = [];
+    for (const a of asked) {
+      const raw = entries.find(
+        (e) => isTextJSON(e) && e.invite === a.code && e.requestedAt === a.requestedAt,
+      );
+      const sealedKey = isTextJSON(raw) ? raw.sealedKey : undefined;
+      if (!current.has(a.code) || typeof sealedKey !== "string") {
+        out.push(a);
+        continue;
+      }
+      const [openErr, bytes] = await deps.drives.openSealed(sealedKey);
+      const sealed = openErr ? undefined : parseSealedAsk(bytes);
+      out.push(
+        sealed?.invite === a.code && sealed.linkEnd !== undefined
+          ? { ...a, linkEnd: sealed.linkEnd }
+          : a,
+      );
+    }
+    return out;
+  }
+
   /** The codes `identity` asked through, read from its outbox; only when some
    * album here has turned a link off. */
   async function askedThrough(identity: string): Promise<AskedCode[]> {
@@ -5181,7 +5223,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         5_000,
       );
       if (!text) return [];
-      return await withOpens(text, invitesAsked(text));
+      return await withLinkEnds(text, await withOpens(text, invitesAsked(text)));
     } catch (thrown: unknown) {
       log("error", { where: "answer.asked", err: errMsg(thrown) });
       return [];
@@ -6876,11 +6918,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         for (const f of found) {
           const key = `${f.identity}:${f.request.requestedAt}`;
           if (
-            f.viaInvite &&
-            !f.held &&
             !lateAskPushed.has(key) &&
-            !rt.record.invited?.includes(f.identity) &&
-            !inLinkTime(rt.record.invite?.links, f.request.requestedAt)
+            linkTurnsAway(f, {
+              invited: new Set(rt.record.invited),
+              linkTimes: rt.record.invite?.links,
+            }) !== undefined
           ) {
             lateAskPushed.add(key);
             void deliverAnswers(f.identity).catch(answerErr("deliver"));
@@ -7103,6 +7145,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted?.invite) persisted.invite = { ...persisted.invite, links };
       saveState();
+      return ok({ ok: true });
+    },
+
+    async endInviteLink(folderId, endsAt) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator" || !rt.record.invite)
+        return err(PhotoError.NOT_CREATOR, "Only the creator can end invite links");
+      if (rt.record.handover?.written)
+        return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
+      if (!Number.isSafeInteger(endsAt))
+        return err(PhotoError.INVALID_LINK_TIME, "Link end time must be a whole number");
+      const known = rt.record.invite.links ?? [];
+      const link = known.find((l) => l.to === endsAt);
+      if (!link) return err(PhotoError.LINK_NOT_FOUND, "No link of this album ends then");
+      if (link.ended !== undefined) return ok({ ok: true });
+      const links = known.map((l) => (l === link ? { ...l, ended: Date.now() } : l));
+      rt.record.invite = { ...rt.record.invite, links };
+      const persisted = state.folders.find((f) => f.id === folderId);
+      if (persisted?.invite) persisted.invite = { ...persisted.invite, links };
+      saveState();
+      deps.onChanged({ cause: "request", folderId });
+      for (const id of connectedIdentities()) void deliverAnswers(id).catch(answerErr("deliver"));
       return ok({ ok: true });
     },
 
@@ -7694,6 +7760,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     respond: refuse,
     turnOffInvite: refuse,
     saveInviteLink: refuse,
+    endInviteLink: refuse,
     offerAlbum: refuse,
     takeBackOffer: refuse,
     joinOffer: refuse,

@@ -19,6 +19,7 @@ checks this.
 - **The Admin's phone tells a waiting asker the album's name and its own** (new `received` answer on the answer channel). Who: nobody beyond the entry above; v0.4.0 phones are already refused. Do: nothing.
 - **A waiting request forgets the names its link carried** (saved asks keep only names the Admin's phone sent; `photos.ask` takes no names). Who: testers with a request waiting from before this update: its row shows no album name until the Admin's phone is next connected. Do: nothing.
 - **Handed-over links.** A request made with a link whose Admin handed the album on is answered by the new Admin only on this version (new `handedOver` answer to an asker; an ask made while the Admin's sealing key cannot be read files a placeholder `/requests.json` entry with no `sealedKey`, which older Admins drop). An older phone that asked keeps waiting; an updated phone seals its saved ask again for the new Admin, so it needs no new ask. Who: mixed-version groups. Do: everyone updates.
+- **An Admin can end one link** (links in the saved album and in a handover package gain `ended`; new `ended` answer to an asker; an ask whose link end matches none of the Admin's links is turned away, not listed). Who: testers on a protocol-5 build from before this change: a handover to or from their phone drops `ended`, so an ended link works again for the new Admin; and anyone who edited a link's `e=` is turned away. Do: update Justus.
 
 ## Protocol 4 (v0.4.0)
 

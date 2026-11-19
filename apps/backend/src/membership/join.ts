@@ -8,7 +8,7 @@ import type { JoinRequest } from "@justus/core";
 import {
   isHexKey,
   CLOCK_SLACK_MS,
-  inLinkTime,
+  askLinkState,
   isTextJSON,
   parseFolderName,
   parseJoinRequests,
@@ -364,6 +364,17 @@ function linkOf(
   return w ? { madeAt: w.from, endsAt: w.to } : undefined;
 }
 
+/** Why the album's links turn this request away, or undefined when they let it through.
+ * Friend invites and held asks are never turned away. */
+export function linkTurnsAway(
+  f: FoundJoinRequest,
+  options: { invited?: ReadonlySet<string>; linkTimes?: readonly LinkTime[] },
+): "ended" | "expired" | undefined {
+  if (!f.viaInvite || f.held || options.invited?.has(f.identity)) return undefined;
+  const state = askLinkState(options.linkTimes, { at: f.request.requestedAt, linkEnd: f.linkEnd });
+  return state === "works" ? undefined : state;
+}
+
 /** The requests still waiting on the Admin: not enrolled, not denied, and not
  * an invite request that already has an answer. */
 export function pendingJoinRequests(
@@ -392,8 +403,7 @@ export function pendingJoinRequests(
     .filter((f) => {
       const key = f.request.requesterKey;
       if (options.invited?.has(f.identity)) return false;
-      if (f.viaInvite && !f.held && !inLinkTime(options.linkTimes, f.request.requestedAt))
-        return false;
+      if (linkTurnsAway(f, options) !== undefined) return false;
       if (enrolled.has(key)) return false;
       if (options.viewers?.has(key)) return false;
       if (options.denied.has(key)) return false;

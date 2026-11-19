@@ -18,7 +18,13 @@ export function changeCause(header: unknown): string | undefined {
   return typeof args?.cause === "string" ? args.cause : undefined;
 }
 
-const linkOffWhys: readonly unknown[] = ["expired", "turnedOff", "replaced", "albumDeleted"];
+const linkOffWhys: readonly unknown[] = [
+  "expired",
+  "turnedOff",
+  "replaced",
+  "albumDeleted",
+  "ended",
+];
 
 /** The Admin's answer carried by a `photos.changed` push with cause "ask". */
 export function askAnswer(args: unknown): RequestAnswer | undefined {

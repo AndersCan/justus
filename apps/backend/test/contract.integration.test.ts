@@ -237,6 +237,9 @@ describe("backend -> web contract, from real backend output", () => {
     await a("photos.offerAlbum", { folderId: folder.id, identity: away });
     await a("photos.takeBackOffer", { folderId: folder.id, identity: away });
     // The Admin turns the links off and the album carries a new code.
+    const endedLink = Math.floor((Date.now() + 7_200_000) / 1000) * 1000;
+    await a("photos.saveInviteLink", { folderId: folder.id, expiresAt: endedLink });
+    await a("photos.endInviteLink", { folderId: folder.id, endsAt: endedLink });
     await a("photos.saveInviteLink", { folderId: folder.id, expiresAt: Date.now() + 3_600_000 });
     await a("photos.turnOffInvite", { folderId: folder.id });
     await a("photos.dismissWhoLeft", { folderId: folder.id });

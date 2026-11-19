@@ -1857,6 +1857,109 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
       const { requests, ends } = await askedThrough("second", true);
       expect(requests[0]!.link?.endsAt).toBe(ends.second);
     });
+
+    describe("ending one link", () => {
+      const twoLinks = async () => {
+        const ends = { first: whole(60 * 60_000), second: whole(24 * 60 * 60_000) };
+        const s = await scenario();
+        await s.admin.store.saveInviteLink(s.folderId, ends.first);
+        await s.admin.store.saveInviteLink(s.folderId, ends.second);
+        return { s, ends };
+      };
+      const joinerSays = async (s: Awaited<ReturnType<typeof scenario>>) => {
+        await until(
+          async () => (await s.joiner.store.folders()).asks[0]?.status === "linkOff",
+          6_000,
+        );
+        return (await s.joiner.store.folders()).asks[0]!;
+      };
+
+      it("turns away an ask made with the ended link, and lists one made with the other", async () => {
+        const { s, ends } = await twoLinks();
+        expect((await s.admin.store.endInviteLink(s.folderId, ends.second))[0]).toBe(null);
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: ends.second });
+        await connect(s);
+        expect((await joinerSays(s)).why).toBe("ended");
+        expect((await s.admin.store.requests()).requests).toHaveLength(0);
+        await s.close();
+
+        const other = await twoLinks();
+        await other.s.admin.store.endInviteLink(other.s.folderId, other.ends.second);
+        await other.s.joiner.store.ask({
+          code: other.s.invite.code,
+          owner: other.s.owner,
+          linkEnd: other.ends.first,
+        });
+        await connect(other.s);
+        await until(
+          async () => (await other.s.admin.store.requests()).requests.length === 1,
+          6_000,
+        );
+        expect((await other.s.admin.store.requests()).requests[0]!.link?.endsAt).toBe(
+          other.ends.first,
+        );
+        await other.s.close();
+      });
+
+      it("takes a waiting ask through the link off the list and tells the asker", async () => {
+        const { s, ends } = await twoLinks();
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: ends.second });
+        await connect(s);
+        await until(async () => (await s.admin.store.requests()).requests.length === 1, 6_000);
+        await s.admin.store.endInviteLink(s.folderId, ends.second);
+        expect((await joinerSays(s)).why).toBe("ended");
+        expect((await s.admin.store.requests()).requests).toHaveLength(0);
+        await s.close();
+      });
+
+      it("keeps turning away asks with no link end once every link is ended", async () => {
+        const { s, ends } = await twoLinks();
+        await s.admin.store.endInviteLink(s.folderId, ends.first);
+        await s.admin.store.endInviteLink(s.folderId, ends.second);
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+        await connect(s);
+        expect((await joinerSays(s)).why).toBe("ended");
+        expect((await s.admin.store.requests()).requests).toHaveLength(0);
+        await s.close();
+      });
+
+      it("refuses an unknown end, a malformed one and a locked phone; ending twice writes once", async () => {
+        const { s, ends } = await twoLinks();
+        expect((await s.admin.store.endInviteLink(s.folderId, ends.first + 1000))[0]).toMatchObject(
+          {
+            code: "justus.photos/link-not-found",
+          },
+        );
+        expect((await s.admin.store.endInviteLink(s.folderId, 1.5))[0]).toMatchObject({
+          code: "justus.photos/invalid-link-time",
+        });
+        expect((await s.admin.store.endInviteLink("nope", ends.first))[0]).toMatchObject({
+          code: "justus.photos/folder-not-found",
+        });
+        await s.admin.store.endInviteLink(s.folderId, ends.first);
+        const once = savedLinks(s).find((l) => l.to === ends.first) as { ended?: number };
+        expect(once.ended).toBeTypeOf("number");
+        await new Promise((r) => setTimeout(r, 5));
+        expect((await s.admin.store.endInviteLink(s.folderId, ends.first))[0]).toBe(null);
+        const again = savedLinks(s).find((l) => l.to === ends.first) as { ended?: number };
+        expect(again.ended).toBe(once.ended);
+        expect(savedLinks(s).find((l) => l.to === ends.second)).not.toHaveProperty("ended");
+        await s.close();
+      });
+
+      it("keeps a link ended after the Admin's phone restarts", async () => {
+        const { s, ends } = await twoLinks();
+        await s.admin.store.endInviteLink(s.folderId, ends.second);
+        await s.admin.store.close();
+        const again = createPhotoStore(restarted(s.admin.deps));
+        await again.ready();
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: ends.second });
+        await connect(s);
+        expect((await joinerSays(s)).why).toBe("ended");
+        await again.close();
+        await s.joiner.store.close();
+      });
+    });
   });
 
   it("an ask already filed is not filed again when the joiner restarts", async () => {

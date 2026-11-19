@@ -9,7 +9,7 @@ import type { Drive, IdentityProof, OpenResult } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
 import {
   chainReaches,
-  inLinkTime,
+  askLinkState,
   parseAnswer,
   parseDeviceSwarmKey,
   type Answer,
@@ -105,7 +105,13 @@ export type OwingAlbum = {
 };
 
 /** `opens`: the ask's entry in the asker's outbox is sealed so this phone can open it. */
-export type AskedCode = { code: string; requestedAt: number; opens?: boolean };
+export type AskedCode = {
+  code: string;
+  requestedAt: number;
+  opens?: boolean;
+  /** The end of the link the ask was made with, read from its seal. */
+  linkEnd?: number;
+};
 
 /** `owed` with a "handedOver" first for each code that needs one, and nothing else for that
  * code: an `accepted` is never used up on a connection before the asker re-points. */
@@ -170,13 +176,13 @@ export function answersOwed(
     for (const a of asked) {
       if (album.heldAsks?.[identity] === a.code) continue;
       const retired = album.retiredInvites?.includes(a.code) ?? false;
-      const late =
-        a.code === album.invite.code &&
-        !album.invited?.includes(identity) &&
-        !inLinkTime(album.invite.links, a.requestedAt);
-      if (!retired && !late) continue;
+      const state =
+        a.code === album.invite.code && !album.invited?.includes(identity)
+          ? askLinkState(album.invite.links, { at: a.requestedAt, linkEnd: a.linkEnd })
+          : "works";
+      if (!retired && state === "works") continue;
       if (settles(answer, askedAt, a.requestedAt)) continue;
-      const why = retired ? album.retiredWhy?.[a.code] : "expired";
+      const why = retired ? album.retiredWhy?.[a.code] : state === "works" ? undefined : state;
       owed.push({
         code: a.code,
         answer: "linkOff",
@@ -215,7 +221,8 @@ export function receivedOwed(
     for (const a of asked) {
       if (a.code !== album.invite.code) continue;
       const late =
-        !album.invited?.includes(identity) && !inLinkTime(album.invite.links, a.requestedAt);
+        !album.invited?.includes(identity) &&
+        askLinkState(album.invite.links, { at: a.requestedAt, linkEnd: a.linkEnd }) !== "works";
       if (late) continue;
       if (settles(album.answers?.[identity], album.declinedAsks?.[identity], a.requestedAt))
         continue;
