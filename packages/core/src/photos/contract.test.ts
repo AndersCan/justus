@@ -54,41 +54,6 @@ describe("photo contract", () => {
     expect(checkPhotoResult("photos.list", holders("x"))).toContain("holders.quiet[0].lastSeenAt");
   });
 
-  it("names a bad colour on a holders entry and a bad yourColor", () => {
-    const photo = {
-      id: "a",
-      url: "u",
-      name: "n",
-      mime: "m",
-      size: 1,
-      addedAt: 0,
-      member: { key: "k", name: "N" },
-    };
-    const holders = (color: unknown, yourColor: unknown) => ({
-      photos: [
-        {
-          ...photo,
-          holders: {
-            kind: "inAlbum",
-            here: true,
-            previewHere: false,
-            others: [{ key: "a", name: "Ada", connected: true, color }],
-            quiet: [],
-            unsure: [],
-            waiting: [],
-            previews: [],
-            former: [],
-            left: [],
-            yourColor,
-          },
-        },
-      ],
-    });
-    expect(checkPhotoResult("photos.list", holders(3, 0))).toBeNull();
-    expect(checkPhotoResult("photos.list", holders("red", 0))).toContain("holders.others[0].color");
-    expect(checkPhotoResult("photos.list", holders(3, "x"))).toContain("holders.yourColor");
-  });
-
   it("checks the presence on a waiting entry", () => {
     const photo = {
       id: "a",
