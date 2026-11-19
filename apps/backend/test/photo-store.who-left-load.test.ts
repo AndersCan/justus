@@ -1,6 +1,6 @@
 /** The saved list of who left is read back name by name; a bad entry is dropped. */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
@@ -12,7 +12,6 @@ describe("loading who left", () => {
     const node = addFakeNode(hub);
     setFakeNodeConnected({ hub, node, connected: true });
     const deps = fakeStoreDeps({ hub, node, deviceName: "Anna", server: new FakeLoopbackServer() });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
     await store.createFolder("Trip");

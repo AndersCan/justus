@@ -23,7 +23,6 @@ import { createPhotoStore } from "../src/photo-store.ts";
 import { canonicalGalleryOrder, type CanonicalOrderKey } from "../src/gallery-order.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
-import { mkdirSync } from "node:fs";
 
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(Buffer.from(bytes)).digest("hex");
@@ -34,7 +33,6 @@ function buildDevices(names: string[]) {
   const hub = createFakeHub();
   const devices = names.map((name) => {
     const deps = fakeStoreDeps({ hub, deviceName: name });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     return { store, deps };
   });

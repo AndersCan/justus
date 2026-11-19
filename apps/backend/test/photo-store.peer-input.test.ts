@@ -7,7 +7,6 @@
  * are share keys).
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
@@ -15,7 +14,6 @@ import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
 
 function buildStore(name: string, hub: ReturnType<typeof createFakeHub>) {
   const deps = fakeStoreDeps({ hub, deviceName: name });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
   return { store, deps, identity };

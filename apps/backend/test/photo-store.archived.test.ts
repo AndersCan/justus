@@ -3,7 +3,6 @@
  * join it are answered while it stays archived.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, peerPhone, type FakeStoreDeps } from "./fakes/fake-store-deps.ts";
@@ -11,7 +10,6 @@ import type { FakeHub } from "./fakes/fake-world.ts";
 
 function buildStore(name: string, hub: FakeHub) {
   const full: FakeStoreDeps = fakeStoreDeps({ hub, deviceName: name });
-  mkdirSync(full.cacheDir, { recursive: true });
   return { store: createPhotoStore(full), deps: full };
 }
 

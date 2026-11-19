@@ -3,7 +3,7 @@
  * and a delete that lands while a pass is running.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { parseSpoolName } from "../src/spool-name.ts";
@@ -35,7 +35,6 @@ function phoneDeps(hub: Hub, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
 

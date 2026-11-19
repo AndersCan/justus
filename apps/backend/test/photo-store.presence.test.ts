@@ -4,7 +4,6 @@
  * reports who is reachable (not just how many connections exist).
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
@@ -15,7 +14,6 @@ function buildStore(name: string, hub: FakeHub, changes: string[] = []) {
     deviceName: name,
     onChanged: (c) => changes.push(c.cause),
   });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   const topic = () =>
     deps.drives.discoveryKeyOf((store.debugState() as { identityDrive: string }).identityDrive);

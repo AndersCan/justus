@@ -19,7 +19,7 @@ import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenar
 import createTestnet from "hyperdht/testnet";
 import Hyperswarm from "hyperswarm";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -76,7 +76,6 @@ export async function realNet(): Promise<Net> {
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
     let stopped = false;

@@ -3,7 +3,6 @@
  * while the old Admin's phone is off reads the new Admin's lists.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { FakeLoopbackServer, fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
@@ -20,7 +19,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName, server: new FakeLoopbackServer() });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, store: createPhotoStore(deps) };
 }
 type Phone = ReturnType<typeof phone>;

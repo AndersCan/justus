@@ -3,7 +3,7 @@
  * store shows, what it removes, and what a restart finishes.
  */
 import { describe, expect, it, vi } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
 import {
@@ -26,7 +26,6 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function device(name: string, hub = createFakeHub()) {
   const deps = fakeStoreDeps({ hub, deviceName: name });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, store: createPhotoStore(deps) };
 }
 

@@ -39,7 +39,6 @@ function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string, pu
     deviceName,
     onChanged: (p: Push) => void pushes.push(p),
   });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
 

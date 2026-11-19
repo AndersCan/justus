@@ -3,7 +3,7 @@
  * Anna (Admin) and Nils (Collaborator) on the checked fakes share one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { parseSpoolName } from "../src/spool-name.ts";
@@ -31,7 +31,6 @@ function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
 

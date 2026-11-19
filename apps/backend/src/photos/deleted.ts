@@ -25,19 +25,6 @@ export function vanishedDrives(prev: Listing | undefined, now: Listing): Set<str
   return keys;
 }
 
-/**
- * The photos in `prev` that `now` no longer shows because someone else deleted
- * them. Returns nothing when the drives do not prove it: a first listing, a
- * role change, a moved album, an unreadable drive, or a drive that was swapped.
- */
-export function deletedSince(
-  prev: Listing | undefined,
-  now: Listing,
-  ctx: DeletedCtx,
-): DeletedPhoto[] {
-  return goneSince(prev, now, ctx).map((g) => g.photo);
-}
-
 export type DeletedCtx = {
   removed: Record<string, unknown>;
   selfKey: string;
@@ -51,7 +38,12 @@ export type DeletedCtx = {
   left: ReadonlySet<string>;
 };
 
-/** `deletedSince`, with each photo's id. */
+/**
+ * The photos in `prev` that `now` no longer shows because someone else deleted
+ * them, with each photo's id. Returns nothing when the drives do not prove it: a
+ * first listing, a role change, a moved album, an unreadable drive, or a drive
+ * that was swapped.
+ */
 export function goneSince(
   prev: Listing | undefined,
   now: Listing,

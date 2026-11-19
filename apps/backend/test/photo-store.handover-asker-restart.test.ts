@@ -1,6 +1,6 @@
 /** Repro: an accepted ask's `adminDrive` must survive a restart before the join finishes. */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
@@ -21,7 +21,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
   const deps = fakeStoreDeps({ hub, node, deviceName, server: new FakeLoopbackServer() });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, store: createPhotoStore(deps) };
 }
 type Phone = ReturnType<typeof phone>;

@@ -34,7 +34,6 @@ function makeRoots() {
 
 function buildStore(importRoots: string[]) {
   const deps = fakeStoreDeps({ importRoots });
-  mkdirSync(deps.cacheDir, { recursive: true });
   return createPhotoStore(deps);
 }
 

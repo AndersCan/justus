@@ -7,7 +7,6 @@
  * retry.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
 
@@ -23,7 +22,6 @@ describe("#98 ready() must recover after a transient setup failure", () => {
       return ready();
     };
     // addBytes stages uploads into cacheDir; mirror the production runtime.
-    mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
 
     // First ready() hits the transient failure.

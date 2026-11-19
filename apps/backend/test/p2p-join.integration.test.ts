@@ -10,7 +10,7 @@
  *    identity drive, not under the connection's per-boot noise key.
  */
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { mkdirSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { join } from "node:path";
 import createTestnet from "hyperdht/testnet";
 import { createPhotoStore, type PhotoStore } from "../src/photo-store.ts";
@@ -37,7 +37,6 @@ function device(name: string, bootstrap: string[]) {
     network: createHyperPeerNetwork({ bootstrap, replicate: (conn) => drives.replicate(conn) }),
     driveOpenTimeoutMs: 10_000,
   });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   cleanups.push(async () => {
     await store.close();

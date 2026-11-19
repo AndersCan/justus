@@ -9,14 +9,13 @@
  * required.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
   const deps = fakeStoreDeps({ deviceName: "Namer" });
-  mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   return { store, deps };
 }

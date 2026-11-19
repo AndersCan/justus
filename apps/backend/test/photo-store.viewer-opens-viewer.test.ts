@@ -4,7 +4,6 @@
  * presence. Three phones on the checked fakes share one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
@@ -24,7 +23,6 @@ function phone(
   watch?: { opened: string[]; slow: { on: boolean } },
 ) {
   const deps = fakeStoreDeps({ hub, deviceName });
-  mkdirSync(deps.cacheDir, { recursive: true });
   if (watch) {
     const open = deps.drives.open.bind(deps.drives);
     deps.drives.open = async (key: string, opts: { timeoutMs: number }) => {

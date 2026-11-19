@@ -126,7 +126,6 @@ function phone(
       return drive;
     };
   }
-  mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, server, pushes, heldPuts, quiet, logs, store: createPhotoStore(deps) };
 }
 
