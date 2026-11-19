@@ -83,6 +83,7 @@ const drives = createHyperDriveStore(path.join(storageDir, "corestore"));
 
 const network = createHyperPeerNetwork({
   bootstrap: config.bootstrap,
+  recordAddresses: config.dev,
   replicate: (conn) => drives.replicate(conn),
 });
 
