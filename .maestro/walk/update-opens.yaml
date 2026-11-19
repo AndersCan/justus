@@ -1,0 +1,21 @@
+appId: no.cankode.justus
+---
+# The update walk: this build was installed over the last release. Ben opens Justus (state kept, no
+# clearState) and finds the album Walk and its photo. Words come in with -e from the copy catalogue.
+- launchApp
+- extendedWaitUntil:
+    visible: ${SHARING}
+    timeout: 120000
+- tapOn:
+    text: ${SHARING}
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${ALBUM}
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${SEE_PHOTOS}
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: ${TILE}
+    timeout: 60000
+- takeScreenshot: ben-update-walk-photo
