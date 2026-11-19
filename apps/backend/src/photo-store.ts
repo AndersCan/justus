@@ -2122,7 +2122,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         new Set(removed.filter((k) => k.startsWith(`${key}:`)).map((k) => k.slice(key.length + 1)));
       const done = new Set<string>();
       for (const e of earlier) {
-        if (e.keptVersion !== undefined) continue;
+        if (e.keptVersion !== undefined || rt.record.adminChain?.includes(e.key)) continue;
         const oldDrive = rt.memberDrives.get(e.key);
         const identity = presence.identities.get(e.key);
         if (!oldDrive || !identity) continue;
@@ -3059,6 +3059,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     members: Record<string, { key: string; name: string }>,
     e: { key: string; name: string },
   ): { key: string; name: string } | undefined {
+    if (rt.record.adminChain?.includes(e.key)) return undefined;
     const identity = presence.identities.get(e.key);
     const mine = rt.record.formerSelf?.includes(e.key) === true;
     return Object.values(members).find(
