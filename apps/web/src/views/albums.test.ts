@@ -1090,9 +1090,9 @@ describe("a failed dismiss of the who-joined line", () => {
     mock.dismissWhoJoined.mockResolvedValue([new Error("NOT_MEMBER"), null]);
     folders.refresh();
     await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
-    folders.dismissWhoJoined("a", "Summer");
+    folders.dismissWhoJoined("a", "Autumn");
     await vi.waitFor(() =>
-      expect(document.body.textContent).toContain("Couldn't dismiss the notice for “Summer”."),
+      expect(document.body.textContent).toContain("Couldn't dismiss the notice for “Autumn”."),
     );
   });
 });
