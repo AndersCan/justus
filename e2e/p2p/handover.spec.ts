@@ -32,6 +32,20 @@ async function setName(page, name) {
   return was;
 }
 
+async function leaveAlbum(page, album, instance) {
+  // A run that failed before Cy got in has nothing to leave. Ask the backend: a page that has not loaded shows no albums either.
+  const res = await page.context().request.get(new URL("/__state", instance.url).href);
+  if ((await res.json()).folders.length === 0) return;
+  await page.goto("/sharing");
+  await page.getByRole("link", { name: `Invite & members of ${album}` }).click();
+  const more = page.getByRole("button", { name: "More options" });
+  await expect(more).toBeEnabled({ timeout: 30_000 });
+  await more.click();
+  await page.getByRole("menuitem", { name: words("album.leave_album") }).click();
+  await page.getByRole("button", { name: "Leave", exact: true }).click();
+  await expect(page).toHaveURL(/\/sharing$/, { timeout: 30_000 });
+}
+
 test.afterEach(() => resumeAll());
 
 test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and Cy's people list names Ben", async ({
@@ -40,11 +54,11 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
 }) => {
   test.setTimeout(300_000);
   const [a, b, c] = instancePages;
+  const album = `Handover ${Date.now().toString(36)}`;
   try {
     await skipIntro([a, b, c]);
     for (const [i, page] of instancePages.entries()) before[i] = await setName(page, NAMES[i]);
 
-    const album = `Handover ${Date.now().toString(36)}`;
     await createAlbum(a, album, "handover-ada.png", 91);
     const link = await copyInviteLink(a);
     const wants = words("album.wants_to_join", { folderName: album });
@@ -134,6 +148,8 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
   } finally {
     // Instances keep their state across specs; later specs find rows by name. A name never set cannot be saved empty.
     resumeAll();
+    // join-flow's first-run phone is this one: it must start without an album.
+    await leaveAlbum(c, album, instances[2]);
     for (const [i, page] of instancePages.entries()) {
       if (before[i]) await setName(page, before[i]);
     }
