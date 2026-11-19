@@ -591,6 +591,7 @@ export interface PhotoStore {
   /** Member or Viewer: takes the album off this phone. A Member's own drive keeps telling the Admin until the Admin's list drops it. */
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the line naming who left an album (Admin). */
+  dismissAdminChanged(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   dismissWhoJoined(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
@@ -5758,10 +5759,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.memberDrives.set(left.key, rt.folderDrive);
       rt.memberNameCache.set(left.key, left.name);
     }
-    const fromName = left?.name ?? (await adminNameOf(rt));
     rt.folderDrive = hop.drive;
-    const toName = (await adminNameOf(rt)) ?? hop.next.name;
-    rt.adminChanged = { fromName: fromName ?? "", toName: toName ?? "" };
+    if (left) rt.adminChanged = { fromName: left.name, toName: hop.next.name };
     patchRecord(rt, {
       adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), key],
       ...(rt.record.invite ? { invite: { ...rt.record.invite, owner: hop.next.identity } } : {}),
@@ -7492,8 +7491,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
         if (target) delete target.whoJoined;
       }
-      delete rt.adminChanged;
       saveState();
+      return ok({ ok: true });
+    },
+
+    async dismissAdminChanged(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
+      delete rt.adminChanged;
       return ok({ ok: true });
     },
 
@@ -7695,6 +7701,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     restoreAlbum: refuse,
     deleteAlbum: refuse,
     leaveAlbum: refuse,
+    dismissAdminChanged: refuse,
     dismissWhoLeft: refuse,
     dismissWhoJoined: refuse,
     dismissAlbumNotice: refuse,

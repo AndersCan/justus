@@ -241,6 +241,7 @@ describe("backend -> web contract, from real backend output", () => {
     await a("photos.turnOffInvite", { folderId: folder.id });
     await a("photos.dismissWhoLeft", { folderId: folder.id });
     await a("photos.dismissWhoJoined", { folderId: folder.id });
+    await a("photos.dismissAdminChanged", { folderId: folder.id });
 
     // The Admin archives the album and brings it back, then deletes it for everyone.
     await a("photos.archiveAlbum", { folderId: folder.id });

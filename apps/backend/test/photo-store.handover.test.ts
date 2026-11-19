@@ -385,7 +385,7 @@ describe("other phones follow the new Admin", () => {
     expect((await trip(s.cy)).role).toBe("member");
     expect((await trip(s.cy)).adminChanged).toEqual({ fromName: "Ada", toName: "Ben" });
     expect((await trip(s.ben)).adminChanged).toBeUndefined();
-    expect((await s.cy.store.dismissWhoJoined((await trip(s.cy)).id))[0]).toBeNull();
+    expect((await s.cy.store.dismissAdminChanged((await trip(s.cy)).id))[0]).toBeNull();
     expect((await trip(s.cy)).adminChanged).toBeUndefined();
     await until(async () => (await s.ada.store.folders()).folders.length === 0);
     await s.close();
@@ -453,6 +453,10 @@ describe("other phones follow the new Admin", () => {
     const deeKey = await joinAsMember(s.ben.store, benFolderId, dee.store, s.shareKey);
     expect(debugOf(dee).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
     expect((await trip(dee)).role).toBe("member");
+    expect(
+      (await trip(dee)).adminChanged,
+      "Trip: a newcomer after the handover is not told",
+    ).toBeUndefined();
     const lists = JSON.parse((await s.read(s.ben, s.benKey, "/members.json"))!);
     expect(Object.values(lists.members).map((m) => (m as { key: string }).key)).toContain(deeKey);
     await dee.store.close();
@@ -469,6 +473,10 @@ describe("other phones follow the new Admin", () => {
     setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
     await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
     await until(async () => (await trip(s.cy)).role === "reader");
+    expect((await trip(s.cy)).adminChanged, "Trip: a phone that became a Viewer is told").toEqual({
+      fromName: "Ada",
+      toName: "Ben",
+    });
     await s.close();
   }, 40_000);
 
@@ -525,6 +533,10 @@ describe("other phones follow the new Admin", () => {
     const cy = createPhotoStore(restarted(s.cy.deps));
     await cy.ready();
     await until(() => debugOf({ store: cy }).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
+    expect(
+      (await cy.folders()).folders[0]!.adminChanged,
+      "Trip: Cy's app started after the handover still tells it",
+    ).toEqual({ fromName: "Ada", toName: "Ben" });
     await cy.setActive((await cy.folders()).folders[0]!.id);
     await until(async () => (await names(cy)) === "ada.jpg,ben.jpg");
     await cy.close();

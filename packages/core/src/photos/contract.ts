@@ -334,6 +334,7 @@ export const photoResultSchemas = {
   "photos.leaveAlbum": s.object({ ok: s.boolean }),
   "photos.dismissAlbumNotice": s.object({ ok: s.boolean }),
   "photos.dismissWhoLeft": s.object({ ok: s.boolean }),
+  "photos.dismissAdminChanged": s.object({ ok: s.boolean }),
   "photos.dismissWhoJoined": s.object({ ok: s.boolean }),
   "photos.dismissDeclinedAsk": s.object({ ok: s.boolean }),
   "photos.cancelAsk": s.object({ ok: s.boolean }),
