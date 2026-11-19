@@ -6306,6 +6306,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     resumeOwed();
     resumeDeleted();
+    for (const rt of runtimes.values()) {
+      for (const identity of Object.keys(rt.record.moving ?? {})) {
+        void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
+      }
+    }
   }
 
   /** Joins the album with `key`. `via` is set when the Admin accepted an ask: the
