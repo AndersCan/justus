@@ -662,6 +662,15 @@ describe("albumHeader line for a joined album", () => {
     expect(draw(album)).toContain("You're now in “Summer”.");
   });
 
+  test("the Admin line takes the place of You're now in", () => {
+    accept("f1");
+    const text = draw({ ...album, adminChanged: { fromName: "Ada", toName: "Ben" } });
+    expect(text).toContain(
+      "Ada handed “Summer” to Ben. Ben is the Admin now and accepts new people.",
+    );
+    expect(text).not.toContain("You're now in");
+  });
+
   test("says nothing on another album", () => {
     accept("f9");
     expect(draw(album)).not.toContain("You're now in");
@@ -708,6 +717,21 @@ describe("albumHeader when people joined", () => {
     const lines = [...host.querySelectorAll("[role=status]")].map((e) => e.textContent?.trim());
     expect(lines).toEqual(["Cy joined this album. Di joined this album."]);
     expect(host.querySelectorAll(sel)).toHaveLength(1);
+  });
+
+  test("a member reads who handed the album to whom, with its own Dismiss that clears only that line", () => {
+    const send = vi.spyOn(foldersActor, "send").mockImplementation(() => {});
+    const host = draw({ ...base, adminChanged: { fromName: "Ada", toName: "Ben" } }, true);
+    const lines = [...host.querySelectorAll("[role=status]")].map((e) => e.textContent?.trim());
+    expect(lines).toEqual([
+      "Ada handed “Trip” to Ben. Ben is the Admin now and accepts new people.",
+    ]);
+    host.querySelector<HTMLButtonElement>(sel)?.click();
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      type: "DISMISS_ADMIN_CHANGED",
+      payload: { folderId: "f1", name: "Trip" },
+    });
+    send.mockRestore();
   });
 
   test("no line when nobody joined", () => {

@@ -3667,6 +3667,13 @@
     "who": "Album owners, when someone leaves",
     "screen": ""
   },
+  "notices.admin_changed": {
+    "text": "{fromName} handed “{album}” to {name}. {name} is the Admin now and accepts new people.",
+    "status": "draft",
+    "where": "Album › notice",
+    "who": "People in an album, when its Admin hands it to someone else",
+    "screen": ""
+  },
   "notices.joined_this_album": {
     "text": "{name} joined this album.",
     "status": "draft",

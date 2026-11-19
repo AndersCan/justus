@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
+import type { AdminChange, DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 
 import { folders } from "../machines/folders-machine";
 import { copy, t } from "../copy/copy";
@@ -117,6 +117,27 @@ export function whoLeftNotice(folder: FolderSummary, disabled: boolean) {
     folder.name,
     disabled,
     () => folders.dismissWhoLeft(folder.id, folder.name),
+  );
+}
+
+/** The line for the album's new Admin: who handed it to whom; "The Admin" stands in for a name this phone does not know. */
+export function adminChangedText(change: AdminChange, album: string): string {
+  return copy("notices.admin_changed", {
+    fromName: change.fromName || copy("notices.the_admin_2"),
+    album,
+    name: change.toName || copy("notices.the_admin_2"),
+  });
+}
+
+/** One notice for the Admin change: who handed the album to whom, with its own Dismiss; none when the Admin did not change. */
+export function adminChangedNotice(folder: FolderSummary, disabled: boolean) {
+  if (folder.adminChanged === undefined) return null;
+  return noticeRow(
+    "admin-changed:" + folder.id,
+    adminChangedText(folder.adminChanged, folder.name),
+    folder.name,
+    disabled,
+    () => folders.dismissAdminChanged(folder.id, folder.name),
   );
 }
 
