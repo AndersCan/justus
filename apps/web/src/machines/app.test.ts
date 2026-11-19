@@ -28,7 +28,7 @@ test("the factory returns every machine the app has, the router as its actor", (
   expect(made.actor.snapshot().context).toHaveProperty("page");
 });
 
-test("fuzzing finds exactly the seven wires between the app's machines", async () => {
+test("fuzzing finds exactly the eight wires between the app's machines", async () => {
   const loaded = await inspectFile(join(here, "app.ts"));
   const machine = loaded.machines.find((m) => m.id === "justus");
   expect(machine).toBeDefined();
@@ -39,6 +39,7 @@ test("fuzzing finds exactly the seven wires between the app's machines", async (
   expect([...wires].toSorted()).toEqual([
     "folders → join",
     "folders → sync",
+    "gallery → presenceClock",
     "onboarding → folders",
     "people → requests",
     "sync → folders",
@@ -96,10 +97,22 @@ test("a saved name, an opened album, a sync status, a waiting request and an ope
   } as never);
   await made.folders.settled();
   expect(made.folders.snapshot().context.userName).toBe("Ann");
+  made.gallery.send({ type: "LOAD" });
+  made.gallery.inject({
+    type: "PHOTOS_LOADED",
+    payload: {
+      photos: [
+        {
+          id: "p1",
+          holders: { kind: "inAlbum", waiting: [{ key: "a", name: "Maya", connected: false }] },
+        },
+      ],
+    },
+  } as never);
   made.people.send({ type: "OPEN" } as never);
 });
 
-test("the whole-app walk names who sent each of its seven messages, in order", async () => {
+test("the whole-app walk names who sent each of its eight messages, in order", async () => {
   const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
   const run = loaded.machines.find((m) => m.id === "justus")?.runs[0];
   expect(run).toBeDefined();
@@ -131,6 +144,7 @@ test("the whole-app walk names who sent each of its seven messages, in order", a
     ["sync", "NAME_SEEN", "folders"],
     ["sync", "UNREACHABLE", "reach"],
     ["sync", "MEMBERS_CHANGED", "presenceClock"],
+    ["gallery", "MEMBERS_CHANGED", "presenceClock"],
     ["people", "REFRESH", "requests"],
   ]);
   expect(dropped).toEqual([]);

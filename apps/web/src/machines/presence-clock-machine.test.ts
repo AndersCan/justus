@@ -1,12 +1,9 @@
 import { VirtualClock } from "@mantaq/core";
-import type { SyncStatus } from "@justus/core";
-import { describe, expect, test } from "vite-plus/test";
+import type { Photo, SyncStatus } from "@justus/core";
+import { describe, expect, test, vi } from "vite-plus/test";
 import { PRESENCE_TICK_MS } from "../utils/presence";
-import {
-  membersChanged,
-  presenceClockMachine,
-  wirePresenceClockToSync,
-} from "./presence-clock-machine";
+import { membersChanged, presenceClockMachine, wirePresenceClock } from "./presence-clock-machine";
+import { galleryMachine } from "./gallery-machine";
 import { statusSeen, syncMachine } from "./sync-machine";
 
 const away = membersChanged.create({ someoneNotConnected: true });
@@ -64,7 +61,7 @@ test("the first away status stamps now, so a friend who just left is still insid
   expect(actor.snapshot().context.now).toBe(600_000);
 });
 
-describe("wirePresenceClockToSync", () => {
+describe("wirePresenceClock", () => {
   const status = (others: boolean[]) =>
     ({
       members: [
@@ -72,6 +69,13 @@ describe("wirePresenceClockToSync", () => {
         ...others.map((connected, i) => ({ key: `k${i}`, name: `F${i}`, admin: false, connected })),
       ],
     }) as SyncStatus;
+
+  const photoWaiting = (connected: boolean) =>
+    ({
+      id: "p",
+      holders: { kind: "inAlbum", waiting: [{ key: "b", name: "Ben", connected }] },
+    }) as unknown as Photo;
+  const listed = (photos: Photo[]) => ({ type: "PHOTOS_LOADED", payload: { photos } }) as never;
 
   function wired(first: SyncStatus | null) {
     const clock = VirtualClock();
@@ -81,8 +85,12 @@ describe("wirePresenceClockToSync", () => {
     });
     if (first !== null) sync.send(statusSeen.create({ status: first }));
     const actor = presenceClockMachine.create({ clock });
-    wirePresenceClockToSync(actor, sync);
-    return { sync, actor };
+    const gallery = galleryMachine.create({
+      gateway: { list: () => new Promise(() => {}) } as never,
+    });
+    wirePresenceClock(actor, { sync, gallery });
+    gallery.send({ type: "LOAD" } as never);
+    return { sync, actor, gallery };
   }
 
   test("a friend not connected starts the clock", () => {
@@ -101,5 +109,40 @@ describe("wirePresenceClockToSync", () => {
     const { sync, actor } = wired(status([false]));
     sync.send(statusSeen.create({ status: status([true]) }));
     expect(actor.state.name).toBe("everyoneConnected");
+  });
+
+  test("a listed photo waiting for a phone that is not connected starts it", () => {
+    const { gallery, actor } = wired(status([true]));
+    expect(actor.state.name).toBe("everyoneConnected");
+    gallery.inject(listed([photoWaiting(false)]));
+    expect(actor.state.name).toBe("someoneNotConnected");
+  });
+
+  test("a list where that friend is connected stops it", () => {
+    const { gallery, actor } = wired(status([true]));
+    gallery.inject(listed([photoWaiting(false)]));
+    gallery.send({ type: "LOAD" } as never);
+    gallery.inject(listed([photoWaiting(true)]));
+    expect(actor.state.name).toBe("everyoneConnected");
+  });
+
+  test("photos with unknown or removed holders are passed over, not fatal", () => {
+    const { gallery, actor } = wired(status([true]));
+    const bare = { id: "q" } as unknown as Photo;
+    const removed = { id: "r", holders: { kind: "removed", here: true } } as unknown as Photo;
+    gallery.inject(listed([bare, removed]));
+    expect(actor.state.name).toBe("everyoneConnected");
+    gallery.send({ type: "LOAD" } as never);
+    gallery.inject(listed([bare, removed, photoWaiting(false)]));
+    expect(actor.state.name).toBe("someoneNotConnected");
+  });
+
+  test("the same status and list again send nothing", () => {
+    const { gallery, actor, sync } = wired(status([true]));
+    const send = vi.spyOn(actor, "send");
+    sync.send(statusSeen.create({ status: sync.snapshot().context.status as SyncStatus }));
+    expect(send).toHaveBeenCalledTimes(0);
+    gallery.send({ type: "LOAD" } as never);
+    expect(send).toHaveBeenCalledTimes(0);
   });
 });

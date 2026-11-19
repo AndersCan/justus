@@ -216,6 +216,48 @@
         },
         {
           "kind": "event",
+          "event": "LOAD",
+          "payload": {},
+          "actor": {
+            "region": "gallery"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "PHOTOS_LOADED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p1",
+                "holders": {
+                  "kind": "inAlbum",
+                  "waiting": [
+                    {
+                      "key": "a",
+                      "name": "Maya",
+                      "connected": false
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "actor": {
+            "region": "gallery"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "MEMBERS_CHANGED",
+          "payload": {
+            "someoneNotConnected": true
+          },
+          "actor": {
+            "region": "presenceClock"
+          }
+        },
+        {
+          "kind": "event",
           "event": "OPEN",
           "payload": {},
           "actor": {

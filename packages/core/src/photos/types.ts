@@ -7,6 +7,14 @@ export type PhotoMember = {
   name: string;
 };
 
+/** Someone in a photo's holders list, with whether this phone reaches theirs, as Members reads it. */
+export type HolderMember = PhotoMember & {
+  /** This phone is connected to theirs right now. */
+  connected: boolean;
+  /** When this phone last reached theirs (ms epoch, this phone's clock). Unset if never. */
+  lastSeenAt?: number;
+};
+
 /** A phone that has a full copy but has not been connected for a while: when it last was (ms epoch, this phone's clock). */
 export type QuietHolder = PhotoMember & { lastSeenAt: number };
 
@@ -23,8 +31,8 @@ export type InAlbumHolders = {
   quiet: QuietHolder[];
   /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */
   unsure: PhotoMember[];
-  /** Current album people (not this phone, not the adder) whose phone said what it holds, without this photo or its preview. Sorted like `others`. */
-  waiting: PhotoMember[];
+  /** Current album people (not this phone, not the adder) whose phone said what it holds, without this photo or its preview. Sorted like `others`. Each carries their phone's presence, so the line can say a friend's phone is off wherever the photo is opened. */
+  waiting: HolderMember[];
   /** Current album people (not this phone, not in `others`) whose phone said it showed this photo's preview but has no full copy. Sorted like `others`. */
   previews: PhotoMember[];
   /** Names of people the Admin removed who had a copy when they went; they keep it. Sorted, unique. */

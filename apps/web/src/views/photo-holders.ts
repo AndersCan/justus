@@ -24,8 +24,8 @@ export function closeHolders(): void {
 }
 
 /** A row at least 44px tall; long lines wrap rather than get cut. */
-export function holdersRow(photo: Photo) {
-  const { text, tappable } = holdersLine(photo.holders);
+export function holdersRow(photo: Photo, now: number) {
+  const { text, tappable } = holdersLine(photo.holders, now);
   const label = html`<span
     class="justus-holders-text min-w-0 flex-1 text-left text-xs ${
       tappable ? "text-fg" : "text-muted"

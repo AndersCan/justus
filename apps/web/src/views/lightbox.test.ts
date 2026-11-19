@@ -374,6 +374,54 @@ describe("the photo card", () => {
   });
 });
 
+describe("the line reads the photo, not the open album", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+
+  const p = {
+    ...photo("a"),
+    folderId: "trip",
+    holders: {
+      kind: "inAlbum" as const,
+      here: true,
+      previewHere: false,
+      others: [],
+      quiet: [],
+      unsure: [],
+      waiting: [{ key: "Ben", name: "Ben", connected: false, lastSeenAt: Date.now() - 60_000 }],
+      previews: [],
+      former: [],
+      left: [],
+    },
+  };
+  const statusFor = (id: string | null) =>
+    ({
+      context: {
+        status:
+          id === null
+            ? null
+            : {
+                folder: { id },
+                members: [{ key: "Ada", name: "Ada", admin: true, connected: true }],
+              },
+      },
+    }) as never;
+
+  it.each([["summer"], ["trip"], [null]])("reads the same with the open album %s", (open) => {
+    setPhotos([p]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue(statusFor(open));
+    openLightbox(p);
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    expect(host.querySelector(".justus-holders-text")?.textContent).toBe(
+      "On your phone. Waiting for Ben's phone",
+    );
+    render(null, host);
+  });
+});
+
 describe("tapping the photo", () => {
   afterEach(() => {
     closeLightbox();

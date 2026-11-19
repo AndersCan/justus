@@ -127,7 +127,7 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
     );
     await closePhoto(a);
 
-    // Ben's record reached Ada before he went off, so her new photo reads as on its way to him, not as unknown.
+    // Ben's record reached Ada before he went off, so her new photo is waiting for his phone, not unknown.
     await a.setInputFiles("input[type=file]", {
       name: LATER,
       mimeType: "image/png",
@@ -137,9 +137,13 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
     await expect(
       a.locator(".justus-holders-text"),
       "Ben off, new photo · Ada's phone: holders line",
-    ).toHaveText(words("holders.on_its_way_to_names", { names: "Ben's", n: 1 }), {
-      timeout: 60_000,
-    });
+    ).toHaveText(
+      words("holders.line_and_waiting", {
+        line: words("holders.on_your_phone"),
+        waiting: words("holders.waiting_for_names", { names: "Ben's", n: 1 }),
+      }),
+      { timeout: 60_000 },
+    );
     await closePhoto(a);
 
     // Ada's phone remembers Ben was last seen 5 days ago, across a restart.

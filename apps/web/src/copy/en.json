@@ -510,6 +510,20 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "holders.waiting_for_names": {
+    "text": "Waiting for {names} {n?phone:phones}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.line_and_waiting": {
+    "text": "{line}. {waiting}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "holders.on_your_phone_others_haven": {
     "text": "On your phone. Others haven't said",
     "status": "draft",
@@ -4467,6 +4481,13 @@
   },
   "members.and_previews": {
     "text": "{line}, {n} as previews",
+    "status": "draft",
+    "where": "Album › Invite & members › member row",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "members.and_waiting": {
+    "text": "{line}, {n} waiting",
     "status": "draft",
     "where": "Album › Invite & members › member row",
     "who": "Album members, whenever they open an album's people",
