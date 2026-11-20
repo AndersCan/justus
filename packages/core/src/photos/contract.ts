@@ -182,7 +182,13 @@ export const folderSummarySchema = s.object({
   driveKey: s.string,
   members: s.number,
   addedAt: s.number,
-  invite: s.optional(s.object({ code: s.string, owner: s.string })),
+  invite: s.optional(
+    s.object({
+      code: s.string,
+      owner: s.string,
+      links: s.optional(s.array(s.object({ madeAt: s.number, endsAt: s.number }))),
+    }),
+  ),
   notice: s.optional(
     s.object({
       kind: s.oneOf("newKey", "moved", "removed", "madeAdmin"),

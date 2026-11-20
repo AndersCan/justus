@@ -4,11 +4,19 @@
  * saved records, swarm topics, invites and notifications.
  */
 import type { Drive, DriveStore } from "../ports/drive-store";
-import type { AdminChange, FolderNotice, FolderSummary, InvitedFriend, Role } from "@justus/core";
+import type {
+  AdminChange,
+  FolderNotice,
+  FolderSummary,
+  InvitedFriend,
+  InviteLinkSummary,
+  Role,
+} from "@justus/core";
 import {
   parseFolderName,
   parseRegistry,
   parseRemoved,
+  type LinkTime,
   type RegistryFile,
 } from "../membership/records";
 import { copyAlbumEntries } from "../rotate-album";
@@ -71,7 +79,7 @@ export type AlbumSummarySource = {
     pending?: boolean;
     shareKey: string;
     createdAt: number;
-    invite?: { code: string; owner?: string };
+    invite?: { code: string; owner?: string; links?: readonly LinkTime[] };
     offerOwed?: OwedOffers;
     invited?: string[];
     invitedRoles?: Record<string, "reader" | "member">;
@@ -88,6 +96,14 @@ export type AlbumSummarySource = {
   /** People the Admin accepted as Viewers, by key. */
   viewers: Readonly<Record<string, unknown>>;
 };
+
+/** The links that still work (not ended, not run out), newest first. */
+function liveLinks(links: readonly LinkTime[] | undefined, now: number): InviteLinkSummary[] {
+  return (links ?? [])
+    .filter((l) => l.ended === undefined && l.to > now)
+    .sort((a, b) => b.from - a.from)
+    .map((l) => ({ madeAt: l.from, endsAt: l.to }));
+}
 
 /** What the album list shows for one album. `ownIdentity` names the Admin of
  * an album whose invite has no owner (this device's own). */
@@ -151,6 +167,7 @@ export function albumSummary(
           invite: {
             code: record.invite.code,
             owner: record.invite.owner ?? options.ownIdentity,
+            ...(role === "creator" ? { links: liveLinks(record.invite.links, Date.now()) } : {}),
           },
         }
       : {}),

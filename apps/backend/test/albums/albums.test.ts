@@ -285,6 +285,41 @@ describe("list: invited friends", () => {
   });
 });
 
+describe("list: live invite links", () => {
+  const now = Date.now();
+  const source = (role: "creator" | "member", links: object[]): AlbumSummarySource => {
+    const base = readerSource({ role });
+    return {
+      ...base,
+      record: { ...base.record, invite: { code: "c", links } },
+    } as AlbumSummarySource;
+  };
+  const links = [
+    { from: now - 3000, to: now + 60_000 },
+    { from: now - 2000, to: now + 90_000, ended: now - 1000 },
+    { from: now - 1000, to: now + 120_000 },
+    { from: now - 5000, to: now - 1 },
+  ];
+
+  it("lists the links that still work, newest first, without ended or run-out ones", () => {
+    const summary = albumSummary(source("creator", links), { ownIdentity: "me" });
+    expect(summary.invite?.links).toEqual([
+      { madeAt: now - 1000, endsAt: now + 120_000 },
+      { madeAt: now - 3000, endsAt: now + 60_000 },
+    ]);
+  });
+
+  it("is an empty list when none works", () => {
+    const summary = albumSummary(source("creator", [links[1]!, links[3]!]), { ownIdentity: "me" });
+    expect(summary.invite?.links).toEqual([]);
+  });
+
+  it("gives a member no list", () => {
+    const summary = albumSummary(source("member", links), { ownIdentity: "me" });
+    expect(summary.invite && "links" in summary.invite).toBe(false);
+  });
+});
+
 describe("list: Viewers are counted", () => {
   const adminAlbum = (memberKeys: string[], viewers: string[]): AlbumSummarySource => ({
     ...readerSource({ role: "creator" }),
