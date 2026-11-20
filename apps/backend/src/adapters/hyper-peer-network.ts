@@ -16,6 +16,73 @@ const REDISCOVER_MS = [500, 1000, 2000, 4000, 8000, 15000, 30000, 60000];
 /** While the drive has a peer, `findPeers` only watches: that peer may be a dead connection that has not timed out yet, and when it goes the lookups must start again. */
 const WATCH_MS = 5000;
 
+/** Debug lines for #2058: what the DHT did on the way to a connection, so a run where no phone connects names why. Only listens; Hyperswarm's behaviour is unchanged. */
+function watchSwarm(swarm: any, log: P2pLog) {
+  const dht = swarm.dht;
+  const peersSeen = new Map<string, number>();
+  const connect = dht.connect.bind(dht);
+  dht.connect = (key: Uint8Array, ...rest: unknown[]) => {
+    const conn = connect(key, ...rest);
+    const peer = short(key);
+    const startedAt = Date.now();
+    let err: unknown;
+    log("connect.attempt", { peer });
+    conn.on("error", (e: unknown) => {
+      err = e;
+      log("connect.error", { peer, ms: Date.now() - startedAt, err: errText(e) });
+    });
+    conn.on("close", () => {
+      if (!err) log("connect.close", { peer, ms: Date.now() - startedAt });
+    });
+    return conn;
+  };
+  const query = (name: "lookup" | "announce") => {
+    const original = dht[name].bind(dht);
+    dht[name] = (topic: Uint8Array, ...rest: unknown[]) => {
+      const q = original(topic, ...rest);
+      const hex = Buffer.from(topic).toString("hex");
+      const startedAt = Date.now();
+      peersSeen.set(hex, 0);
+      q.on("error", (e: unknown) =>
+        log("lookup.error", { kind: name, topic: short(topic), err: errText(e) }),
+      );
+      q.on("close", () =>
+        log("lookup.done", {
+          kind: name,
+          topic: short(topic),
+          peers: peersSeen.get(hex),
+          closest: q.closestNodes?.length,
+          ms: Date.now() - startedAt,
+        }),
+      );
+      return q;
+    };
+  };
+  query("lookup");
+  query("announce");
+  const handlePeer = swarm._handlePeer?.bind(swarm);
+  if (handlePeer) {
+    swarm._handlePeer = (peer: { publicKey: Uint8Array }, topic: Uint8Array) => {
+      const hex = Buffer.from(topic).toString("hex");
+      peersSeen.set(hex, (peersSeen.get(hex) ?? 0) + 1);
+      log("lookup.peer", { topic: short(topic), peer: short(peer.publicKey) });
+      return handlePeer(peer, topic);
+    };
+  }
+  swarm.on("ban", (info: { publicKey: Uint8Array }, e: unknown) =>
+    log("connect.ban", { peer: short(info.publicKey), err: errText(e) }),
+  );
+}
+
+function dhtState(swarm: any) {
+  return {
+    table: swarm.dht.table?.size,
+    firewalled: swarm.dht.firewalled,
+    bootstrapped: swarm.dht.bootstrapped,
+    conns: swarm.connections.size,
+  };
+}
+
 function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
 }
@@ -37,6 +104,7 @@ export function createHyperPeerNetwork(deps: {
   const addresses = deps.recordAddresses ? emptyAddressLog() : undefined;
   // Wrapped before dht-rpc's one-tick bind, so its first sockets are noted.
   if (addresses) watchAddresses(swarm.dht.udx, addresses);
+  watchSwarm(swarm, log);
   const joins = new Map<string, Handle>();
   const servedTopics = new Set<string>();
   /** Later joins of a topic that upgraded it to serving; left with it. */
@@ -248,7 +316,7 @@ export function createHyperPeerNetwork(deps: {
         return;
       }
       joins.set(topic, handle);
-      log("topic.join", { topic: short(topic), served: opts.server });
+      log("topic.join", { topic: short(topic), served: opts.server, ...dhtState(swarm) });
       // Fire-and-forget: never block setup on DHT bootstrap.
       const joinedAt = Date.now();
       void handle
