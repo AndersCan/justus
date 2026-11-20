@@ -94,7 +94,8 @@ appId: no.cankode.justus
       - extendedWaitUntil:
           visible: "No photos in this album yet."
           timeout: 15000
-# Send invite link opens the system share sheet; Back closes it and leaves the page as it was.
+# Send invite link makes a link and opens the system share sheet; Back closes it, and the page then
+# lists the link and offers Make a new link.
 - tapOn:
     text: "Invite & members"
     waitToSettleTimeoutMs: 500
@@ -147,8 +148,10 @@ appId: no.cankode.justus
             # Tap above the sheet (its top edge is about 300 pt of 874).
             - tapOn:
                 point: "50%,15%"
-- extendedWaitUntil:
-    visible: "Send invite link"
+# The tap above made a link: the panel now lists it under "Links you sent" and its button reads
+# "Make a new link" (below the fold), so "Send invite link" is no longer shown.
+- scrollUntilVisible:
+    element: "Make a new link"
     timeout: 15000
 # The lock section, Android only: the iOS walk declines App lock above.
 - runFlow:
