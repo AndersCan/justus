@@ -147,7 +147,7 @@ export type FolderSummary = {
   /** When this device joined/created the folder (ms epoch). */
   addedAt: number;
   /** The invite code: the creator's own, or the one a joiner asked through. */
-  invite?: { code: string; owner: string };
+  invite?: { code: string; owner: string; links?: InviteLinkSummary[] };
   /** Set on an album that moved to a new key. */
   notice?: FolderNotice;
   /** Admin only: names of people who left on their own, in the order they left, until the Admin dismisses the line. Unset when none. */
@@ -162,6 +162,14 @@ export type FolderSummary = {
   waitingFor?: string[];
   /** Admin only: friends invited to this album who have not joined; the ones whose phone has not taken the invite yet come first. */
   invitedFriends?: InvitedFriend[];
+};
+
+/** A link the Admin made that still works: not ended and not run out. Admin's phone only. */
+export type InviteLinkSummary = {
+  /** When the link was made (ms since the epoch). */
+  madeAt: number;
+  /** When it stops working (ms since the epoch): the link's end time. */
+  endsAt: number;
 };
 
 /** A friend the Admin invited who has not joined yet. */
