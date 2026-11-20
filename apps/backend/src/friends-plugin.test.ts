@@ -94,6 +94,10 @@ describe("justus.friends plugin", () => {
         null,
         {},
       ]);
+      expect(await invoke(as(A), "friends.words", { identity: A.toUpperCase() })).toEqual([
+        null,
+        {},
+      ]);
     });
   });
 });
