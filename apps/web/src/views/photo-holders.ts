@@ -1,6 +1,5 @@
 import { html, type TemplateResult } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
-import { keyed } from "lit-html/directives/keyed.js";
 import type { HolderMember, Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
@@ -30,13 +29,11 @@ export function holdersRow(photo: Photo, now: number) {
     class="justus-holders-text min-w-0 flex-1 text-left text-xs ${
       tappable ? "text-fg" : "text-muted"
     }"
-    aria-live="polite"
     >${text}</span
   >`;
-  const body = keyed(text, label);
   if (!tappable) {
     return html`<div class="mt-3 flex min-h-11 items-center gap-2 border-t border-line py-1">
-      ${body}
+      ${label}
     </div>`;
   }
   return html`<button
@@ -45,7 +42,7 @@ export function holdersRow(photo: Photo, now: number) {
     aria-label=${copy("photo_holders.show_who_has_this_photo", { text })}
     @click=${openHolders}
   >
-    ${body}<span class="text-muted" aria-hidden="true">›</span>
+    ${label}<span class="text-muted" aria-hidden="true">›</span>
   </button>`;
 }
 

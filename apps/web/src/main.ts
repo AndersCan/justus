@@ -36,6 +36,7 @@ import { joinSheet, listenForHostInvites } from "./views/invite";
 import { listenForSharedPhotos } from "./views/shared-in";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
+import { statusRegion } from "./views/announce";
 import { inviteLinkFromAddress } from "./utils/invite-link";
 import { join } from "./machines/sharing/join-request";
 import { landOnLastAlbum } from "./views/landing";
@@ -243,7 +244,7 @@ render(
       </main>
       ${withAppNav((shows, page) => (shows ? bottomTabs(page) : null))}
     </div>
-    ${lightboxView()} ${joinSheet()} ${albumSheet()}
+    ${statusRegion()} ${lightboxView()} ${joinSheet()} ${albumSheet()}
   `,
   renderRoot!,
 );

@@ -321,6 +321,8 @@ test.describe("screen reader", () => {
     await expect(page.getByRole("dialog", { name: alt, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Close" })).toBeFocused();
     await expect(page.locator("[data-app-shell]")).toHaveAttribute("inert", "");
+    await expect(page.locator("[data-announce]")).toHaveCount(1);
+    await expect(page.locator("[data-app-shell] [data-announce]")).toHaveCount(0);
 
     const cdp = await page.context().newCDPSession(page);
     const { nodes } = await cdp.send("Accessibility.getFullAXTree");

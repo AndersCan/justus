@@ -157,10 +157,10 @@ describe("holdersSheet waiting", () => {
   });
 });
 
-describe("holdersRow live region", () => {
-  it("announces changes to the line politely", () => {
+describe("holdersRow line", () => {
+  it("has no live region of its own", () => {
     const el = draw(holdersRow(photo(h({})), 0));
-    expect(el.querySelector(".justus-holders-text")?.getAttribute("aria-live")).toBe("polite");
+    expect(el.querySelector("[aria-live]")).toBeNull();
   });
 });
 
