@@ -5103,7 +5103,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               outbox.update().catch(() => undefined),
               1_000,
             );
-            const device = await readText(outbox, DRIVE_PATH_DEVICE);
+            const device = await readText(outbox, DRIVE_PATH_DEVICE, { timeout: 1_000 });
             if (device !== null) return device;
             await sleep(100);
           }
