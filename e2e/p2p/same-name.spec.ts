@@ -14,6 +14,7 @@ import {
   copyInviteLink,
   createAlbum,
   pausePhone,
+  removeAllFriends,
   resumeAll,
   setName,
   skipIntro,
@@ -30,25 +31,6 @@ async function nameOf(page) {
   // The field is empty until the phone's status arrives; every phone has a name.
   await expect(field, "c's name has loaded").not.toHaveValue("", { timeout: 20_000 });
   return field.inputValue();
-}
-
-/** Ada may keep a friend from an earlier test (the old Ben saved as "Sam"); a saved friend hides the same-name line. */
-async function removeAllFriends(page) {
-  await page.goto("/settings");
-  const [before, after] = words("settings_friends.remove_label", { name: "§" }).split("§");
-  const remove = page.getByRole("button", {
-    name: new RegExp(`^${escaped(before)}.+${escaped(after)}$`),
-  });
-  for (let left = await remove.count(); left > 0; left--) {
-    await remove.first().click();
-    const confirm = page.getByRole("button", {
-      name: words("settings_friends.remove"),
-      exact: true,
-    });
-    await confirm.last().click();
-    await expect(remove, "a friend is removed").toHaveCount(left - 1);
-  }
-  await expect(remove, "Ada has no saved friends").toHaveCount(0);
 }
 
 function escaped(text) {
