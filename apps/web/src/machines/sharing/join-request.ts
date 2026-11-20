@@ -90,6 +90,7 @@ export const joinActor = joinRequestMachine.create({
       invite.code,
       foldersActor.snapshot().context.folders,
       foldersActor.snapshot().context.asks,
+      invite.expiresAt,
     ),
   asked: (code) => foldersActor.snapshot().context.asks.find((a) => a.code === code),
   port: {

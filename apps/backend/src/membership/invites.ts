@@ -7,7 +7,13 @@
 import type { Drive } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
 import type { OfferSummary } from "@justus/core";
-import { isHexKey, parseRequestsFile, type ChannelMessage, type RequestsFile } from "./records";
+import {
+  isHexKey,
+  parseRequestsFile,
+  validLinkEnd,
+  type ChannelMessage,
+  type RequestsFile,
+} from "./records";
 import { errText, type P2pLog } from "../p2p-log.ts";
 import { readRecord } from "./join.ts";
 
@@ -32,8 +38,10 @@ export type AskCheck<A> =
 
 /** Whether a link can be asked through: both keys hex, not an album this phone
  * already holds (its own included), and not asked before or asked and declined. Keys are lowercased. */
-export function checkAsk<A extends { code: string; status: string }>(
-  input: { code: unknown; owner: unknown },
+export function checkAsk<
+  A extends { code: string; status: string; why?: string; linkEnd?: number },
+>(
+  input: { code: unknown; owner: unknown; linkEnd?: unknown },
   held: { folders: ReadonlyArray<{ invite?: { code: string } }>; asks: readonly A[] },
 ): AskCheck<A> {
   const code = typeof input.code === "string" ? input.code.toLowerCase() : "";
@@ -41,8 +49,21 @@ export function checkAsk<A extends { code: string; status: string }>(
   if (!isHexKey(code) || !isHexKey(owner)) return { kind: "invalid" };
   if (held.folders.some((f) => f.invite?.code === code)) return { kind: "have-album" };
   const known = held.asks.find((a) => a.code === code);
-  if (known && known.status !== "declined") return { kind: "known", ask: known };
+  if (known && known.status !== "declined" && !turnedAwayByOtherLink(known, input.linkEnd))
+    return { kind: "known", ask: known };
   return { kind: "new", code, owner };
+}
+
+/** An ask the Admin refused because its link ended or ran out does not bar the same phone
+ * asking with a different link (every link of an album shares one code). */
+function turnedAwayByOtherLink(
+  known: { status: string; why?: string; linkEnd?: number },
+  linkEnd: unknown,
+): boolean {
+  if (known.status !== "linkOff" || (known.why !== "ended" && known.why !== "expired"))
+    return false;
+  const end = validLinkEnd(linkEnd);
+  return end !== undefined && end !== known.linkEnd;
 }
 
 export type InviteAsk = {

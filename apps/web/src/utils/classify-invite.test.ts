@@ -44,6 +44,18 @@ describe("classifyInvite", () => {
     });
   });
 
+  test("an ask turned away by its ended or run-out link is new for another link", () => {
+    const off = (why: AskSummary["why"]) => [{ ...ask("c1", "linkOff"), why, linkEnd: 1000 }];
+    for (const why of ["ended", "expired"] as const) {
+      expect(classifyInvite("c1", [], off(why), 2000)).toEqual({ kind: "new" });
+      expect(classifyInvite("c1", [], off(why), 1000)).toEqual({ kind: "stopped", why });
+      expect(classifyInvite("c1", [], off(why))).toEqual({ kind: "stopped", why });
+    }
+    for (const why of ["turnedOff", "replaced", "albumDeleted"] as const) {
+      expect(classifyInvite("c1", [], off(why), 2000)).toEqual({ kind: "stopped", why });
+    }
+  });
+
   test("a moved or new-key album's code is still member", () => {
     for (const kind of ["moved", "newKey"] as const) {
       const f = { ...folder("f2", "member", "c1"), notice: { kind } } as FolderSummary;

@@ -4931,6 +4931,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       askedAt: a.askedAt,
       status,
       ...(status === "linkOff" && a.why ? { why: a.why } : {}),
+      ...(a.linkEnd === undefined ? {} : { linkEnd: a.linkEnd }),
       ...(a.closed ? { closed: true } : {}),
       checkCode: checkCode(ownDrive.key, crypto),
       ...(status === "waiting" && versionGaps.has(a.owner)

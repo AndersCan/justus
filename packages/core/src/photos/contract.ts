@@ -214,6 +214,7 @@ export const askSummarySchema = s.object({
   askedAt: s.number,
   status: s.oneOf("waiting", "declined", "linkOff"),
   why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted", "ended")),
+  linkEnd: s.optional(s.number),
   closed: s.optional(s.boolean),
   checkCode: s.optional(s.string),
   whoMustUpdate: s.optional(s.oneOf("you")),
