@@ -181,6 +181,12 @@ describe("after a handover", () => {
       "Dee a Collaborator on the new key",
       60_000,
     );
+    await eventually(
+      async () => (await eve.store.folders()).folders[0],
+      (f) => f?.shareKey === newKey,
+      "Eve on the new key",
+      60_000,
+    );
     await ok(dee.store.setActive(onDee.id));
     await addPhoto(dee, onDee.id, "dee.jpg", 70);
 
@@ -201,9 +207,13 @@ describe("after a handover", () => {
 
     const seenByCy = await cy.store.list({ all: true });
     expect(seenByCy.some((p) => p.name === "dee.jpg")).toBe(false);
-    const onCy = (await cy.store.folders()).folders[0]!;
-    expect(onCy.shareKey).not.toBe(newKey);
-    expect(onCy.notice?.kind).toBe("removed");
+    const onCy = await eventually(
+      async () => (await cy.store.folders()).folders[0],
+      (f) => f?.notice?.kind === "removed",
+      "Cy told he was removed",
+      30_000,
+    );
+    expect(onCy!.shareKey).not.toBe(newKey);
 
     await dee.stop();
     const deeAgain = await net.peer("Dee", dee.storageDir);
