@@ -6001,7 +6001,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const patch: Partial<FolderRecord> = {
       shareKey: moved.shareKey,
       driveKey: moved.driveKey,
-      pastKeys: [record.shareKey, ...(record.pastKeys ?? [])].slice(0, MAX_PAST_KEYS),
+      pastKeys: [
+        ...new Set([rt.folderDrive.key, record.shareKey, ...(record.pastKeys ?? [])]),
+      ].slice(0, MAX_PAST_KEYS),
       moves: moved.moves,
       invite: moved.invite,
       retiredInvites: oldInvite

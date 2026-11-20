@@ -1,10 +1,4 @@
-/**
- * Repro: an Admin who was handed the album removes someone, then restarts. Start-up reopens
- * the pre-move lists drive (adminChain is not patched by the move), and the move-time clear
- * already deleted this phone's bytes of its own photos there: the photo is listed but its
- * bytes are gone. On origin/main the same test passes.
- * Place in apps/backend/test/.
- */
+/** An Admin who was handed the album removes someone, then restarts: the album stays on its new keys and the Admin row still names who handed it over. */
 import { describe, it, expect } from "vite-plus/test";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
