@@ -147,9 +147,10 @@ appId: no.cankode.justus
             # Tap above the sheet (its top edge is about 300 pt of 874).
             - tapOn:
                 point: "50%,15%"
-# The tap above made a link, so the panel now lists "Links you sent" above the button: it sits below the fold.
+# The tap above made a link: the panel now lists it under "Links you sent" and its button reads
+# "Make a new link" (below the fold), so "Send invite link" is no longer shown.
 - scrollUntilVisible:
-    element: "Send invite link"
+    element: "Make a new link"
     timeout: 15000
 # The lock section, Android only: the iOS walk declines App lock above.
 - runFlow:
