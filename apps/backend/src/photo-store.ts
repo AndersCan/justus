@@ -5791,6 +5791,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       if (holdErr)
         return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
+      // The leaving Admin's phone may be the last to hold earlier Admins' photos: take them too.
+      const listed = await readRegistryIn(rt.folderDrive);
+      const pastAdmins = pastAdminKeys(rt.record);
+      for (const e of parseEarlier(await readText(rt.folderDrive, DRIVE_PATH_EARLIER))) {
+        if (e.keptVersion !== undefined) continue;
+        if (successorOf(rt, listed.members, e) && !pastAdmins.includes(e.key)) continue;
+        const past =
+          rt.memberDrives.get(e.key) ?? (await openDriveWithTopic(e.key, { server: false }));
+        const [pastErr] = await holdPhotos(past, { hash: hashText, timeoutMs: HANDOVER_PHOTO_MS });
+        if (pastErr)
+          return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
+      }
       const [takeErr, taken] = await takeAdminRecords(rt.folderDrive, rt.selfDrive, {
         self: selfKeyOf(rt),
         leaving: { key: rt.folderDrive.key, name: message.admin.fromName },
