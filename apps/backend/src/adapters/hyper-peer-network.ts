@@ -13,6 +13,8 @@ type Handle = { destroy(): void | Promise<void>; flushed?: () => Promise<void> }
 
 /** Backoff for `findPeers`: about two minutes in all, after which Hyperswarm's own 10-minute refresh takes over. */
 const REDISCOVER_MS = [500, 1000, 2000, 4000, 8000, 15000, 30000, 60000];
+/** While the drive has a peer, `findPeers` only watches: that peer may be a dead connection that has not timed out yet, and when it goes the lookups must start again. */
+const WATCH_MS = 5000;
 
 function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
@@ -139,7 +141,72 @@ export function createHyperPeerNetwork(deps: {
     }
   }
 
+  type Watch = {
+    hasPeer: () => boolean;
+    info: { drive: string; peers?: () => number | undefined } | undefined;
+    attempt: number;
+    /** True while the drive has a peer and the loop only checks that it stays. */
+    watching: boolean;
+    timer: ReturnType<typeof setTimeout> | undefined;
+  };
+  /** One lookup loop per topic: repeat calls join it instead of starting another. */
+  const watches = new Map<string, Watch>();
+
+  function stopWatch(topic: string) {
+    const watch = watches.get(topic);
+    if (!watch) return;
+    if (watch.timer) {
+      clearTimeout(watch.timer);
+      rediscoverTimers.delete(watch.timer);
+    }
+    watches.delete(topic);
+  }
+
+  function schedule(topic: string, watch: Watch, ms: number) {
+    const timer = setTimeout(() => tick(topic, watch), ms);
+    watch.timer = timer;
+    rediscoverTimers.add(timer);
+  }
+
+  function tick(topic: string, watch: Watch) {
+    if (watch.timer) rediscoverTimers.delete(watch.timer);
+    if (closed || !joins.has(topic)) {
+      watches.delete(topic);
+      return;
+    }
+    if (watch.hasPeer()) {
+      watch.watching = true;
+      schedule(topic, watch, WATCH_MS);
+      return;
+    }
+    if (watch.watching) {
+      watch.watching = false;
+      watch.attempt = 0;
+    }
+    const { info } = watch;
+    log("rediscover.attempt", {
+      drive: short(info?.drive),
+      topic: short(topic),
+      n: watch.attempt + 1,
+      peers: info?.peers?.(),
+    });
+    try {
+      void Promise.resolve(swarm.status?.(Buffer.from(topic, "hex"))?.refresh()).catch((e) =>
+        log("error", { where: "rediscover.refresh", topic: short(topic), err: errText(e) }),
+      );
+    } catch {
+      // discovery gone (topic left meanwhile): expected, quiet
+    }
+    if (++watch.attempt >= REDISCOVER_MS.length) {
+      log("rediscover.giveup", { drive: short(info?.drive), topic: short(topic) });
+      watches.delete(topic);
+      return;
+    }
+    schedule(topic, watch, REDISCOVER_MS[watch.attempt]);
+  }
+
   function leave(topic: string) {
+    stopWatch(topic);
     const handle = joins.get(topic);
     if (!handle) return;
     joins.delete(topic);
@@ -193,32 +260,16 @@ export function createHyperPeerNetwork(deps: {
     },
     leave,
     findPeers(topic, hasPeer, info) {
-      let attempt = 0;
-      function tick() {
-        rediscoverTimers.delete(timer);
-        if (closed || hasPeer() || !joins.has(topic)) return;
-        log("rediscover.attempt", {
-          drive: short(info?.drive),
-          topic: short(topic),
-          n: attempt + 1,
-          peers: info?.peers?.(),
-        });
-        try {
-          void Promise.resolve(swarm.status?.(Buffer.from(topic, "hex"))?.refresh()).catch((e) =>
-            log("error", { where: "rediscover.refresh", topic: short(topic), err: errText(e) }),
-          );
-        } catch {
-          // discovery gone (topic left meanwhile): expected, quiet
-        }
-        if (++attempt >= REDISCOVER_MS.length) {
-          log("rediscover.giveup", { drive: short(info?.drive), topic: short(topic) });
-          return;
-        }
-        timer = setTimeout(tick, REDISCOVER_MS[attempt]);
-        rediscoverTimers.add(timer);
+      const running = watches.get(topic);
+      if (running) {
+        running.hasPeer = hasPeer;
+        running.info = info;
+        if (!running.watching) running.attempt = 0;
+        return;
       }
-      let timer = setTimeout(tick, REDISCOVER_MS[0]);
-      rediscoverTimers.add(timer);
+      const watch: Watch = { hasPeer, info, attempt: 0, watching: false, timer: undefined };
+      watches.set(topic, watch);
+      schedule(topic, watch, REDISCOVER_MS[0]);
     },
     connectionCount() {
       return swarm.connections.size;

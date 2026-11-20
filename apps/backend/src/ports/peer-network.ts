@@ -35,8 +35,10 @@ export type PeerNetwork = {
   /** Idempotent. */
   leave(topic: string): void;
   /**
-   * Re-runs the topic lookup with backoff until `hasPeer()` is true, because
-   * Hyperswarm only looks a topic up again every 10 minutes.
+   * Watches the topic: while `hasPeer()` is true it only re-checks every few
+   * seconds; once it is false (a dead connection closed) it re-runs the lookup
+   * with backoff, because Hyperswarm only looks a topic up again every 10
+   * minutes. One watch per topic: a repeat call reuses it. `leave` ends it.
    */
   findPeers(
     topic: string,
