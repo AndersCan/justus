@@ -22,6 +22,9 @@ import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.webkit.WebViewCompat
 import org.json.JSONObject
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
+import androidx.webkit.WebViewFeature
 import to.holepunch.bare.android.BareWebViewClient
 import to.holepunch.bare.android.ErrorCodes
 import to.holepunch.bare.android.HostIpcCoordinator
@@ -166,7 +169,7 @@ class MainActivity : AppCompatActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
-        waitForHandoffAndLoad()
+        closeWebViewNetwork { waitForHandoffAndLoad() }
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -191,6 +194,24 @@ class MainActivity : AppCompatActivity() {
                 }
             },
         )
+    }
+
+    // The WebView's own services (form-hint lookups and the like) call Google
+    // from inside the page process, and no switch turns them all off. Send
+    // everything it fetches to a proxy nobody listens on, except the app's own
+    // loopback origin. https://developer.android.com/reference/androidx/webkit/ProxyController
+    private fun closeWebViewNetwork(then: () -> Unit) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            Log.w("JUSTUS_ANDROID", "WebView cannot override its proxy")
+            then()
+            return
+        }
+        val config = ProxyConfig.Builder()
+            .addProxyRule("127.0.0.1:9")
+            .addBypassRule("127.0.0.1")
+            .addBypassRule("localhost")
+            .build()
+        ProxyController.getInstance().setProxyOverride(config, { it.run() }, { then() })
     }
 
     override fun onStart() {
