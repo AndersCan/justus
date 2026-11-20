@@ -5,6 +5,8 @@
  *   pnpm test:e2e-p2p e2e/p2p/end-one-link.spec.ts
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test } from "../hub/fixtures.mjs";
 import {
   copyInviteLink,
@@ -18,10 +20,25 @@ import {
 
 const ALBUM = "End one link";
 
+/** The link times Ada's phone saved for the album, read from its state file. */
+function savedLinks(storageDir) {
+  const text = readFileSync(resolve(storageDir, "justus.json"), "utf8");
+  const found = [];
+  JSON.parse(text, (key, value) => {
+    if (key === "links" && Array.isArray(value)) found.push(...value);
+    return value;
+  });
+  return found;
+}
+
+/** A link's end in ms, from its `e=` (seconds). */
+const endOf = (link) => Number(/[#&]e=(\d+)/.exec(link)[1]) * 1000;
+
 test.afterEach(() => resumeAll());
 
 test("an ask through an ended link is turned away while Ada's other link lets Ben in", async ({
   instancePages,
+  instances,
 }) => {
   test.setTimeout(240_000);
   const [a, b] = instancePages;
@@ -63,6 +80,11 @@ test("an ask through an ended link is turned away while Ada's other link lets Be
   // Ada's phone has answered, so a request that was going to arrive would have by now.
   await a.waitForTimeout(5000);
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toHaveCount(0);
+  const saved = savedLinks(instances[0].storageDir);
+  expect(saved.find((l) => l.to === endOf(linkB))?.ended).toEqual(expect.any(Number));
+  const keptLink = saved.find((l) => l.to === endOf(linkA));
+  expect(keptLink).toBeDefined();
+  expect(keptLink).not.toHaveProperty("ended");
 
   await ended.getByRole("button", { name: words("invite.close") }).click();
   await b.goto("/join");
@@ -72,6 +94,10 @@ test("an ask through an ended link is turned away while Ada's other link lets Be
     b.getByRole("dialog", { name: pattern("invite.waiting_for_to_let_you_in") }),
   ).toBeVisible({ timeout: 20_000 });
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  // The card names the link Ben came through: the 1-day one, not the ended 7-day one.
+  await expect(a.getByText(pattern("album.asked_with_link"))).toContainText(
+    `with the ${words("link_kind.1_day")} link`,
+  );
   await a.getByRole("button", { name: "Accept, can only look", exact: true }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 });
