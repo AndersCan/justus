@@ -15,7 +15,14 @@ import { expect, test } from "@playwright/test";
 import { recordApkNetwork, traceFacts } from "./apk-network.mjs";
 import { networkInterfaces } from "node:os";
 import { apkAddressReport } from "../hub/apk-trace.mjs";
-import { copyInviteLink, createAlbum, pausePhone, resumeAll, skipIntro } from "../p2p/steps";
+import {
+  copyInviteLink,
+  createAlbum,
+  pausePhone,
+  resumeAll,
+  setName,
+  skipIntro,
+} from "../p2p/steps";
 
 const catalogue = JSON.parse(
   readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
@@ -27,13 +34,16 @@ const exact = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // The text of an id up to its first placeholder, then anything.
 const startsWith = (id) => exact(catalogue[id].text.split("{")[0]) + ".*";
 
+const ADA = "Ada";
 const phoneOff = (when) =>
   words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
 // Off for 30-60 s reads "just now", then "1 min ago": the two cover the first 2 minutes.
 const OFF_WORDS = [phoneOff(words("time.just_now")), phoneOff(words("time.min_ago", { min: 1 }))];
-// Maestro reads the whole Members row as one text, so match the words inside it. Never a prefix such as
-// "Phone off.*": it would match the footer's "Phone off means ...".
-const PHONE_OFF = `.*(${OFF_WORDS.map(exact).join("|")}).*`;
+// Maestro reads the whole Members row as one text, so match the words inside it, exactly once. Never a
+// prefix such as "Phone off.*": it would match the footer's "Phone off means ...". Starting at Ada's name,
+// not followed by a comma, keeps the status line "<name>, Phone off, ..." from matching.
+const OFF_ANY = OFF_WORDS.map(exact).join("|");
+const ROW_ONCE = `${exact(ADA)}(?!, )(?!.*(?:${OFF_ANY}).*(?:${OFF_ANY})).*(?:${OFF_ANY}).*`;
 const CONNECTED_NOW = words("gallery.connected_now", { connected: 1 });
 
 const ALBUM = "Walk";
@@ -59,7 +69,7 @@ const STEPS = [
   "Ben sees Ada's photo",
   "Ben opens Ada's photo",
   `Ada reads “${words("holders.on_and_your_phone", { names: `${BEN}'s` })}” on her photo`,
-  `Ada's phone goes off; Ben opens Members and reads “${OFF_WORDS[0]}” or “${OFF_WORDS[1]}”`,
+  `Ada's phone goes off; with her photo open the page behind is out of reach; Ben closes it, opens Members and reads “${OFF_WORDS[0]}” or “${OFF_WORDS[1]}” once`,
   `Ada's phone comes back; Ben's album reads “${CONNECTED_NOW}”`,
   "Ben's APK sent only to Ada's phone and DHT nodes, from its start to the end of the walk",
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
@@ -148,6 +158,7 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
   try {
     await step(1, async () => {
       await skipIntro([a]);
+      await setName(a, ADA);
       await createAlbum(a, ALBUM, PHOTO, 7);
     });
     await step(2, async () => {
@@ -223,7 +234,8 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
           CLOSE: exact(words("lightbox.close")),
           MEMBERS: exact(words("gallery.invite_members")),
           EVERYONE: exact(words("album.everyone_in_the_album_sees")),
-          PHONE_OFF,
+          PHOTOS_TAB: exact(words("app.photos")),
+          ROW_ONCE,
         },
         150_000,
       );
