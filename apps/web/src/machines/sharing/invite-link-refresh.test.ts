@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { gateway } from "../../gateway";
 import { sync } from "../sync-machine";
-import { inviteLink, inviteLinkActor } from "./invite-link";
+import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "./invite-link";
 
 vi.mock("../../gateway", () => ({
   gateway: {
@@ -34,5 +34,22 @@ describe("the album list follows the links", () => {
     inviteLink.endLink("f1", { endsAt: 6000 });
     await inviteLinkActor.settled();
     expect(sync.refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the view while a link is ending", () => {
+  test("names the end of the link being ended", async () => {
+    let finish = (_: unknown) => {};
+    vi.mocked(gateway.endInviteLink).mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)) as never,
+    );
+    inviteLink.endLink("f1", { endsAt: 7000 });
+    expect(inviteLinkViewOf(inviteLinkActor.snapshot())).toMatchObject({
+      state: "endingLink",
+      endingEndsAt: 7000,
+    });
+    finish([null, { ok: true }]);
+    await inviteLinkActor.settled();
+    expect(inviteLinkViewOf(inviteLinkActor.snapshot()).endingEndsAt).toBeUndefined();
   });
 });
