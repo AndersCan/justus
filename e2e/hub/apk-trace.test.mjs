@@ -26,6 +26,12 @@ describe("apkAddressReport", () => {
       "Ben's APK sent stream packets to 203.0.113.7:9, which is not Ada's phone",
     ]);
   });
+  it("names a stream packet to Ada's port on another host", () => {
+    const trace = `${sample}\n${send("203.0.113.7", 41234, "\\xff\\x01\\x00")}`;
+    expect(apkAddressReport({ trace, ada }).outside).toEqual([
+      "Ben's APK sent stream packets to 203.0.113.7:41234, which is not Ada's phone",
+    ]);
+  });
   it("names a connection to a non-loopback address", () => {
     const trace = `${sample}\n${connect("93.184.216.34", 443)}`;
     expect(apkAddressReport({ trace, ada }).outside).toEqual([
