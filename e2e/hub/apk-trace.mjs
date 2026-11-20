@@ -1,4 +1,6 @@
-const STREAM = /iov_base="\\xff\\x01|, "\\xff\\x01/;
+const STREAM = /^"\\xff\\x01/;
+const DHT = /^"(?:\\x03|\\x13)|^"\\x00"/;
+const PAYLOAD = /iov_base="((?:[^"\\]|\\.)*)"|^[^(]*\([^,]*, "((?:[^"\\]|\\.)*)"/;
 const V4 = /sin_port=htons\((\d+)\), sin_addr=inet_addr\("([\d.]+)"\)/;
 const V6 = /sin6_port=htons\((\d+)\), .*?inet_pton\(AF_INET6, "([^"]+)"/;
 
@@ -19,22 +21,36 @@ function isLoopback(host) {
   return host.startsWith("127.") || host === "::1";
 }
 
+function payload(message) {
+  const m = PAYLOAD.exec(message);
+  return m ? `"${m[1] ?? m[2]}"` : "";
+}
+
+function messages(call, line) {
+  if (call !== "sendmmsg") return [line];
+  return line.split("msg_hdr=").slice(1);
+}
+
 /**
  * Reads an strace record of Ben's app (recordApkNetwork) and names every address it should not have used.
  * Allowed: Ada's phone (host in `ada.hosts`, port in `ada.ports`), DHT messages to any node, loopback.
- * Not allowed: a stream packet to anyone but Ada's phone, and a connect to any non-loopback address.
+ * Not allowed: a stream packet to anyone but Ada's phone, any other packet to an address that is not Ada's,
+ * and a connect to any non-loopback address.
  * @param {{ trace: string, ada: { hosts: Set<string>, ports: Set<number> } }} input
- * @returns {{ outside: string[], adaStream: number, dhtNodes: number }}
+ * @returns {{ outside: string[], adaStream: number, dhtNodes: number, adaAddresses: string[] }}
  *   `outside`: one sentence each, sorted, no duplicates; empty means the record is clean.
  */
 export function apkAddressReport({ trace, ada }) {
-  if (trace.trim() === "") return { outside: ["The record is empty"], adaStream: 0, dhtNodes: 0 };
+  if (trace.trim() === "") {
+    return { outside: ["The record is empty"], adaStream: 0, dhtNodes: 0, adaAddresses: [] };
+  }
   const outside = new Set();
   const nodes = new Set();
+  const adaAddresses = new Set();
   const connected = new Map();
   let adaStream = 0;
   for (const line of trace.split("\n")) {
-    const call = /^(?:\[pid\s+\d+\]\s+)?\d+\s+[\d.]+\s+(\w+)\(/.exec(line)?.[1];
+    const call = /^\d+\s+[\d.]+\s+(\w+)\(/.exec(line)?.[1];
     const fd = /\((\d+)</.exec(line)?.[1];
     if (call === "connect") {
       const to = destination(line);
@@ -48,17 +64,23 @@ export function apkAddressReport({ trace, ada }) {
       continue;
     }
     if (call !== "sendto" && call !== "sendmsg" && call !== "sendmmsg") continue;
-    const to = destination(line) ?? connected.get(fd);
-    if (STREAM.test(line)) {
-      if (!to) {
-        outside.add(`Could not read this line of the record: ${line.slice(0, 100)}`);
-      } else if (ada.hosts.has(to.host) && ada.ports.has(to.port)) {
-        adaStream += 1;
-      } else if (!isLoopback(to.host)) {
-        outside.add(`Ben's APK sent stream packets to ${show(to)}, which is not Ada's phone`);
+    for (const message of messages(call, line)) {
+      const to = destination(message) ?? connected.get(fd);
+      const bytes = payload(message);
+      const toAda = to !== undefined && ada.hosts.has(to.host) && ada.ports.has(to.port);
+      if (STREAM.test(bytes)) {
+        if (!to) {
+          outside.add(`Could not read this line of the record: ${line.slice(0, 100)}`);
+        } else if (toAda) {
+          adaStream += 1;
+          adaAddresses.add(show(to));
+        } else if (!isLoopback(to.host)) {
+          outside.add(`Ben's APK sent stream packets to ${show(to)}, which is not Ada's phone`);
+        }
+      } else if (to && !isLoopback(to.host) && !toAda) {
+        if (DHT.test(bytes)) nodes.add(show(to));
+        else outside.add(`Ben's APK sent a packet that is not a DHT message to ${show(to)}`);
       }
-    } else if (to && !isLoopback(to.host)) {
-      nodes.add(show(to));
     }
   }
   if (adaStream === 0) {
@@ -66,5 +88,11 @@ export function apkAddressReport({ trace, ada }) {
       "Ben's APK sent no stream packet to Ada's phone: the record missed the photo's path",
     );
   }
-  return { outside: [...outside].sort(), adaStream, dhtNodes: nodes.size };
+  const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return {
+    outside: [...outside].sort(byText),
+    adaStream,
+    dhtNodes: nodes.size,
+    adaAddresses: [...adaAddresses].sort(byText),
+  };
 }

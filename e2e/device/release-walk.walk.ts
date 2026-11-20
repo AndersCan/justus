@@ -251,8 +251,8 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         trace: seen.trace,
         ada: { hosts: new Set(hosts), ports: new Set(ports) },
       });
-      STEPS[11].name = `Ben's APK sent only to Ada's phone (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes, from its start to the end of the walk`;
-      expect(report.outside, "Ben's APK sent only to Ada's phone and DHT nodes").toEqual([]);
+      if (report.outside.length > 0) throw new Error(report.outside.join("; "));
+      STEPS[11].name = `Ben's APK sent only to Ada's phone at ${report.adaAddresses.join(", ")} (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes. Outside: none`;
     });
   } finally {
     resumeAll();
