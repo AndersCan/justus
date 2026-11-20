@@ -150,4 +150,12 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(runTiles).toHaveCount(6);
   await expect(ben.locator("[data-new-photos-line]")).toHaveCount(0);
   await expect(marks).toHaveCount(0);
+
+  // The phones are shared with later tests; delete the album so they do not carry its 6 photos and 3 peers.
+  await a.goto("/sharing");
+  await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+  await a.getByRole("button", { name: "More options" }).click();
+  await a.getByRole("menuitem", { name: "Delete album" }).click();
+  await a.getByRole("button", { name: "Delete album", exact: true }).click();
+  await expect(a).toHaveURL(/\/sharing$/);
 });
