@@ -1859,6 +1859,24 @@ describe("album member roles", () => {
     expect(dot("k2")?.getAttribute("aria-label")).toBe(copy("people.not_connected_yet"));
   });
 
+  test("a phone-off row's dot is hidden from a screen reader, a connected row's is not", () => {
+    const withKim = {
+      ...mixed,
+      members: [
+        ...(mixed as unknown as { members: object[] }).members,
+        { key: "k3", name: "Kim", admin: false, connected: true, identity: "i3", color: 2 },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: withKim }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const dot = (key: string) => host.querySelector(`[data-member-key="${key}"] [role="img"]`);
+    expect(dot("k2")?.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(host.querySelector('[data-member-key="k2"] [data-member-presence]')).not.toBeNull();
+    expect(dot("k3")?.closest('[aria-hidden="true"]')).toBeNull();
+  });
+
   test("the role line wraps instead of being cut off", () => {
     syncActor.send(statusSeen.create({ status: mixed }));
     people.open();

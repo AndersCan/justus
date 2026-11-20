@@ -657,6 +657,13 @@
     "who": "Album members",
     "screen": ""
   },
+  "people.presence_changed": {
+    "text": "{name}, {presence}",
+    "status": "draft",
+    "where": "Screen reader only › said when a member's phone goes off",
+    "who": "Album members",
+    "screen": ""
+  },
   "people.not_connected_yet": {
     "text": "hasn't connected yet",
     "status": "draft",
