@@ -13,6 +13,15 @@ function destination(line) {
   return { host: mapped, port: Number(ipv6[1]), v6: mapped === ipv6[2] };
 }
 
+const PEER = /<UDP(?:v6)?:\[.*->\[?([^\]>]+?)\]?:(\d+)\]>/;
+
+function peerOfSocket(line) {
+  const peer = PEER.exec(line);
+  if (!peer) return undefined;
+  const mapped = peer[1].replace(/^::ffff:/, "");
+  return { host: mapped, port: Number(peer[2]), v6: mapped.includes(":") };
+}
+
 function show(target) {
   return target.v6 ? `[${target.host}]:${target.port}` : `${target.host}:${target.port}`;
 }
@@ -47,25 +56,20 @@ export function apkAddressReport({ trace, ada }) {
   const outside = new Set();
   const nodes = new Set();
   const adaAddresses = new Set();
-  const connected = new Map();
   let adaStream = 0;
   for (const line of trace.split("\n")) {
     const call = /^\d+\s+[\d.]+\s+(\w+)\(/.exec(line)?.[1];
-    const socket = /\((\d+)</.exec(line)?.[1];
     if (call === "connect") {
       const target = destination(line);
       if (!target || isLoopback(target.host)) continue;
-      if (/<UDP/.test(line)) {
-        connected.set(socket, target);
-        continue;
-      }
+      if (/<UDP/.test(line)) continue;
       const kind = /<TCP/.test(line) ? "TCP" : "network";
       outside.add(`Ben's APK opened a ${kind} connection to ${show(target)}`);
       continue;
     }
     if (call !== "sendto" && call !== "sendmsg" && call !== "sendmmsg") continue;
     for (const message of messages({ call, line })) {
-      const target = destination(message) ?? connected.get(socket);
+      const target = destination(message) ?? peerOfSocket(line);
       const bytes = payload(message);
       const toAda =
         target !== undefined && ada.hosts.has(target.host) && ada.ports.has(target.port);

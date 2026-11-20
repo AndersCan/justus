@@ -8,7 +8,7 @@ function send({ host, port, bytes }) {
 const toAda = send({ host: "10.1.0.4", port: 41234, bytes: "\\xff\\x01\\x00" });
 
 describe("apkAddressReport DHT messages", () => {
-  it("counts a DHT response and a one-byte probe as DHT nodes", () => {
+  it("returns a DHT response and a one-byte probe as DHT nodes", () => {
     const trace = [
       toAda,
       send({ host: "198.18.0.9", port: 49737, bytes: "\\x13\\x00" }),
@@ -19,7 +19,7 @@ describe("apkAddressReport DHT messages", () => {
       dhtNodes: 2,
     });
   });
-  it("names a packet that starts with a zero byte but is longer than the probe", () => {
+  it("returns a sentence for a packet that starts with a zero byte but is longer than the probe", () => {
     const trace = [toAda, send({ host: "203.0.113.7", port: 9, bytes: "\\x00\\x01\\x02" })];
     expect(apkAddressReport({ trace: trace.join("\n"), ada }).outside).toEqual([
       "Ben's APK sent a packet that is not a DHT message to 203.0.113.7:9",
