@@ -1,10 +1,4 @@
-/**
- * Repro: an Admin who was handed the album removes someone, then restarts. Start-up reopens
- * the pre-move lists drive (adminChain is not patched by the move), and the move-time clear
- * already deleted this phone's bytes of its own photos there: the photo is listed but its
- * bytes are gone. On origin/main the same test passes.
- * Place in apps/backend/test/.
- */
+/** An Admin who was handed the album removes someone, then restarts: the album stays on its new keys and the Admin row still names who handed it over. */
 import { describe, it, expect } from "vite-plus/test";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
@@ -65,6 +59,9 @@ describe("a handed Admin who removes someone", () => {
     expect((await back.list({ all: true })).map((p) => p.name)).toEqual(["b.jpg"]);
     const fdKey = (back.debugState() as { folders: Array<{ folderDrive: { key: string } }> })
       .folders[0]!.folderDrive.key;
+    expect(fdKey).toBe((await back.folders()).folders[0]!.shareKey);
+    const admin = (await back.status()).members.find((m: { admin?: boolean }) => m.admin === true);
+    expect(admin?.handedBy).toBe("Ada");
     const [, fd] = await rdeps.drives.open(fdKey, { timeoutMs: 2_000 });
     const got: string[] = [];
     for await (const e of fd!.list("/photos", { wait: false })) {
