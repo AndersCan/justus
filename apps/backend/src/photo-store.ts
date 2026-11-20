@@ -407,6 +407,8 @@ type FolderRecord = {
   selfNs?: string;
   /** Keys of this device's own drives in earlier versions of the album (it followed moves), newest first. */
   formerSelf?: string[];
+  /** Old drives this phone still has to clear once the new album's `/earlier.json` shows it no longer reads them. */
+  unreadDrives?: string[];
   /** Creator: when this album moved to a new key (the rerun guard). */
   rotatedAt?: number;
   /** Creator: the old member drives, kept as read-only photo sources. */
@@ -1085,6 +1087,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (Array.isArray(f.formerSelf)) {
       const keys = f.formerSelf.filter((k): k is string => typeof k === "string" && isHexKey(k));
       if (keys.length > 0) out.formerSelf = keys;
+    }
+    if (Array.isArray(f.unreadDrives)) {
+      const keys = f.unreadDrives.filter((k): k is string => typeof k === "string" && isHexKey(k));
+      if (keys.length > 0) out.unreadDrives = keys;
     }
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
     if (Array.isArray(f.earlier)) {
@@ -2632,10 +2638,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
-  /** Earlier Admins' drives the new album no longer reads: clears this phone's
-   * copy. Waits for the new Admin's `/earlier.json`; without it nothing is known
-   * to be unread. Never awaited by the join. */
-  async function clearUnreadDrives(rt: FolderRuntime, newAdmin: Drive): Promise<void> {
+  /** Old drives the new album no longer reads: clears this phone's copy. Waits for
+   * the new Admin's `/earlier.json`; without it nothing is known to be unread.
+   * The keys wait on the saved record, so a restart finishes it. Never awaited by the join. */
+  async function clearUnreadDrives(record: FolderRecord, newAdmin: Drive): Promise<void> {
+    const candidates = record.unreadDrives ?? [];
+    if (candidates.length === 0) return;
     // The new drive always writes it, so absent means it has not replicated yet.
     let earlier: ReturnType<typeof parseEarlier> = [];
     for (let tries = 0; tries < 30 && earlier.length === 0; tries++) {
@@ -2644,31 +2652,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (earlier.length === 0) await sleep(1_000);
     }
     if (earlier.length === 0) return;
-    const registry = await readRegistryIn(newAdmin);
-    const keep = new Set([
-      rt.folderDrive.key,
-      rt.selfDrive.key,
-      ...(rt.record.formerSelf ?? []),
-      ...Object.values(registry.members).map((m) => m.key),
-      ...earlier.map((e) => e.key),
-    ]);
-    const unread = [
-      ...(rt.record.earlier ?? []).filter((e) => e.keptVersion === undefined).map((e) => e.key),
-      ...pastAdminKeys(rt.record),
-    ].filter((k, i, all) => !keep.has(k) && all.indexOf(k) === i);
-    for (const key of unread) {
+    const keep = new Set(earlier.map((e) => e.key));
+    for (const key of candidates.filter((k) => !keep.has(k))) {
       const [openErr, drive] = await deps.drives.open(key, { timeoutMs: 2_000 });
       if (openErr) continue;
-      void clearOldDrive(drive, { folderId: rt.record.id, why: "followed" }).finally(() => {
+      void clearOldDrive(drive, { folderId: record.id, why: "followed" }).finally(() => {
         void deps.drives.release(drive).catch(() => {});
       });
     }
+    if (!state.folders.includes(record)) return;
+    delete record.unreadDrives;
+    saveState();
   }
 
   /** This phone follows the album to its new key: the old album's drives are
    * released (never purged) and its record is replaced by the one the join
    * makes under the same local id. */
-  async function retireMovedAlbum(rt: FolderRuntime, newAdmin?: Drive): Promise<void> {
+  async function retireMovedAlbum(rt: FolderRuntime): Promise<void> {
     const id = rt.record.id;
     try {
       await unmountRuntime(rt);
@@ -2677,7 +2677,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       void clearOldDrive(old, { folderId: id, why: "followed" }).finally(() => {
         void deps.drives.release(old).catch(() => {});
       });
-      if (newAdmin) void clearUnreadDrives(rt, newAdmin).catch(answerErr("clearUnreadDrives"));
     } catch (e) {
       log("error", { where: "retireMovedAlbum", folder: short(id), err: errText(e) });
     }
@@ -4652,6 +4651,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = selfDrive.key;
+      // Started before the slower reads below: a follow cut short by a restart finishes here.
+      if (!isCreator && record.unreadDrives) {
+        void clearUnreadDrives(record, fd).catch(answerErr("clearUnreadDrives"));
+      }
       // The Admin's invite codes stay served, until /admin.json is written and the new Admin takes them over.
       if (isCreator && record.invite && !record.handover?.written) {
         serveInvite(record.invite.code);
@@ -6592,7 +6595,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       catchUp = { from: old.selfDrive, removedIds };
     }
-    if (old) await retireMovedAlbum(old, drive);
+    if (old) await retireMovedAlbum(old);
+    // The earlier drives it read: the new album's `/earlier.json` says which it still lists.
+    const unreadDrives = (old?.record.earlier ?? []).map((e) => e.key);
 
     const rt: FolderRuntime = {
       record: {
@@ -6618,6 +6623,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               ),
             }
           : {}),
+        ...(unreadDrives.length > 0 ? { unreadDrives } : {}),
       },
       folderDrive: drive,
       selfDrive,
@@ -6635,6 +6641,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       former: [],
     };
     runtimes.set(folderId, rt);
+    if (unreadDrives.length > 0) {
+      void clearUnreadDrives(rt.record, drive).catch(answerErr("clearUnreadDrives"));
+    }
     if (catchUp) {
       const { from } = catchUp;
       void copyOwnEntries(from, selfDrive, catchUp.removedIds)
