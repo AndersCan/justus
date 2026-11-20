@@ -7,6 +7,7 @@
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
+import { spokenSheet } from "../spoken";
 import { askToJoin, copyInviteLink, createAlbum, setName, skipIntro, words } from "./steps";
 
 const ALBUM = "Leave trip";
@@ -75,6 +76,16 @@ test("Ben reads his Leave sheet, leaves, and Ada's album drops his photo", async
       { message: "Ben's Leave sheet", timeout: 90_000, intervals: [1000] },
     )
     .toBe(expected);
+
+  const sheet = await spokenSheet(b);
+  expect(sheet.name, "Ben · Leave sheet is named as shown").toBe(
+    words("album.leave", { name: ALBUM }),
+  );
+  expect(sheet.shown.text, "Ben · Leave sheet text").toBe(expected);
+  expect(sheet.buttons, "Ben · Keep says the sheet's text").toEqual([
+    { name: words("confirm.keep"), description: sheet.shown.text },
+    { name: words("album.leave_2"), description: "" },
+  ]);
 
   await b.getByRole("button", { name: "Leave", exact: true }).click();
   await expect(b).toHaveURL(/\/sharing$/, { timeout: 30_000 });
