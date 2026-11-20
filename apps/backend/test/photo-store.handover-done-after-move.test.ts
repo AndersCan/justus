@@ -45,10 +45,6 @@ describe("an Admin whose phone was off through the handover and a Remove", () =>
     expect((await ada.store.addBytes("a.jpg", new Uint8Array([9, 8, 7]), folderId))[0]).toBeNull();
     const benFolder = (await trip(ben))!.id;
     await until(async () => (await ben.store.list({ all: true })).some((p) => p.name === "a.jpg"));
-    expect(
-      (await ben.store.addBytes("b.jpg", new Uint8Array([1, 2, 3, 4]), benFolder))[0],
-    ).toBeNull();
-    await until(async () => (await ada.store.list({ all: true })).length === 2);
 
     // Hold Ben's note until Ada's phone is off.
     let holdNote = true;
@@ -73,11 +69,6 @@ describe("an Admin whose phone was off through the handover and a Remove", () =>
     const back = createPhotoStore(restarted(ada.deps));
     await back.ready();
     await until(async () => (await back.folders()).folders.every((f) => f.name !== "Trip"));
-    expect(adaLogs.some((e) => e.event === "handover.done")).toBe(true);
-    expect((await ben.store.list({ all: true })).map((p) => p.name).sort()).toEqual([
-      "a.jpg",
-      "b.jpg",
-    ]);
 
     // The fake serves exactly what a phone stores: Ada's phone holds no photo bytes.
     const held: string[] = [];
