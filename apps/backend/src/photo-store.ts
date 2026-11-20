@@ -2119,7 +2119,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const registry = await readRegistryIn(rt.folderDrive);
       for (const e of rt.record.earlier ?? []) {
-        if (e.keptVersion !== undefined || rt.record.formerSelf?.includes(e.key)) continue;
+        if (
+          e.keptVersion !== undefined ||
+          rt.record.formerSelf?.includes(e.key) ||
+          pastAdminKeys(rt.record).includes(e.key)
+        )
+          continue;
         const next = successorOf(rt, registry.members, e);
         const oldDrive = rt.memberDrives.get(e.key);
         const newDrive = next && rt.memberDrives.get(next.key);
@@ -4628,6 +4633,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const pastOf = handedDrive
         ? (record.adminChain?.slice(0, -1) ?? [])
         : (record.pastKeys ?? []);
+      const adminCopies: Drive[] = [];
+      for (const key of handedDrive ? [] : (record.earlierAdmins ?? [])) {
+        const [copyErr, copy] = await deps.drives.open(key, { timeoutMs: 2_000 });
+        if (!copyErr) adminCopies.push(copy);
+      }
       for (const past of isCreator ? pastOf : []) {
         const [pastErr, pastDrive] = await deps.drives.open(past, {
           timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
@@ -4639,7 +4649,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         joinTopic(topicOf(pastDrive), { server: true });
         rediscover(topicOf(pastDrive), pastDrive);
         if (handedDrive) pastAdmins.push(pastDrive);
-        else void clearOldDrive(pastDrive, { folderId: record.id, why: "start", copiedTo: fd });
+        else {
+          for (const to of [fd, ...adminCopies]) {
+            void clearOldDrive(pastDrive, { folderId: record.id, why: "start", copiedTo: to });
+          }
+        }
       }
       const enrolled =
         !isCreator &&
@@ -5949,6 +5963,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const identity = presence.identities.get(m.key);
       if (identity && m.key !== removedKey && !moving[identity]) moving[identity] = m;
     }
+    const copiedAdmins = pastAdminKeys(record).flatMap((key) => {
+      const drive = rt.memberDrives.get(key) ?? rt.pastAdmins?.find((d) => d.key === key);
+      return drive ? [drive] : [];
+    });
     const [moveErr, moved] = await moveAlbum(
       { drives: deps.drives, log },
       {
@@ -5958,6 +5976,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         removedKey,
         device: (driveKey) => deviceJson(state.name, driveKey),
         inviteCode: newInviteCode(),
+        earlierAdmins: copiedAdmins.map((drive) => ({ drive })),
       },
     );
     if (moveErr) {
@@ -6016,7 +6035,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       movingUnknown: Object.keys(unknown).length > 0 ? unknown : undefined,
       moveOwed: undefined,
       earlier: moved.earlier,
-      earlierAdmins: record.adminChain ? record.adminChain.slice(0, -1) : record.earlierAdmins,
+      earlierAdmins: moved.earlierAdmins.length > 0 ? moved.earlierAdmins : undefined,
       adminChain: undefined,
     };
     const persisted = state.folders.find((f) => f.id === record.id);
@@ -6027,6 +6046,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.viewers = {};
     saveState();
     void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
+    for (const [i, past] of copiedAdmins.entries()) {
+      const copyKey = moved.earlierAdmins[i];
+      if (copyKey === undefined || copyKey === past.key) continue;
+      void deps.drives
+        .open(copyKey, { timeoutMs: 2_000 })
+        .then(([openErr, copy]) => {
+          if (openErr) return;
+          return clearOldDrive(past, { folderId: record.id, why: "moved", copiedTo: copy });
+        })
+        .catch(answerErr("clearEarlierAdmin"));
+    }
     joinTopic(topicOf(fresh), { server: true });
     rediscover(topicOf(fresh), fresh);
     if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });

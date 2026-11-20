@@ -71,6 +71,68 @@ const read = async (drive: Drive, path: string) =>
   JSON.parse((await drive.readSmall(path, 1e6)) ?? "null");
 
 describe("moveAlbum", () => {
+  async function adaDrive(drives: DriveStore) {
+    const ada = await drives.openOwn("ada");
+    await ada.put("/photos/one.jpg", Buffer.from("one"), { metadata: { sha256: "x1" } });
+    await ada.put("/thumbs/one.jpg", Buffer.from("t1"));
+    await ada.put("/photos/two.jpg", Buffer.from("two"));
+    await ada.put("/thumbs/two.jpg", Buffer.from("t2"));
+    return ada;
+  }
+
+  it("copies an earlier Admin's kept photos to a drive of its own and lists that one", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const ada = await adaDrive(drives);
+    const [err, moved] = await run(drives, old, {
+      record: { id: "f1", name: "Trip", earlier: [{ key: ada.key, name: "Ada" }] },
+      earlierAdmins: [{ drive: ada }],
+    });
+    expect(err, "admin copy: succeeds").toBeNull();
+    const copy = await drives.openOwn("folder/f1/m1/a0");
+    expect(moved!.earlierAdmins, "admin copy: key").toEqual([copy.key]);
+    expect(
+      moved!.earlier.map((e: { key: string }) => e.key),
+      "admin copy: listed, original not",
+    ).toContain(copy.key);
+    expect(moved!.earlier.map((e: { key: string }) => e.key)).not.toContain(ada.key);
+    expect(moved!.earlier.find((e: { key: string }) => e.key === copy.key)?.name).toBe("Ada");
+    expect(Buffer.from((await copy.readBytes("/photos/one.jpg")) ?? []).toString()).toBe("one");
+    expect(Buffer.from((await copy.readBytes("/thumbs/two.jpg")) ?? []).toString()).toBe("t2");
+  });
+
+  it("leaves out a photo the album removed from the copy", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const ada = await adaDrive(drives);
+    await old.put("/removed.json", json({ version: 1, removed: { [`${ada.key}:two`]: 1 } }));
+    const [err] = await run(drives, old, {
+      record: { id: "f1", name: "Trip", earlier: [{ key: ada.key, name: "Ada" }] },
+      earlierAdmins: [{ drive: ada }],
+    });
+    expect(err).toBeNull();
+    const copy = await drives.openOwn("folder/f1/m1/a0");
+    expect(await copy.readBytes("/photos/two.jpg")).toBeUndefined();
+    expect(await copy.readBytes("/thumbs/two.jpg")).toBeUndefined();
+    expect(await copy.readBytes("/photos/one.jpg")).toBeDefined();
+  });
+
+  it("keeps the original as a source when one photo cannot be fetched, and the move still works", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const ada = await adaDrive(drives);
+    const real = ada.download.bind(ada);
+    ada.download = async (path, opts) =>
+      path === "/photos/two.jpg" ? "timedOut" : real(path, opts);
+    const [err, moved] = await run(drives, old, {
+      record: { id: "f1", name: "Trip", earlier: [{ key: ada.key, name: "Ada" }] },
+      earlierAdmins: [{ drive: ada }],
+    });
+    expect(err, "incomplete: move succeeds").toBeNull();
+    expect(moved!.earlierAdmins).toEqual([ada.key]);
+    expect(moved!.earlier.map((e: { key: string }) => e.key)).toContain(ada.key);
+  });
+
   it("carries the Admin's record of held photos to the new drive", async () => {
     const drives = phone();
     const old = await oldAlbum(drives);
