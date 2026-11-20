@@ -5991,11 +5991,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function tellHandoverDone(identity: string): Promise<void> {
     for (const rt of Array.from(runtimes.values())) {
       if (rt.record.handedBy?.identity !== identity) continue;
-      await tellIdentity(invitePorts, {
-        identity,
-        message: { kind: "handoverDone", album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
-        timeoutMs: 2_000,
-      });
+      for (const key of [rt.record.shareKey, ...(rt.record.pastKeys ?? [])]) {
+        await tellIdentity(invitePorts, {
+          identity,
+          message: { kind: "handoverDone", album: deps.drives.discoveryKeyOf(key) },
+          timeoutMs: 2_000,
+        });
+      }
     }
   }
 
