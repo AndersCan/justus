@@ -189,14 +189,22 @@ export async function handOverAlbum(status: Status, people: readonly Person[]) {
       : (choices[0]?.key ?? null);
   const chosen = choices.find((c) => c.key === key);
   if (!chosen) return;
+  await confirmHandOver({ id, name }, chosen);
+}
+
+/** Ask Ada to confirm, then hand the album to this person. */
+export async function confirmHandOver(
+  folder: { id: string; name: string },
+  person: Pick<Person, "key" | "name">,
+) {
   const ok = await confirmAction({
-    title: copy("album.hand_over_title", { album: name, name: chosen.name }),
-    detail: copy("album.hand_over_detail", { album: name, name: chosen.name }),
+    title: copy("album.hand_over_title", { album: folder.name, name: person.name }),
+    detail: copy("album.hand_over_detail", { album: folder.name, name: person.name }),
     cancelLabel: copy("album.hand_over_stay"),
     confirmLabel: copy("album.hand_over_confirm"),
     tone: "danger",
   });
-  if (ok) folders.handOver(id, name, chosen.key);
+  if (ok) folders.handOver(folder.id, folder.name, person.key, person.name);
 }
 
 /** Restore redraws the page; the new More options button is not focusable at once, so retry for a few seconds. */
@@ -600,6 +608,19 @@ function memberRow(
                   >
                     ${t("album.make_a_viewer", { name: p.name })}
                   </button>`
+            }
+            ${
+              vm.folder && !vm.folder.handingOver
+                ? html`<button
+                    class=${roleButtonClass}
+                    ?disabled=${vm.busy}
+                    @click=${() => {
+                      if (vm.folder) void confirmHandOver(vm.folder, p);
+                    }}
+                  >
+                    ${t("album.hand_over_to", { album: vm.folder.name, name: p.name })}
+                  </button>`
+                : null
             }
             <button
               class="${roleButtonClass} text-danger-fg"

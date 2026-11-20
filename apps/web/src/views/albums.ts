@@ -6,6 +6,8 @@ import { onOutput } from "@mantaq/sugar";
 import { repeat } from "lit-html/directives/repeat.js";
 import {
   FOLDERS_STATES,
+  HANDOVER_PHONE_UNPROVEN_CODE,
+  HANDOVER_REFUSED_CODE,
   folders,
   foldersActor,
   foldersViewModel,
@@ -102,12 +104,22 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   if (!change) return;
   const { kind, folderId, name } = change;
   if (next === "couldNotChangeAlbum") {
-    if (foldersActor.snapshot().context.changeRefused) {
+    const { changeCode } = foldersActor.snapshot().context;
+    if (kind === "stayAdmin" && changeCode === HANDOVER_REFUSED_CODE) {
       const who = foldersActor.snapshot().context.folders.find((f) => f.id === folderId)
         ?.handingOver?.name;
       toast(
         copy("albums.already_with_the_new_admin", {
           who: who || copy("albums.the_new_admin"),
+          name,
+        }),
+      );
+      return;
+    }
+    if (kind === "handOver" && change.memberName && changeCode === HANDOVER_PHONE_UNPROVEN_CODE) {
+      toast(
+        copy("albums.hand_over_phone_off", {
+          who: change.memberName,
           name,
         }),
       );

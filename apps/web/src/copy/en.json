@@ -4892,6 +4892,13 @@
     "who": "Admins leaving an album",
     "screen": ""
   },
+  "album.hand_over_to": {
+    "text": "Hand {album} to {name}",
+    "status": "draft",
+    "where": "Album › Invite & members › button under a member's name",
+    "who": "Admins, on each member's row",
+    "screen": ""
+  },
   "album.hand_over_detail": {
     "text": "{name} becomes the Admin and accepts new people from now on. Old invite links go to {name}. The photos you added stay in {album}: {name}'s phone gets a copy of each first. Then {album} disappears from this phone and you drop off the people list. You can stay Admin until {name}'s phone has them.",
     "status": "draft",
@@ -4946,6 +4953,13 @@
     "status": "draft",
     "where": "Album › toast, when calling off a handover that already finished",
     "who": "Admins who tap Stay Admin after the new Admin's phone has the album",
+    "screen": ""
+  },
+  "albums.hand_over_phone_off": {
+    "text": "{who}'s phone needs Justus open to take “{name}” over. Ask {who} to open Justus, then try again.",
+    "status": "draft",
+    "where": "Album › toast, when a handover is refused",
+    "who": "Admins handing an album on",
     "screen": ""
   },
   "albums.the_new_admin": {

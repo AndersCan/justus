@@ -33,7 +33,7 @@ test("Ada hands the album to Ben and waits for his phone", async () => {
   await actor.settled();
   actor.send({
     type: "HAND_OVER_ALBUM",
-    payload: { folderId: "summer", name: "Summer", memberKey: "ben" },
+    payload: { folderId: "summer", name: "Summer", memberKey: "ben", memberName: "Ben" },
   });
   actor.inject(listed);
   await actor.settled();
@@ -58,7 +58,7 @@ test("The hand over fails and the album stays", async () => {
   await actor.settled();
   actor.send({
     type: "HAND_OVER_ALBUM",
-    payload: { folderId: "summer", name: "Summer", memberKey: "ben" },
+    payload: { folderId: "summer", name: "Summer", memberKey: "ben", memberName: "Ben" },
   });
   actor.inject({ type: "ALBUM_CHANGE_FAILED", payload: { message: "no" } });
   await actor.settled();
