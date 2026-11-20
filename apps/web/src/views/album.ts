@@ -337,7 +337,14 @@ type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
 const memberNames = new Map<string, string>();
 const removedPeople = new Map<
   string,
-  { name: string; album: string; folderId: string; code: string }
+  {
+    name: string;
+    album: string;
+    folderId: string;
+    code: string;
+    /** The row read as connected when the Admin tapped Remove; the toast says so. */
+    connected: boolean;
+  }
 >();
 
 onOutput(peopleActor, (e) => {
@@ -370,7 +377,10 @@ onOutput(peopleActor, (e) => {
   removedPeople.delete(key);
   if (!removed) return;
   inviteLink.linkReplaced(removed.folderId, removed.code, removed.name);
-  toast(copy("album.is_no_longer_in", { name: removed.name, album: removed.album }), {
+  const text = removed.connected
+    ? copy("album.no_longer_in_phone_on", { name: removed.name, album: removed.album })
+    : copy("album.no_longer_in_phone_off", { name: removed.name, album: removed.album });
+  toast(text, {
     action: { label: copy("album.copy_new_link"), run: () => void copyNewLink(removed.folderId) },
   });
 });
@@ -689,6 +699,7 @@ function memberRow(
                   album: vm.folder.name,
                   folderId: vm.folder.id,
                   code: vm.folder.invite?.code ?? "",
+                  connected: p.connected,
                 });
                 people.remove(vm.folder.id, p.key);
               }}

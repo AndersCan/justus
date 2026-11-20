@@ -1651,11 +1651,18 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.is_no_longer_in": {
-    "text": "{name} is no longer in {album}. Links you sent stopped working.",
+  "album.no_longer_in_phone_on": {
+    "text": "{name} is no longer in {album}. Their phone is connected and learns it now.",
     "status": "draft",
     "where": "Album › Invite & members › toast",
-    "who": "Album members, whenever they open an album's people",
+    "who": "Album Admin, right after removing someone",
+    "screen": ""
+  },
+  "album.no_longer_in_phone_off": {
+    "text": "{name} is no longer in {album}. Their phone learns it the next time it connects.",
+    "status": "draft",
+    "where": "Album › Invite & members › toast",
+    "who": "Album Admin, right after removing someone",
     "screen": ""
   },
   "album.copy_new_link": {
