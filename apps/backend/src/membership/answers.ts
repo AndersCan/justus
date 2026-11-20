@@ -138,7 +138,7 @@ export function handedOverOwed(
       const chain = album.handoverChains?.[a.code];
       if (!chain || chain.length === 0 || a.opens === true) continue;
       if (owed.some((o) => o.code === a.code)) continue;
-      owed.push({ code: a.code, answer: "handedOver", chain: [...chain] });
+      owed.push({ code: a.code, answer: "handedOver", chain: [...chain], askedAt: a.requestedAt });
     }
   }
   return owed;
@@ -289,7 +289,7 @@ export async function deliverOwed(
       continue;
     }
     for (const message of owed()) {
-      const key = `${message.code}:${message.answer}:${message.answer === "accepted" || message.answer === "handedOver" ? "" : (message.askedAt ?? "")}`;
+      const key = `${message.code}:${message.answer}:${message.answer === "accepted" ? "" : (message.askedAt ?? "")}`;
       if (codes.has(key)) continue;
       codes.add(key);
       if (ports.sendAnswer(conn, message) === true) {

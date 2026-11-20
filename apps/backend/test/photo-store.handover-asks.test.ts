@@ -140,6 +140,19 @@ describe("a request made with the old Admin's link", () => {
     await s.close();
   }, 40_000);
 
+  it("asked again after a Cancel, reaches Ben", async () => {
+    const s = await scene();
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    expect((await s.cy.store.cancelAsk(s.code))[0]).toBeNull();
+    await until(async () => (await s.ben.store.requests()).requests.length === 0);
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    await s.close();
+  }, 60_000);
+
   it("is not re-pointed by a phone that is not the new Admin", async () => {
     const s = await scene();
     await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
