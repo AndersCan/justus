@@ -18,12 +18,16 @@ vi.mock("../gateway", () => ({
 const LINE = "Links turned off. Links you sent no longer work.";
 const OFF = "Turn off links you sent";
 
-const folder = (id: string, code: string) =>
+const folder = (id: string, code: string, live = false) =>
   ({
     id,
     name: `Album ${id}`,
     role: "creator",
-    invite: { code, owner: "o" },
+    invite: {
+      code,
+      owner: "o",
+      ...(live ? { links: [{ madeAt: Date.now(), endsAt: Date.now() + 86_400_000 }] } : {}),
+    },
   }) as unknown as FolderSummary;
 
 let invitePanel: typeof import("./invite").invitePanel;
@@ -39,11 +43,11 @@ beforeEach(async () => {
 
 afterEach(() => document.body.replaceChildren());
 
-const mount = (id: string, code: string) => {
+const mount = (id: string, code: string, live = false) => {
   const host = document.createElement("div");
   document.body.append(host);
   render(
-    invitePanel(folder(id, code), "Nils", "Nils", false, () => {}),
+    invitePanel(folder(id, code, live), "Nils", "Nils", false, () => {}),
     host,
   );
   return host;
@@ -84,9 +88,9 @@ describe("invite card after links are turned off", () => {
     await turnOff();
     inviteLink.createLink("f1", "c2");
     await actor.settled();
-    const f1 = mount("f1", "c2");
+    const f1 = mount("f1", "c2", true);
     expect(status(f1)).toHaveLength(0);
-    expect(f1.textContent).toContain("This link works until");
+    expect(f1.textContent).toContain("Works until");
     expect(hasOff(f1)).toBe(true);
   });
 });

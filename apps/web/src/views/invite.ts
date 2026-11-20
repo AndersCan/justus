@@ -1,5 +1,6 @@
 import { html } from "lit-html";
 import { live } from "lit-html/directives/live.js";
+import { repeat } from "lit-html/directives/repeat.js";
 import type { FolderSummary, InvitedFriend, SyncStatus } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
@@ -79,8 +80,17 @@ export function inviteLinkFor(
 async function madeLink(
   folder: FolderSummary,
   myName: string,
+  another = false,
 ): Promise<{ link: string; expiresAt: number } | null> {
-  inviteLink.createLink(folder.id, folder.invite?.code ?? "");
+  if (!another) {
+    const newest = (folder.invite?.links ?? []).find((l) => l.endsAt > Date.now())?.endsAt ?? null;
+    if (newest !== null) {
+      const link = inviteLinkFor(folder, myName, newest);
+      return link === null ? null : { link, expiresAt: newest };
+    }
+  }
+  if (another) inviteLink.makeNewLink(folder.id, folder.invite?.code ?? "");
+  else inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   await inviteLinkActor.settled();
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
   if (
@@ -127,6 +137,86 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
       ? copy("invite.invite_link_copied")
       : copy("invite.couldn_t_copy_the_invite"),
   );
+}
+
+/** Makes one more link while others work, copies it inside the tap and says so. */
+async function copyNewLink(folder: FolderSummary, myName: string) {
+  if (copyWaiting) return;
+  copyWaiting = true;
+  try {
+    const pending = madeLink(folder, myName, true);
+    const ok = await copyWhenReady(pending.then((made) => made?.link ?? null));
+    if (!(await pending)) return;
+    toast(ok ? copy("invite.invite_link_copied") : copy("invite.couldn_t_copy_the_invite_2"));
+  } finally {
+    copyWaiting = false;
+  }
+}
+
+/** A row's own link: no save, the end time is already kept. */
+async function copyRowLink(folder: FolderSummary, myName: string, endsAt: number) {
+  const link = inviteLinkFor(folder, myName, endsAt);
+  toast(
+    link !== null && (await copyText(link))
+      ? copy("invite.invite_link_copied")
+      : copy("invite.couldn_t_copy_the_invite_2"),
+  );
+}
+
+async function endRow(folder: FolderSummary, endsAt: number) {
+  const ok = await confirmAction({
+    title: copy("invite.end_this_link_title"),
+    detail: copy("invite.end_link_detail", { end: linkEndText(endsAt) }),
+    confirmLabel: copy("invite.end_link"),
+    cancelLabel: copy("invite.cancel"),
+    tone: "danger",
+  });
+  if (ok) inviteLink.endLink(folder.id, { endsAt });
+}
+
+/** The album's links that still work, newest first, each with its end time, Copy and End. */
+function linkList(
+  folder: FolderSummary,
+  myName: string,
+  view: InviteLinkView,
+  live: { endsAt: number }[],
+  now: number,
+) {
+  if (live.length === 0) return null;
+  return html`<h3 class="ui-label mb-1">${t("invite.links_you_sent")}</h3>
+    <ul class="mb-4 divide-y divide-line">
+      ${repeat(
+        live,
+        (l) => l.endsAt,
+        (l) => {
+          const end = linkEndText(l.endsAt, now);
+          return html`<li
+            class="flex items-center justify-between gap-2 py-2"
+            data-link-row
+            data-ends-at=${l.endsAt}
+          >
+            <span class="min-w-0 text-sm text-fg">${t("invite.works_until", { end })}</span>
+            <span class="flex shrink-0 gap-2">
+              <button
+                class="ui-btn-ghost"
+                aria-label=${copy("invite.copy_the_link_that_works_until", { end })}
+                @click=${() => void copyRowLink(folder, myName, l.endsAt)}
+              >
+                ${t("invite.copy")}
+              </button>
+              <button
+                class="ui-btn-ghost"
+                ?disabled=${view.state === "endingLink" && view.endingEndsAt === l.endsAt}
+                aria-label=${copy("invite.end_the_link_that_works_until", { end })}
+                @click=${() => void endRow(folder, l.endsAt)}
+              >
+                ${t("invite.end_link")}
+              </button>
+            </span>
+          </li>`;
+        },
+      )}
+    </ul>`;
 }
 
 type CopiedLine = "with-end" | "plain";
@@ -425,6 +515,9 @@ function invitePanelBody(
   const linksOff = view.offFolderId === folder.id;
   const replaced = view.replacedFolderId === folder.id;
   const linkBlocked = linkBlockedFor(folder, view);
+  const now = Date.now();
+  const liveLinks = (folder.invite?.links ?? []).filter((l) => l.endsAt > now);
+  const hasLive = liveLinks.length > 0;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
@@ -464,30 +557,33 @@ function invitePanelBody(
       <p class="mb-4 text-sm text-fg">
         ${t("invite.send_the_link_to_people", { name: folder.name })}
       </p>
+      ${linkList(folder, myName, view, liveLinks, now)}
+      <label class="mb-4 flex items-center gap-2 text-sm text-fg">
+        ${t("invite.link_works_for")}
+        <select
+          class="ui-input w-auto py-1"
+          @change=${(e: Event) =>
+            inviteLink.chooseLinkTime((e.currentTarget as HTMLSelectElement).value as ValidFor)}
+        >
+          ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
+            (key) =>
+              html`<option value=${key} .selected=${live(view.validFor === key)}>
+                ${VALID_FOR_LABEL[key]}
+              </option>`,
+          )}
+        </select>
+      </label>
       ${
-        expiresAt === null
-          ? html`<label class="mb-4 flex items-center gap-2 text-sm text-fg">
-              ${t("invite.link_works_for")}
-              <select
-                class="ui-input w-auto py-1"
-                @change=${(e: Event) =>
-                  inviteLink.chooseLinkTime(
-                    (e.currentTarget as HTMLSelectElement).value as ValidFor,
-                  )}
-              >
-                ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
-                  (key) =>
-                    html`<option value=${key} .selected=${live(view.validFor === key)}>
-                      ${VALID_FOR_LABEL[key]}
-                    </option>`,
-                )}
-              </select>
-            </label>`
-          : html`<p class="mb-4 text-sm text-fg">
-              ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
-            </p>`
+        hasLive
+          ? html`<button
+              class="ui-btn-ghost"
+              ?disabled=${linkBlocked}
+              @click=${() => void copyNewLink(folder, myName)}
+            >
+              ${t("invite.make_a_new_link")}
+            </button>`
+          : inviteButtons(folder, { myName, blocked: linkBlocked, copiedLine: "plain" })
       }
-      ${inviteButtons(folder, { myName, blocked: linkBlocked, copiedLine: "plain" })}
       ${
         linkBlocked
           ? null

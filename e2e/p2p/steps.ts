@@ -34,7 +34,7 @@ export async function copyInviteLink(a) {
     .first()
     .click();
   await a.evaluate(() => navigator.clipboard.writeText(""));
-  await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await a.getByRole("button", { name: /^(Copy invite link|Copy link|Make a new link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
     .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);

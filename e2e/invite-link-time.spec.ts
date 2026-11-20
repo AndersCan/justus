@@ -47,18 +47,25 @@ test("copies a link that works for the time picked while its end time saved", as
   });
   const picker = page.getByRole("combobox", { name: "Link works for" });
   await expect(picker).toHaveValue("1d");
+  // With a link already shown, the button makes another one at the time picked before the tap.
+  const another = page.locator('button:has([data-copy-id="invite.make_a_new_link"])');
+  if (await another.isVisible()) await picker.selectOption("7d");
+  await page.evaluate(() => navigator.clipboard.writeText(""));
   const tappedAt = Date.now();
   await page
     .locator(
-      'button:has([data-copy-id="invite.copy_invite_link"]), button:has([data-copy-id="invite.copy_link"])',
+      'button:has([data-copy-id="invite.copy_invite_link"]), button:has([data-copy-id="invite.copy_link"]), button:has([data-copy-id="invite.make_a_new_link"])',
     )
     .first()
     .click();
   await picker.selectOption("7d");
   await expect(picker).toHaveValue("7d");
-  await expect(page.locator('[data-copy-id="invite.this_link_works_until"]')).toBeVisible({
+  await expect(page.locator("[data-link-row]").first()).toBeVisible({
     timeout: 10_000,
   });
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 10_000 })
+    .toMatch(/[#&]e=\d+/);
   const link = await page.evaluate(() => navigator.clipboard.readText());
   const end = Number(/[#&]e=(\d+)/.exec(link)?.[1]) * 1000;
   expect(Math.abs(end - (tappedAt + 7 * DAY))).toBeLessThan(60_000);

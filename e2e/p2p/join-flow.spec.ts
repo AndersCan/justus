@@ -92,7 +92,7 @@ async function copyInviteLink(a) {
     .first()
     .click();
   await a.evaluate(() => navigator.clipboard.writeText(""));
-  await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await a.getByRole("button", { name: /^(Copy invite link|Copy link|Make a new link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
     .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
@@ -499,7 +499,7 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
   await expect(c.getByRole("button", { name: new RegExp(`${album}$`) })).toHaveCount(0);
   const replaced = a.getByText("was removed, so your old invite link stopped working");
   await expect(replaced).toBeVisible({ timeout: 60_000 });
-  await expect(a.getByText("This link works until")).toHaveCount(0);
+  await expect(a.getByText("Works until")).toHaveCount(0);
   await expect(
     b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),
   ).toBeVisible({ timeout: 60_000 });
@@ -513,14 +513,14 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
   );
 
   await a.evaluate(() => navigator.clipboard.writeText(""));
-  await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await a.getByRole("button", { name: /^(Copy invite link|Copy link|Make a new link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
     .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
   expect(newLink).not.toBe(link);
   await expect(replaced).toHaveCount(0);
-  await expect(a.getByText("This link works until")).toBeVisible();
+  await expect(a.getByText("Works until")).toBeVisible();
 
   await askToJoin(b, newLink, album);
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
