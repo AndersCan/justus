@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <WebView
+    <io.justus.app.NoAutofillWebView
         android:id="@+id/webview"
         android:importantForAutofill="noExcludeDescendants"
         android:layout_width="match_parent"
