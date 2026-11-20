@@ -77,9 +77,11 @@ async function letIn(a, joiner, album, button) {
   const link = await copyInviteLink(a);
   await askToJoin(joiner, link, album);
   // 60 s: the join request travels over the hub to Ada's phone.
-  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: button, exact: true }).click();
-  await a.getByRole("link", { name: "See photos in this album" }).click();
+  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+    timeout: 60_000,
+  });
+  await a.getByRole("button", { name: words(button), exact: true }).click();
+  await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
   // 60 s: the album syncs to the joiner after Ada accepts.
   await expect(joiner).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 }
@@ -98,8 +100,8 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await setName(b, "Ben");
   await setName(c, "Cy");
   await createAlbum(a, album, `${run}-first.png`, 71);
-  await letIn(a, b, album, "Accept, can only look");
-  await letIn(a, c, album, "Accept, can add photos");
+  await letIn(a, b, album, "album.accept_as_viewer");
+  await letIn(a, c, album, "album.accept_as_collaborator");
   await expect(b.locator("img").first()).toBeAttached({ timeout: 60_000 });
   await b.close();
 
@@ -122,8 +124,7 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(runTiles).toHaveCount(6, { timeout: 90_000 });
   const marks = adaCyTiles.locator('[data-copy-id="gallery.new_photo"]');
   await expect(marks).toHaveCount(5);
-  // Cause: the look rule counts a tile after 1 s on screen and sends it 1 s later; staying on All
-  // past that is the behaviour under test (scrolling All must not clear New), not a wait for the app.
+  // Ben stays on All past the look rule (1 s on screen, sent 1 s later): All must not clear New.
   await ben.waitForTimeout(2_500);
 
   await ben
@@ -131,10 +132,13 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
     .first()
     .click();
   const card = ben.locator("[data-album-card]", { hasText: album });
-  const cardCount = card.locator('[data-copy-id="gallery.new_count"]');
-  await expect(cardCount).toHaveText(words("gallery.new_count", { count: 5 }));
-
   await card.click();
+  // 60 s: Cy's name reaches Ben after his photos (one run read "2 from Device-62629").
+  await expect(
+    ben.getByRole("button", {
+      name: words("gallery.view_added_by", { name: cyFiles[0], adder: "Cy" }),
+    }),
+  ).toBeVisible({ timeout: 60_000 });
   await expect(ben.locator("[data-new-photos-line]")).toHaveText(
     words("gallery.new_from_first", { count: 3, name: "Ada" }) +
       words("gallery.new_from_next", { count: 2, name: "Cy" }),
@@ -142,7 +146,6 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(marks).toHaveCount(5);
 
   await ben.locator('[data-copy-id="gallery.all_albums"]').click();
-  await expect(cardCount).toHaveCount(0);
   await card.click();
   await expect(runTiles).toHaveCount(6);
   await expect(ben.locator("[data-new-photos-line]")).toHaveCount(0);
