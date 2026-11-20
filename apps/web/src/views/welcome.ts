@@ -209,6 +209,7 @@ function avatar(name: string, size: "lg" | "sm" = "lg") {
 function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
   return html`
     <form
+      autocomplete="off"
       class="ui-card mx-auto max-w-md space-y-4 p-6"
       @submit=${(e: SubmitEvent) => {
         e.preventDefault();
@@ -292,6 +293,7 @@ export function chooseStep() {
             vm.fatal ? () => window.location.reload() : undefined,
           )}
           <form
+            autocomplete="off"
             class="ui-card space-y-3 p-5"
             @submit=${(e: SubmitEvent) => {
               e.preventDefault();
