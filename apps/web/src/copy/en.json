@@ -76,6 +76,20 @@
     "who": "Admins sending invites",
     "screen": ""
   },
+  "invite_link.link_ended": {
+    "text": "Link ended",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.couldn_t_end_the_link": {
+    "text": "Couldn't end the link. Try again.",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
   "invite_link.couldn_t_turn_off_the": {
     "text": "Couldn't turn off the links. Try again.",
     "status": "draft",

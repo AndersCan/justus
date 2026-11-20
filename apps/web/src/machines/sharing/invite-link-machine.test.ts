@@ -16,6 +16,7 @@ const CODE = "c".repeat(64);
 
 const savingPort = (saved: [string, number][]): InviteLinkPort => ({
   turnOff: async () => [null, {}],
+  endLink: async () => [null, { ok: true }],
   saveLinkTime: async (folderId, at) => {
     saved.push([folderId, at]);
     return [null, { ok: true }];
@@ -36,6 +37,7 @@ const context = (actor: ReturnType<typeof setup>["actor"]) =>
     offFolderId: string;
     replacedFolderId: string;
     removedName: string;
+    lastExpiresAt: number;
   };
 const expiresAt = (actor: ReturnType<typeof setup>["actor"]) =>
   (actor.snapshot().payload as { expiresAt: number }).expiresAt;
@@ -51,6 +53,7 @@ describe("invite link machine", () => {
       offFolderId: "",
       replacedFolderId: "",
       removedName: "",
+      lastExpiresAt: 0,
     });
   });
 
@@ -234,6 +237,7 @@ function heldSaves() {
   const answers: ((outcome: [unknown, unknown]) => void)[] = [];
   const port: InviteLinkPort = {
     turnOff: async () => [null, {}],
+    endLink: async () => [null, {}],
     saveLinkTime: (_folderId, at) => {
       saved.push(at);
       return new Promise((resolve) => answers.push(resolve));
@@ -281,6 +285,7 @@ describe("a time picked while the link's time saves", () => {
       offFolderId: FOLDER,
       replacedFolderId: "",
       removedName: "",
+      lastExpiresAt: VALID_FOR_MS["1d"],
     });
     expect(seen).toEqual(["linkTurnedOff"]);
     await answer(0, SAVED);
@@ -315,6 +320,7 @@ describe("turning off links", () => {
       offFolderId: FOLDER,
       replacedFolderId: "",
       removedName: "",
+      lastExpiresAt: VALID_FOR_MS["7d"],
     });
     expect(seen).toContain("linkTurnedOff");
   });
@@ -478,6 +484,7 @@ describe("invite link after a removal", () => {
       offFolderId: "",
       replacedFolderId: FOLDER,
       removedName: "Cy",
+      lastExpiresAt: VALID_FOR_MS["1d"],
     });
     clock.advance(VALID_FOR_MS["1d"] + 1_000);
     await actor.settled();
@@ -540,6 +547,7 @@ describe("invite link after a removal", () => {
       offFolderId: "",
       replacedFolderId: "",
       removedName: "",
+      lastExpiresAt: 0,
     });
     const second = setup(savingPort([]));
     second.actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
@@ -670,12 +678,187 @@ test("Nils turns off the links, it fails, and his link stays shown", async () =>
   expect(actor.state.name).toBe("linkMade");
 });
 
+const endingPort = (ended: [string, number][], fail = false): InviteLinkPort => ({
+  ...savingPort([]),
+  endLink: async (folderId, endsAt) => {
+    ended.push([folderId, endsAt]);
+    return fail ? [new Error("no"), null] : [null, { ok: true }];
+  },
+});
+
+const okTurnOff: InviteLinkPort = {
+  ...savingPort([]),
+  turnOff: async () => [null, { invite: { code: NEW_CODE } }],
+};
+
+describe("more than one link", () => {
+  test("makeNewLink while a link works saves a second end time", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved).toEqual([
+      [FOLDER, VALID_FOR_MS["1d"]],
+      [FOLDER, VALID_FOR_MS["7d"]],
+    ]);
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(VALID_FOR_MS["7d"]);
+  });
+
+  test("two links of the same time made together end a second apart", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved.map(([, at]) => at)).toEqual([VALID_FOR_MS["1d"], VALID_FOR_MS["1d"] + 1000]);
+  });
+
+  test("a shorter link after a longer one keeps its own time", async () => {
+    const { actor } = setup();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "10m" } });
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(expiresAt(actor)).toBe(VALID_FOR_MS["10m"]);
+  });
+
+  test("makeNewLink with no album or the turned-off code does nothing", async () => {
+    const { actor } = setup(okTurnOff);
+    actor.send({ type: "makeNewLink", payload: { folderId: "", code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    turnOff(actor);
+    await actor.settled();
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
+  test("makeNewLink while the time saves is ignored", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved).toHaveLength(1);
+  });
+});
+
+describe("ending one link", () => {
+  const link = { folderId: FOLDER, madeAt: 0, endsAt: VALID_FOR_MS["7d"] };
+
+  async function withLink(port: InviteLinkPort) {
+    const s = setup(port);
+    s.actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await s.actor.settled();
+    return s;
+  }
+
+  test("ending another row keeps the shown link", async () => {
+    const ended: [string, number][] = [];
+    const { actor } = await withLink(endingPort(ended));
+    const seen = outputs(actor);
+    actor.send({ type: "endLink", payload: link });
+    await actor.settled();
+    expect(ended).toEqual([[FOLDER, link.endsAt]]);
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(VALID_FOR_MS["1d"]);
+    expect(seen).toContain("linkEnded");
+  });
+
+  test("ending the shown link goes to noLinkYet and keeps the picked time", async () => {
+    const { actor } = await withLink(endingPort([]));
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "1h" } });
+    actor.send({ type: "endLink", payload: { ...link, endsAt: VALID_FOR_MS["1d"] } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(context(actor).validFor).toBe("1h");
+  });
+
+  test("ending a link with no link shown ends it and stays noLinkYet", async () => {
+    const ended: [string, number][] = [];
+    const { actor } = setup(endingPort(ended));
+    actor.send({ type: "endLink", payload: link });
+    await actor.settled();
+    expect(ended).toHaveLength(1);
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
+  test("a failure goes back to the shown link and says so", async () => {
+    const { actor } = await withLink(endingPort([], true));
+    const seen = outputs(actor);
+    actor.send({ type: "endLink", payload: link });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(VALID_FOR_MS["1d"]);
+    expect(seen).toContain("endLinkFailed");
+    expect(seen).not.toContain("linkEnded");
+  });
+
+  test("a failure with no link shown stays noLinkYet", async () => {
+    const { actor } = setup(endingPort([], true));
+    actor.send({ type: "endLink", payload: link });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
+  test("no album is ignored, and so is endLink while the time saves", async () => {
+    const ended: [string, number][] = [];
+    const { actor } = setup(endingPort(ended));
+    actor.send({ type: "endLink", payload: { ...link, folderId: "" } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "endLink", payload: link });
+    await actor.settled();
+    expect(ended).toEqual([]);
+    expect(actor.state.name).toBe("linkMade");
+  });
+});
+
+test("Ada makes a second link while the first works", async () => {
+  const actor = make.create({ clock: VirtualClock() });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+  actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  expect(expiresAt(actor)).toBe(VALID_FOR_MS["7d"]);
+});
+
+test("Ada ends one of her links", async () => {
+  const actor = make.create({ clock: VirtualClock() });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  actor.send({ type: "endLink", payload: { folderId: FOLDER, madeAt: 0, endsAt: 5000 } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
+test("Ending a link fails and it stays", async () => {
+  const actor = make.create({ clock: VirtualClock(), port: endingPort([], true) });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  actor.send({ type: "endLink", payload: { folderId: FOLDER, madeAt: 0, endsAt: 5000 } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
 const designPayloads = {
   chooseLinkTime: [{ validFor: "10m" }, { validFor: "1h" }, { validFor: "1d" }, { validFor: "7d" }],
   createLink: [{ folderId: FOLDER, code: CODE }],
+  makeNewLink: [{ folderId: FOLDER, code: CODE }],
+  endLink: [{ folderId: FOLDER, madeAt: 0, endsAt: 1000 }],
   turnOffLink: [{ folderId: FOLDER, code: CODE }],
   linkOff: [{ folderId: FOLDER, code: CODE }],
   linkOffFailed: [{ folderId: FOLDER }],
+  oneLinkEnded: [{}],
+  couldNotEndLink: [{}],
   linkReplaced: [{ folderId: FOLDER, code: CODE, name: "Ben" }],
 };
 
