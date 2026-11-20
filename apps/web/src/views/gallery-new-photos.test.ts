@@ -70,9 +70,22 @@ describe("the album's new photos line", () => {
     expect(await line([by("a", ada), by("b", ada), by("c", ada)])).toBe("2 new photos from Ada");
   });
 
-  it("names nobody when two people added them", async () => {
+  it("names everyone who added new photos, most first", async () => {
     await ready();
-    expect(await line([by("a", ada), by("b", ada), by("c", cara)])).toBe("2 new photos");
+    expect(await line([by("b", ada), by("c", ada), by("d", cara)])).toBe(
+      "2 new from Ada, 1 from Cara",
+    );
+  });
+
+  it("sums past three names as more, and the numbers add up to the New marks", async () => {
+    await ready();
+    const people = ["p", "q", "r", "s"].map((k) => ({ key: k, name: k.toUpperCase() }));
+    const list = people.flatMap((m, i) =>
+      Array.from({ length: 4 - i }, (_, j) => by(`${m.key}${j}`, m)),
+    );
+    expect(await line(list)).toBe("4 new from P, 3 from Q, 2 from R and 1 more");
+    const host = draw(list.map((p) => photoTile(p as never, list as never)));
+    expect(host.querySelectorAll('[data-copy-id="gallery.new_photo"]')).toHaveLength(10);
   });
 
   it("is absent with nothing new, and counts one as one", async () => {

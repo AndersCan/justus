@@ -2267,6 +2267,27 @@
     "who": "Everyone in an album, above the photos",
     "screen": ""
   },
+  "gallery.new_from_first": {
+    "text": "{count} new from {name}",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, above the photos",
+    "screen": ""
+  },
+  "gallery.new_from_next": {
+    "text": ", {count} from {name}",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, above the photos",
+    "screen": ""
+  },
+  "gallery.new_from_more": {
+    "text": " and {count} more",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, above the photos",
+    "screen": ""
+  },
   "gallery.photos_wait_for_one": {
     "text": "{count} {count?photo waits:photos wait} for {name}'s phone",
     "status": "draft",
