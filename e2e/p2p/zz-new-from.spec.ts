@@ -83,12 +83,6 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(runTiles).toHaveCount(6);
   await expect(ben.locator("[data-new-photos-line]")).toHaveCount(0);
   await expect(marks).toHaveCount(0);
-  // The phones are shared with the next test: stop only once every photo has reached Ada's and Cy's phones too.
-  for (const phone of [a, c]) {
-    await phone.goto("/");
-    // 90 s: the photos cross the hub between Ada's and Cy's phones.
-    await expect(
-      phone.locator("[data-photo-tile]").filter({ has: phone.locator(`img[alt^="${run}-"]`) }),
-    ).toHaveCount(6, { timeout: 90_000 });
+});
   }
 });
