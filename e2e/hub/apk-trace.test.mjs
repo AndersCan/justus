@@ -70,6 +70,11 @@ describe("apkAddressReport", () => {
       dhtNodes: 1,
     });
   });
+  it("returns no sentence for a send on a unix socket that passes a UDP fd to Google DNS", () => {
+    const line =
+      '123 1.8 sendmsg(235<\\x73\\x6f\\x63>, {msg_name=NULL, msg_namelen=0, msg_iov=[{iov_base="\\x06\\x00", iov_len=2}], msg_iovlen=1, msg_control=[{cmsg_len=20, cmsg_level=SOL_SOCKET, cmsg_type=SCM_RIGHTS, cmsg_data=[234<UDPv6:[[fec0::d964:5263:9f8b:f5b9]:48913->[2001:4860:4860::8888]:443]>]}], msg_controllen=24, msg_flags=0}, 0) = 52';
+    expect(apkAddressReport({ trace: `${toAda}\n${line}`, ada }).outside).toEqual([]);
+  });
   it("returns a sentence for an address-less stream send on a socket connected elsewhere", () => {
     const line =
       '123 1.8 sendto(11<UDPv6:[[::1]:5->[2001:4860:4860::8888]:443]>, "\\xff\\x01\\x00", 3, 0, NULL, 0) = 3';

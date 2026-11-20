@@ -13,7 +13,7 @@ function destination(line) {
   return { host: mapped, port: Number(ipv6[1]), v6: mapped === ipv6[2] };
 }
 
-const PEER = /<UDP(?:v6)?:\[.*->\[?([^\]>]+?)\]?:(\d+)\]>/;
+const PEER = /^\d+\s+[\d.]+\s+\w+\(\d+<UDP(?:v6)?:\[[^>]*->\[?([^\]>]+?)\]?:(\d+)\]>/;
 
 function peerOfSocket(line) {
   const peer = PEER.exec(line);
