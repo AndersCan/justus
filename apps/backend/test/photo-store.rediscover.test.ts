@@ -103,7 +103,7 @@ describe("PhotoStore server-mode joins retry the peer lookup", () => {
     expect(firstAttempts(a.events, a.discoveryKeyOf(created[1]!.folder.shareKey))).toBe(1);
   });
 
-  it("retries a joiner's album topic on open and again when it files the request", async () => {
+  it("retries a joiner's album topic once when it opens it and files the request", async () => {
     const hub = createFakeHub();
     const creator = build("Creator", hub);
     track(creator.store);
@@ -117,8 +117,8 @@ describe("PhotoStore server-mode joins retry the peer lookup", () => {
     expect((await joiner.store.join(shareKey))[0]).toBeNull();
     await wait(FIRST_RETRY_MS);
 
-    // openDriveWithTopic, then announceOwnDriveOnTopic from fileJoinRequest.
-    expect(firstAttempts(joiner.events, joiner.discoveryKeyOf(shareKey))).toBe(2);
+    // openDriveWithTopic, then announceOwnDriveOnTopic from fileJoinRequest: both share one watch.
+    expect(firstAttempts(joiner.events, joiner.discoveryKeyOf(shareKey))).toBe(1);
     // openSelfDrive: the joiner's own drive for this album.
     const ownKey = (await joiner.store.folders()).folders.find(
       (f) => f.shareKey === shareKey,
