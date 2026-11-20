@@ -90,6 +90,10 @@ describe("justus.friends plugin", () => {
     test("no words before the own identity is known, or for the own identity", async () => {
       expect(await invoke(as(undefined), "friends.words", { identity: B })).toEqual([null, {}]);
       expect(await invoke(as(A), "friends.words", { identity: A })).toEqual([null, {}]);
+      expect(await invoke(as(A.toUpperCase()), "friends.words", { identity: A })).toEqual([
+        null,
+        {},
+      ]);
     });
   });
 });
