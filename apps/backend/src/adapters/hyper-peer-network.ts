@@ -7,6 +7,7 @@ import { greetPeer } from "./peer-identity";
 import { openVersion } from "./peer-version";
 import { PEER_PROTOCOL } from "../versions";
 import Hyperswarm from "hyperswarm";
+import { watchStalls } from "./stall-watch";
 import { emptyAddressLog, watchAddresses } from "./address-log";
 
 type Handle = { destroy(): void | Promise<void>; flushed?: () => Promise<void> };
@@ -53,6 +54,10 @@ export function createHyperPeerNetwork(deps: {
       answers?: { send(answer: ChannelMessage): boolean };
     }
   >();
+  const stall = watchStalls(Date.now, () => {
+    log("stall.resumed", {});
+    swarm.dht.emit("network-change");
+  });
   let connSeq = 0;
   let ownIdentity = "";
   let ownProtocol = PEER_PROTOCOL;
@@ -248,6 +253,7 @@ export function createHyperPeerNetwork(deps: {
     async close() {
       if (closed) return;
       closed = true;
+      stall.stop();
       for (const timer of rediscoverTimers) clearTimeout(timer);
       rediscoverTimers.clear();
       for (const topic of joins.keys()) leave(topic);
