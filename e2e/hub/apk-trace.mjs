@@ -1,20 +1,20 @@
 const STREAM = /^"\\xff\\x01/;
 const DHT = /^"(?:\\x03|\\x13)|^"\\x00"/;
 const PAYLOAD = /iov_base="((?:[^"\\]|\\.)*)"|^[^(]*\([^,]*, "((?:[^"\\]|\\.)*)"/;
-const V4 = /sin_port=htons\((\d+)\), sin_addr=inet_addr\("([\d.]+)"\)/;
-const V6 = /sin6_port=htons\((\d+)\), .*?inet_pton\(AF_INET6, "([^"]+)"/;
+const IPV4 = /sin_port=htons\((\d+)\), sin_addr=inet_addr\("([\d.]+)"\)/;
+const IPV6 = /sin6_port=htons\((\d+)\), .*?inet_pton\(AF_INET6, "([^"]+)"/;
 
 function destination(line) {
-  const v4 = V4.exec(line);
-  if (v4) return { host: v4[2], port: Number(v4[1]) };
-  const v6 = V6.exec(line);
-  if (!v6) return undefined;
-  const mapped = v6[2].replace(/^::ffff:/, "");
-  return { host: mapped, port: Number(v6[1]), v6: mapped === v6[2] };
+  const ipv4 = IPV4.exec(line);
+  if (ipv4) return { host: ipv4[2], port: Number(ipv4[1]) };
+  const ipv6 = IPV6.exec(line);
+  if (!ipv6) return undefined;
+  const mapped = ipv6[2].replace(/^::ffff:/, "");
+  return { host: mapped, port: Number(ipv6[1]), v6: mapped === ipv6[2] };
 }
 
-function show(to) {
-  return to.v6 ? `[${to.host}]:${to.port}` : `${to.host}:${to.port}`;
+function show(target) {
+  return target.v6 ? `[${target.host}]:${target.port}` : `${target.host}:${target.port}`;
 }
 
 function isLoopback(host) {
@@ -22,11 +22,11 @@ function isLoopback(host) {
 }
 
 function payload(message) {
-  const m = PAYLOAD.exec(message);
-  return m ? `"${m[1] ?? m[2]}"` : "";
+  const found = PAYLOAD.exec(message);
+  return found ? `"${found[1] ?? found[2]}"` : "";
 }
 
-function messages(call, line) {
+function messages({ call, line }) {
   if (call !== "sendmmsg") return [line];
   return line.split("msg_hdr=").slice(1);
 }
@@ -51,36 +51,42 @@ export function apkAddressReport({ trace, ada }) {
   let adaStream = 0;
   for (const line of trace.split("\n")) {
     const call = /^\d+\s+[\d.]+\s+(\w+)\(/.exec(line)?.[1];
-    const fd = /\((\d+)</.exec(line)?.[1];
+    const socket = /\((\d+)</.exec(line)?.[1];
     if (call === "connect") {
-      const to = destination(line);
-      if (!to || isLoopback(to.host)) continue;
+      const target = destination(line);
+      if (!target || isLoopback(target.host)) continue;
       if (/<UDP/.test(line)) {
-        connected.set(fd, to);
+        connected.set(socket, target);
         continue;
       }
       const kind = /<TCP/.test(line) ? "TCP" : "network";
-      outside.add(`Ben's APK opened a ${kind} connection to ${show(to)}`);
+      outside.add(`Ben's APK opened a ${kind} connection to ${show(target)}`);
       continue;
     }
     if (call !== "sendto" && call !== "sendmsg" && call !== "sendmmsg") continue;
-    for (const message of messages(call, line)) {
-      const to = destination(message) ?? connected.get(fd);
+    for (const message of messages({ call, line })) {
+      const target = destination(message) ?? connected.get(socket);
       const bytes = payload(message);
-      const toAda = to !== undefined && ada.hosts.has(to.host) && ada.ports.has(to.port);
+      const toAda =
+        target !== undefined && ada.hosts.has(target.host) && ada.ports.has(target.port);
       if (STREAM.test(bytes)) {
-        if (!to) {
+        if (!target) {
           outside.add(`Could not read this line of the record: ${line.slice(0, 100)}`);
-        } else if (toAda) {
-          adaStream += 1;
-          adaAddresses.add(show(to));
-        } else if (!isLoopback(to.host)) {
-          outside.add(`Ben's APK sent stream packets to ${show(to)}, which is not Ada's phone`);
+          continue;
         }
-      } else if (to && !isLoopback(to.host) && !toAda) {
-        if (DHT.test(bytes)) nodes.add(show(to));
-        else outside.add(`Ben's APK sent a packet that is not a DHT message to ${show(to)}`);
+        if (toAda) {
+          adaStream += 1;
+          adaAddresses.add(show(target));
+          continue;
+        }
+        if (!isLoopback(target.host)) {
+          outside.add(`Ben's APK sent stream packets to ${show(target)}, which is not Ada's phone`);
+        }
+        continue;
       }
+      if (!target || isLoopback(target.host) || toAda) continue;
+      if (DHT.test(bytes)) nodes.add(show(target));
+      else outside.add(`Ben's APK sent a packet that is not a DHT message to ${show(target)}`);
     }
   }
   if (adaStream === 0) {
@@ -88,11 +94,10 @@ export function apkAddressReport({ trace, ada }) {
       "Ben's APK sent no stream packet to Ada's phone: the record missed the photo's path",
     );
   }
-  const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   return {
-    outside: [...outside].sort(byText),
+    outside: [...outside].sort(),
     adaStream,
     dhtNodes: nodes.size,
-    adaAddresses: [...adaAddresses].sort(byText),
+    adaAddresses: [...adaAddresses].sort(),
   };
 }
