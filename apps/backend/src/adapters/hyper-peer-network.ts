@@ -7,13 +7,14 @@ import { greetPeer } from "./peer-identity";
 import { openVersion } from "./peer-version";
 import { PEER_PROTOCOL } from "../versions";
 import Hyperswarm from "hyperswarm";
-import { watchStalls } from "./stall-watch";
 import { emptyAddressLog, watchAddresses } from "./address-log";
 
 type Handle = { destroy(): void | Promise<void>; flushed?: () => Promise<void> };
 
 /** Backoff for `findPeers`: about two minutes in all, after which Hyperswarm's own 10-minute refresh takes over. */
 const REDISCOVER_MS = [500, 1000, 2000, 4000, 8000, 15000, 30000, 60000];
+/** While the drive has a peer, `findPeers` only watches: that peer may be a dead connection that has not timed out yet, and when it goes the lookups must start again. */
+const WATCH_MS = 5000;
 
 function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
@@ -54,10 +55,6 @@ export function createHyperPeerNetwork(deps: {
       answers?: { send(answer: ChannelMessage): boolean };
     }
   >();
-  const stall = watchStalls(Date.now, () => {
-    log("stall.resumed", {});
-    swarm.dht.emit("network-change");
-  });
   let connSeq = 0;
   let ownIdentity = "";
   let ownProtocol = PEER_PROTOCOL;
@@ -201,7 +198,12 @@ export function createHyperPeerNetwork(deps: {
       let attempt = 0;
       function tick() {
         rediscoverTimers.delete(timer);
-        if (closed || hasPeer() || !joins.has(topic)) return;
+        if (closed || !joins.has(topic)) return;
+        if (hasPeer()) {
+          timer = setTimeout(tick, WATCH_MS);
+          rediscoverTimers.add(timer);
+          return;
+        }
         log("rediscover.attempt", {
           drive: short(info?.drive),
           topic: short(topic),
@@ -253,7 +255,6 @@ export function createHyperPeerNetwork(deps: {
     async close() {
       if (closed) return;
       closed = true;
-      stall.stop();
       for (const timer of rediscoverTimers) clearTimeout(timer);
       rediscoverTimers.clear();
       for (const topic of joins.keys()) leave(topic);
