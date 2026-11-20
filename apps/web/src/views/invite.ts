@@ -83,12 +83,7 @@ async function madeLink(
   another = false,
 ): Promise<{ link: string; expiresAt: number } | null> {
   if (!another) {
-    const newest = (folder.invite?.links ?? [])
-      .filter((l) => l.endsAt > Date.now())
-      .reduce<number | null>(
-        (best, l) => (best === null || l.endsAt > best ? l.endsAt : best),
-        null,
-      );
+    const newest = (folder.invite?.links ?? []).find((l) => l.endsAt > Date.now())?.endsAt ?? null;
     if (newest !== null) {
       const link = inviteLinkFor(folder, myName, newest);
       return link === null ? null : { link, expiresAt: newest };
