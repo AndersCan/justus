@@ -224,4 +224,95 @@ describe("after a handover", () => {
       30_000,
     );
   }, 180_000);
+
+  it("Ada's photo opens in full on Cy's and Dee's phones after Ben, handed Summer, removes Eve and hands it to Cy, with Ben's phone off", async () => {
+    const net = await realNet();
+    nets.push(net);
+    const ada = await net.peer("Ada");
+    const ben = await net.peer("Ben");
+    const cy = await net.peer("Cy");
+    const dee = await net.peer("Dee");
+    const eve = await net.peer("Eve");
+
+    const created = await ok(ada.store.createFolder("Summer"));
+    const { id: folderId, invite } = created.folder;
+    await ok(ada.store.setActive(folderId));
+    const benKey = await letIn(ada, ben, folderId, invite!.code);
+    await letIn(ada, cy, folderId, invite!.code);
+    await letIn(ada, dee, folderId, invite!.code);
+    const eveKey = await letIn(ada, eve, folderId, invite!.code);
+    await addPhoto(ada, folderId, "a1.jpg", 10);
+    for (const peer of [ben, cy, dee, eve]) {
+      await eventually(
+        async () => (await peer.store.folders()).folders[0]?.role,
+        (role) => role === "member",
+        `${peer.name} a Collaborator`,
+        60_000,
+      );
+    }
+
+    await ok(ada.store.handOver(folderId, benKey));
+    await eventually(
+      async () => (await ada.store.folders()).folders.length,
+      (n) => n === 0,
+      "the album left Ada's phone",
+      60_000,
+    );
+    await ada.stop();
+    const onBen = await eventually(
+      async () => (await ben.store.folders()).folders[0],
+      (f) => f?.role === "creator",
+      "Ben the creator",
+      60_000,
+    );
+
+    await ok(ben.store.removeMember(onBen!.id, eveKey));
+    const newKey = (await ben.store.folders()).folders[0]!.shareKey;
+    for (const peer of [cy, dee]) {
+      await eventually(
+        async () => (await peer.store.folders()).folders[0],
+        (f) => f?.shareKey === newKey && f.role === "member",
+        `${peer.name} on the new key`,
+        90_000,
+      );
+    }
+
+    const cyKey = (await cy.store.folders()).folders[0]!.driveKey;
+    await eventually(
+      async () => {
+        const [handErr] = await ben.store.handOver(onBen!.id, cyKey);
+        return handErr;
+      },
+      (handErr) => !handErr,
+      "Ben's handover accepted",
+      60_000,
+    );
+    await eventually(
+      async () => (await ben.store.folders()).folders.length,
+      (n) => n === 0,
+      "the album left Ben's phone",
+      90_000,
+    );
+    await ben.stop();
+    await eventually(
+      async () => (await cy.store.folders()).folders[0]?.role,
+      (role) => role === "creator",
+      "Cy the creator",
+      60_000,
+    );
+
+    for (const peer of [cy, dee]) {
+      const members = (peer.store.debugState() as { folders: { members: { key: string }[] }[] })
+        .folders[0]!.members;
+      let photos = 0;
+      for (const member of members) {
+        const drive = await ok(peer.drives.open(member.key, { timeoutMs: 5_000 }));
+        for await (const e of drive.list("/photos")) {
+          photos++;
+          expect(await drive.download(e.path, { timeoutMs: 8_000 })).toBe("here");
+        }
+      }
+      expect(photos).toBeGreaterThan(0);
+    }
+  }, 400_000);
 });
