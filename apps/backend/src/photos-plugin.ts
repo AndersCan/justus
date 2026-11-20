@@ -133,6 +133,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
       dismissWhoJoined: async (args) => deps.store.dismissWhoJoined(args.folderId),
       dismissAdminChanged: async (args) => deps.store.dismissAdminChanged(args.folderId),
       dismissWhoLeft: async (args) => deps.store.dismissWhoLeft(args.folderId),
+      askToAddPhotos: async (args) => deps.store.askToAddPhotos(args.folderId),
       dismissDeclinedAsk: async (args) => deps.store.dismissDeclinedAsk(args.code),
       cancelAsk: async (args) => deps.store.cancelAsk(args.code),
       linkTurnedOff: async (args) => deps.store.linkTurnedOff(args.code, args.owner),

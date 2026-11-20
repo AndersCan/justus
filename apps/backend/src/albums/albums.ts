@@ -87,6 +87,7 @@ export type AlbumSummarySource = {
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
     whoLeft?: string[];
+    askedToAdd?: number;
     whoJoined?: { name: string }[];
     handover?: { to: { name: string; key: string }; written?: boolean };
   };
@@ -122,6 +123,10 @@ export function albumSummary(
   const people = new Set([record.shareKey, selfDrive.key, ...Object.keys(viewers)]);
   for (const key of memberDrives.keys()) if (!earlier.has(key)) people.add(key);
   const memberCount = people.size;
+  const isViewer =
+    !record.pending &&
+    !record.notice &&
+    (role === "reader" || (role === "member" && viewers[selfDrive.key] !== undefined));
   const waitingFor =
     role === "creator"
       ? Object.entries(liveOwed(record.offerOwed, Date.now()))
@@ -145,6 +150,7 @@ export function albumSummary(
     members: memberCount,
     addedAt: record.createdAt,
     ...(record.notice ? { notice: record.notice } : {}),
+    ...(isViewer && record.askedToAdd !== undefined ? { askedToAdd: record.askedToAdd } : {}),
     ...(role === "creator" && record.whoLeft?.length ? { whoLeft: record.whoLeft } : {}),
     ...(role !== "creator" && !record.notice && record.whoJoined?.length
       ? { whoJoined: record.whoJoined.map((j) => j.name) }
