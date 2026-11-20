@@ -5,6 +5,9 @@
  * A second story has Cy already in the album as a Viewer: his page reads that Ada handed it to
  * Ben, in place of "You're now in", whether it was open at the handover or his phone was off.
  *
+ * A third story has all three phones read every photo's holders line and every Members row before and
+ * after the handover: Ada's photos stop naming her phone once the album has left it.
+ *
  *   pnpm test:e2e-p2p e2e/p2p/handover.spec.ts
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
@@ -12,6 +15,7 @@ import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
 import {
   askToJoin,
+  closePhoto,
   copyInviteLink,
   createAlbum,
   pattern,
@@ -293,3 +297,162 @@ for (const cyOff of [false, true]) {
     }
   });
 }
+
+/** Opens the photo, expects its holders line to read exactly `text`, and closes it. */
+async function expectHoldersLine(page, step, phone, file, text) {
+  await page.getByRole("button", { name: `View ${file}` }).click();
+  // 60 s: the full photo can take that long to arrive on a loaded runner; the wait ends when the text matches.
+  await expect(
+    page.locator(".justus-holders-text"),
+    `${step} · ${phone}'s phone: ${file}`,
+  ).toHaveText(text, { timeout: 60_000 });
+  await closePhoto(page);
+}
+
+async function addPhoto(page, file, colour) {
+  await page.setInputFiles("input[type=file]", {
+    name: file,
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(colour)),
+  });
+  await expect(page.getByRole("button", { name: `View ${file}` }).locator("img")).toBeAttached({
+    timeout: 20_000,
+  });
+}
+
+async function expectMembers(page, album, step, phone, rows, inFull) {
+  await page.goto("/sharing");
+  await page.getByRole("link", { name: `Invite & members of ${album}` }).click();
+  const list = page.locator("li[data-member-key]");
+  // 60 s: the people list follows the handover over the hub.
+  await expect(list, `${step} · ${phone}'s phone: Members rows`).toHaveCount(rows, {
+    timeout: 60_000,
+  });
+  for (const row of await list.all()) {
+    await expect(row, `${step} · ${phone}'s phone: Members row`).toContainText(
+      words("members.n_in_full", { n: inFull }),
+      { timeout: 60_000 },
+    );
+  }
+}
+
+test("after Ada hands the album to Ben, every holders line and Members row on all three phones is right", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(480_000);
+  const [a, b, c] = instancePages;
+  const album = `Handover holders ${Date.now().toString(36)}`;
+  const ADA = "handover-holders-ada.png";
+  const BEN = "handover-holders-ben.png";
+  const BEN2 = "handover-holders-ben-2.png";
+  const beforeNames = [];
+  const line = (names) => words("holders.on_and_your_phone", { names });
+  try {
+    await skipIntro([a, b, c]);
+    for (const [i, page] of instancePages.entries()) beforeNames[i] = await setName(page, NAMES[i]);
+
+    await createAlbum(a, album, ADA, 94);
+    const adaPath = new URL(a.url()).pathname;
+    const link = await copyInviteLink(a);
+    const wants = words("album.wants_to_join", { folderName: album });
+
+    await askToJoin(b, link, album);
+    await expect(a.getByText(wants)).toBeVisible({ timeout: 60_000 });
+    await a
+      .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
+      .click();
+    await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    const benPath = new URL(b.url()).pathname;
+
+    await askToJoin(c, link, album);
+    await expect(a.getByText(wants)).toBeVisible({ timeout: 60_000 });
+    await a.getByRole("button", { name: words("album.accept_as_viewer"), exact: true }).click();
+    await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    const cyPath = new URL(c.url()).pathname;
+
+    await addPhoto(b, BEN, 95);
+    await a.goto(adaPath);
+    await expectLoaded(a, BEN);
+    await expectLoaded(c, ADA);
+    await expectLoaded(c, BEN);
+
+    await a.goto(adaPath);
+    await b.goto(benPath);
+    await c.goto(cyPath);
+    for (const file of [ADA, BEN]) {
+      // Opening a photo gives that phone the full copy, so every line waits on the other phones' opens.
+      await Promise.all([
+        expectHoldersLine(c, "before", "Cy", file, line("Ada's, Ben's")),
+        expectHoldersLine(b, "before", "Ben", file, line("Ada's, Cy's")),
+        expectHoldersLine(a, "before", "Ada", file, line("Ben's, Cy's")),
+      ]);
+    }
+
+    // Ada hands the album to Ben.
+    await a.goto("/sharing");
+    await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+    await expect(
+      a
+        .locator("li[data-member-key]")
+        .filter({ hasText: "Ben" })
+        .getByText(words("member.role_collaborator")),
+    ).toBeVisible({ timeout: 60_000 });
+    const id = new URL(a.url()).pathname.split("/").pop();
+    await a.getByRole("button", { name: "More options" }).click();
+    await a.getByRole("menuitem", { name: words("album.leave_album") }).click();
+    await a.getByRole("button", { name: words("album.hand_over_confirm"), exact: true }).click();
+    await expect
+      .poll(
+        async () => {
+          const res = await a.context().request.get(new URL("/__state", instances[0].url).href);
+          return (await res.json()).folders.some((f) => f.id === id);
+        },
+        { message: "the album leaves Ada's phone", timeout: 90_000, intervals: [200] },
+      )
+      .toBe(false);
+
+    // Ada's phone is still on: her photos no longer name it.
+    for (const [page, phone] of [
+      [b, "Ben"],
+      [c, "Cy"],
+    ]) {
+      await expectMembers(page, album, "after, Ada on", phone, 2, 2);
+    }
+    await b.goto(benPath);
+    await c.goto(cyPath);
+    for (const file of [ADA, BEN]) {
+      await Promise.all([
+        expectHoldersLine(c, "after, Ada on", "Cy", file, line("Ben's")),
+        expectHoldersLine(b, "after, Ada on", "Ben", file, line("Cy's")),
+      ]);
+    }
+
+    // Ada's phone off: Ben adds a photo and all three lines still read the same.
+    await pausePhone(instances[0]);
+    await b.goto(benPath);
+    await addPhoto(b, BEN2, 96);
+    await expectLoaded(c, BEN2);
+    await b.goto(benPath);
+    await c.goto(cyPath);
+    for (const file of [ADA, BEN, BEN2]) {
+      await Promise.all([
+        expectHoldersLine(c, "after, Ada off", "Cy", file, line("Ben's")),
+        expectHoldersLine(b, "after, Ada off", "Ben", file, line("Cy's")),
+      ]);
+    }
+    // Each phone has opened every photo by now, so the rows say all three are in full.
+    for (const [page, phone] of [
+      [b, "Ben"],
+      [c, "Cy"],
+    ]) {
+      await expectMembers(page, album, "after, Ada off", phone, 2, 3);
+    }
+  } finally {
+    resumeAll();
+    await leaveAlbum(c, album, instances[2]);
+    for (const [i, page] of instancePages.entries()) {
+      if (beforeNames[i]) await setName(page, beforeNames[i]);
+    }
+  }
+});
