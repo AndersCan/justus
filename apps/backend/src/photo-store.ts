@@ -6350,8 +6350,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!rt) {
       // The sender may be the new Admin this phone has not followed yet (a Viewer reads the handover late); Ben's offer is resent only a few times.
       for (const r of held) {
-        while (advancing.has(r.record.id)) await sleep(50);
-        await advanceAdmin(r).catch(answerErr("advance"));
+        while (!closed && advancing.has(r.record.id)) await sleep(50);
+        if (!closed) await advanceAdmin(r).catch(answerErr("advance"));
       }
       rt = held.find((r) => r.record.invite?.owner === sender);
     }
