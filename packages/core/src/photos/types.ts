@@ -153,9 +153,9 @@ export type FolderSummary = {
   /** Set on an album that moved to a new key. */
   notice?: FolderNotice;
   /** Admin only: names of people who left on their own, in the order they left, until the Admin dismisses the line. Unset when none. */
+  whoLeft?: string[];
   /** Viewer only: when this phone asked the Admin to let it add photos (ms epoch). Unset when it has not asked, or once its role changed or it was removed. */
   askedToAdd?: number;
-  whoLeft?: string[];
   /** Names of people let in after this phone, oldest first, until dismissed. Unset when none. */
   whoJoined?: string[];
   /** Not the Admin: the album's Admin changed while this phone was in it. Kept in memory only, so it is gone when the app restarts or `dismissWhoJoined` is called. Unset otherwise. */

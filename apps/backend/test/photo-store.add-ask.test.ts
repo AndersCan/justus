@@ -89,4 +89,71 @@ describe("a Viewer asks to add photos", () => {
     expect(await askOf(cy.store, benKey)).toBeUndefined();
     for (const p of [ada, cy, ben]) await p.store.close();
   }, 30_000);
+
+  it("is refused with invalid-role for a Viewer the Admin removed", async () => {
+    const hub = createFakeHub();
+    const ada = phone(hub, "Ada");
+    const ben = phone(hub, "Ben");
+    await ada.store.ready();
+    await ben.store.ready();
+    const created = (await ada.store.createFolder("Summer"))[1]!.folder;
+    const benKey = await joinAsMember(ada.store, created.id, ben.store, created.shareKey);
+    expect((await ada.store.makeViewer(created.id, benKey))[0]).toBeNull();
+    const benFolder = (await ben.store.folders()).folders.find(
+      (f) => f.shareKey === created.shareKey,
+    )!;
+    await ada.store.setActive(created.id);
+    await ben.store.setActive(benFolder.id);
+    expect((await ada.store.removeMember(created.id, benKey))[0]).toBeNull();
+    await until(async () =>
+      (await ben.store.folders()).folders.some(
+        (f) => f.id === benFolder.id && f.notice !== undefined,
+      ),
+    );
+
+    expect((await ben.store.askToAddPhotos(benFolder.id))[0]?.code).toBe(
+      "justus.photos/invalid-role",
+    );
+    for (const p of [ada, ben]) await p.store.close();
+  }, 30_000);
+
+  it("tells the Admin's phone to read status again, as the web does on a push", async () => {
+    const hub = createFakeHub();
+    const seen: Array<number | undefined> = [];
+    let benKey = "";
+    const adaNode = addFakeNode(hub);
+    setFakeNodeConnected({ hub, node: adaNode, connected: true });
+    const adaStore: ReturnType<typeof createPhotoStore> = createPhotoStore(
+      fakeStoreDeps({
+        hub,
+        node: adaNode,
+        deviceName: "Ada",
+        server: new FakeLoopbackServer(),
+        onChanged: () => {
+          if (!benKey) return;
+          void adaStore.status().then((s) => {
+            seen.push((s.members as Person[]).find((m) => m.key === benKey)?.askedToAdd);
+          });
+        },
+      }),
+    );
+    const ben = phone(hub, "Ben");
+    await adaStore.ready();
+    await ben.store.ready();
+    const created = (await adaStore.createFolder("Summer"))[1]!.folder;
+    const key = await joinAsMember(adaStore, created.id, ben.store, created.shareKey);
+    expect((await adaStore.makeViewer(created.id, key))[0]).toBeNull();
+    await adaStore.setActive(created.id);
+    const benFolder = (await ben.store.folders()).folders.find(
+      (f) => f.shareKey === created.shareKey,
+    )!;
+    await ben.store.setActive(benFolder.id);
+    await sleep(1_500);
+    benKey = key;
+
+    const asked = (await ben.store.askToAddPhotos(benFolder.id))[1]!.askedAt;
+    await until(() => seen.includes(asked), 6_000);
+    expect(seen).toContain(asked);
+    for (const p of [ben.store, adaStore]) await p.close();
+  }, 30_000);
 });
