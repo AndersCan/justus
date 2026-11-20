@@ -74,7 +74,7 @@ function profileSection(view: FoldersViewModel) {
           aria-label=${copy("settings.your_name")}
           value="${view.userName}"
           spellcheck="false"
-          autocomplete="name"
+          autocomplete="off"
         />
         <button class="ui-btn-primary" type="submit" ?disabled=${saving}>
           ${saving ? copy("settings.saving") : copy("settings.save")}

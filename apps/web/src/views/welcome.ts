@@ -230,7 +230,7 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
           aria-label=${copy("welcome.your_name")}
           maxlength="40"
           required
-          autocomplete="name"
+          autocomplete="off"
           spellcheck="false"
           value="${vm.draftName}"
           @input=${(e: Event) => onboarding.editName((e.currentTarget as HTMLInputElement).value)}
@@ -305,6 +305,7 @@ export function chooseStep() {
             <h2 class="ui-label">${t("welcome.create_an_album")}</h2>
             <input
               class="ui-input"
+              autocomplete="off"
               placeholder=${copy("welcome.album_name")}
               aria-label=${copy("welcome.album_name")}
               maxlength="60"
