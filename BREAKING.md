@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 5
 
+- **A Viewer's ask to add photos is a new drive file** (`/add-photos-ask.json` on the Viewer's album drive). Who: testers on a protocol-5 build from before this change: their Admin phone never shows the ask, and a Viewer on such a build has no button. Do: update both phones.
 - **A handover says who the Admin removed** (the `handover` message's package gains optional `removals`: phone identity -> name, when, who removed them). Who: testers on a protocol-5 build from before this change: a handover from or to their phone carries none, so the new Admin's request cards do not say someone was removed earlier. Do: update both phones before handing over.
 - **A handed-over album lists the leaving Admin's drive as an earlier drive** (the next Admin's `/earlier.json` gains the old Admin's drive). Who: testers on a protocol-5 build from before this change. If the next Admin's or the leaving Admin's phone is on an older build, the two photo digests never match, the handover never finishes and the leaving Admin's phone keeps re-sending. Do: update both phones.
 - **The next Admin's phone says which photos it holds when it answers a handover** (peer message `handoverReady` gains a required `photos` digest). Who: testers on a protocol-5 build from before this change: an updated Admin's phone drops their phone's reply as the next Admin, so the handover waits. Do: update Justus.

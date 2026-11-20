@@ -104,6 +104,8 @@ export type SyncMember = {
   identity?: string;
   /** Accepted as a Viewer: sees every photo, adds none. Unset for the Admin and Collaborators. */
   viewer?: boolean;
+  /** On the Admin's phone only: when this Viewer asked to add photos (ms epoch). Unset otherwise. */
+  askedToAdd?: number;
   /** The person's colour seat in the album, the same on every phone: 0 for the Admin, then 1, 2, … in
    * the order people were let in. Unset until the Admin's phone has given one. */
   color?: number;
@@ -151,6 +153,8 @@ export type FolderSummary = {
   /** Set on an album that moved to a new key. */
   notice?: FolderNotice;
   /** Admin only: names of people who left on their own, in the order they left, until the Admin dismisses the line. Unset when none. */
+  /** Viewer only: when this phone asked the Admin to let it add photos (ms epoch). Unset when it has not asked, or once its role changed or it was removed. */
+  askedToAdd?: number;
   whoLeft?: string[];
   /** Names of people let in after this phone, oldest first, until dismissed. Unset when none. */
   whoJoined?: string[];
