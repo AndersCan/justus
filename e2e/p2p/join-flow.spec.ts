@@ -565,13 +565,13 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await a.getByRole("button", { name: "Save", exact: true }).click();
   await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
   await expect(row.getByText("Sam", { exact: false }).first()).toBeVisible();
-  await expect(row.getByText("Friend", { exact: true })).toBeVisible();
+  await expect(row.getByText(words("album.friend"), { exact: true })).toBeVisible();
   await expect(row.getByText(ownName, { exact: true })).toBeVisible();
 
   await a.reload();
   await a.goto("/sharing");
   await a.getByText(FRIEND_ALBUM).click();
-  await expect(a.locator("li", { hasText: "Friend" }).getByText("Sam").first()).toBeVisible({
+  await expect(a.locator("li", { hasText: words("album.friend") }).getByText("Sam").first()).toBeVisible({
     timeout: 30_000,
   });
 });
