@@ -800,6 +800,7 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
       <h3 class="text-sm font-semibold text-fg">${t("album.add_a_member_by_drive")}</h3>
       <p class="mb-3 mt-1 text-sm">${t("album.paste_a_device_s_drive")}</p>
       <form
+        autocomplete="off"
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();

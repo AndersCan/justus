@@ -448,6 +448,7 @@ function newAlbumSection(view: FoldersViewModel) {
       <h2 class="ui-label mb-1">${t("albums.new_album")}</h2>
       <p class="mb-3 text-sm text-fg">${t("albums.start_one_per_trip_family")}</p>
       <form
+        autocomplete="off"
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
@@ -507,6 +508,7 @@ function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
     const checking = state === "checkingPastedLink";
     const pasting = checking || state === "sendingPastedRequest";
     return html`<form
+        autocomplete="off"
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();

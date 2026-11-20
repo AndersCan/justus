@@ -33,6 +33,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
           ${ref(albumModal)}
         >
           <form
+            autocomplete="off"
             class="justus-sheet ui-sheet"
             @submit=${(e: SubmitEvent) => {
               e.preventDefault();

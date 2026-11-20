@@ -60,6 +60,7 @@ function profileSection(view: FoldersViewModel) {
       <p class="mb-4 text-sm text-fg">${t("settings.your_name_is_shown_to")}</p>
       ${pictureRow(view.userName)}
       <form
+        autocomplete="off"
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
