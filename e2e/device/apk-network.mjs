@@ -19,11 +19,19 @@ function adbText({ adb, serial, args, trim = true }) {
  * @returns {{ stop(): Promise<{ trace: string, pid: number, error: string }> }}
  */
 export function recordApkNetwork({ adb, serial, app }) {
+  // strace ends when the app process dies (Android may restart it mid-walk). Attach again to the next pid, one
+  // trace file per process, so an early death is not a failed recording. TERM (not INT): background jobs ignore INT.
   const script = [
-    `rm -f ${TRACE}`,
-    `until pid=$(pidof -s ${app}); do sleep 0.05; done`,
-    `echo "recorder $$ $pid"`,
-    `exec strace -f -qq -ttt -yy -v -xx -s 64 -e trace=bind,connect,sendto,sendmsg,sendmmsg -e signal=none -o ${TRACE} -p $pid`,
+    `rm -f ${TRACE} ${TRACE}.*`,
+    `n=0; first=1; st=; stopped=`,
+    `trap 'stopped=1; [ -n "$st" ] && kill -TERM $st' INT`,
+    `while [ -z "$stopped" ]; do until pid=$(pidof -s ${app}) || [ -n "$stopped" ]; do sleep 0.05; done`,
+    `[ -n "$stopped" ] && break`,
+    `if [ -n "$first" ]; then echo "recorder $$ $pid"; first=; fi`,
+    `strace -f -qq -ttt -yy -v -xx -s 64 -e trace=bind,connect,sendto,sendmsg,sendmmsg -e signal=none -o ${TRACE}.$n -p $pid & st=$!`,
+    `wait $st; code=$?; wait $st; st=`,
+    `if [ $code = 127 ]; then exit 127; fi`,
+    `n=$((n+1)); sleep 0.2; done; wait`,
   ].join("; ");
   const child = spawn(adb, ["-s", serial, "shell", script], { stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "";
@@ -66,7 +74,12 @@ export function recordApkNetwork({ adb, serial, app }) {
     }, 10_000);
     await closing;
     clearTimeout(timer);
-    const trace = await adbText({ adb, serial, trim: false, args: ["exec-out", "cat", TRACE] });
+    const trace = await adbText({
+      adb,
+      serial,
+      trim: false,
+      args: ["exec-out", "sh", "-c", `cat ${TRACE}.*`],
+    });
     return { trace, pid: Number(appPid), error: "" };
   }
 
