@@ -1,5 +1,5 @@
 import { recordApkNetwork } from "../device/apk-network.mjs";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -8,17 +8,43 @@ import { describe, expect, it } from "vite-plus/test";
 function stubAdb(mode) {
   const dir = mkdtempSync(join(tmpdir(), "adb-"));
   const adb = join(dir, "adb");
+  const fake = join(dir, "fake");
+  mkdirSync(join(fake, "bin"), { recursive: true });
+  // pidof: pid 100 first, then 101 once the first strace has seen its process die. strace: the first process dies after 0.3s.
+  writeFileSync(
+    join(fake, "bin", "pidof"),
+    `#!/bin/bash\nif [ -e ${fake}/died ]; then echo 101; else echo 100; fi\n`,
+  );
+  writeFileSync(
+    join(fake, "bin", "strace"),
+    `#!/bin/bash
+while [ "$1" != -o ]; do shift; done
+out=$2; pid=\${4}
+echo "bind($pid)" > $out
+if [ $pid = 100 ]; then sleep 0.3; touch ${fake}/died; exit 0; fi
+trap 'sleep 0.3; echo "bind(end $pid)" >> $out; exit 0' TERM
+while :; do sleep 0.05; done
+`,
+  );
+  chmodSync(join(fake, "bin", "pidof"), 0o755);
+  chmodSync(join(fake, "bin", "strace"), 0o755);
   writeFileSync(
     adb,
     `#!/bin/bash
+FAKE=${fake}
 shift 2
 case "$*" in
-  "shell kill "*) $2 ;;
-  "exec-out cat "*) printf 'bind(7<UDP:[0.0.0.0:0]>)\\n' ;;
+  "shell kill "*) sh -c "$2" ;;
+  "exec-out sh -c cat "*) if ls "$FAKE"/justus-net.trace.* >/dev/null 2>&1; then sh -c "\${4//\\/data\\/local\\/tmp/$FAKE}"; else printf 'bind(7<UDP:[0.0.0.0:0]>)\\n'; fi ;;
   *)
     case ${mode} in
       missing) echo "recorder $$ 200"; echo "/system/bin/sh: strace: inaccessible or not found" >&2; exit 127 ;;
       never) exec sleep 30 ;;
+      restarts) FAKE=${fake} PATH="${fake}/bin:$PATH" bash -c "\${2//\\/data\\/local\\/tmp/${fake}}" ;;
+      nostrace) rm "$FAKE"/bin/strace; ln -s "$(command -v rm)" "$(command -v sleep)" "$FAKE"/bin/; PATH="$FAKE/bin" /bin/sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" ;;
+      offline) python3 -c 'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' sh -c "trap 'exit 0' INT; while :; do sleep 0.05; done" >/dev/null 2>&1 & echo "recorder $! 200"; sleep 0.3; echo "error: device offline" >&2; exit 1 ;;
+      hup) PATH="$FAKE/bin:$PATH" python3 -c 'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" >"$FAKE"/out 2>&1 & sleep 0.1; cat "$FAKE"/out; kill -HUP $!; echo "error: device offline" >&2; exit 1 ;;
+      gone) echo "recorder 999999 200"; sleep 0.1; echo "error: device offline" >&2; exit 1 ;;
       records) echo "recorder $$ 200"; trap 'exit 0' INT; while :; do sleep 0.05; done ;;
     esac ;;
 esac
@@ -46,6 +72,42 @@ describe("recordApkNetwork", () => {
     const recorder = recordApkNetwork({ adb: stubAdb("never"), serial: "s", app: "a" });
     await settle();
     expect((await recorder.stop()).error).toBe("Ben's app never started while recording");
+  });
+  it("keeps recording when the app process dies and a new one starts", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("restarts"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const seen = await recorder.stop();
+    expect(seen.error).toBe("");
+    expect(seen.trace).toContain("bind(100)");
+    expect(seen.trace).toContain("bind(101)");
+  });
+  it("returns an error when the recorder script cannot find strace", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("nostrace"), serial: "s", app: "a" });
+    await settle();
+    const seen = await recorder.stop();
+    expect(seen.error).toMatch(/^the recorder stopped early: .*strace.*not found/);
+  });
+  it("still records when the adb connection drops for a moment (run 44670220846: device offline before step 11)", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("offline"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect((await recorder.stop()).error).toBe("");
+  });
+  it("keeps recording on the device after adb drops the shell with HUP", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("hup"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const seen = await recorder.stop();
+    expect(seen.error).toBe("");
+    expect(seen.trace).toContain("bind(101)");
+  });
+  it("reads the record only after the recorder on the device has finished", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("hup"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect((await recorder.stop()).trace).toContain("bind(end 101)");
+  });
+  it("returns an error when the recorder died on the device while adb was away", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("gone"), serial: "s", app: "a" });
+    await settle();
+    expect((await recorder.stop()).error).toMatch(/^the recorder stopped early/);
   });
   it("returns the same record when stopped twice", async () => {
     const recorder = recordApkNetwork({ adb: stubAdb("records"), serial: "s", app: "a" });

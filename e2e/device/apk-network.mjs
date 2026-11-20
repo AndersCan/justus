@@ -19,19 +19,30 @@ function adbText({ adb, serial, args, trim = true }) {
  * @returns {{ stop(): Promise<{ trace: string, pid: number, error: string }> }}
  */
 export function recordApkNetwork({ adb, serial, app }) {
+  // strace ends when the app process dies (Android may restart it mid-walk). Attach again to the next pid, one
+  // trace file per process, so an early death is not a failed recording. TERM (not INT): background jobs ignore INT.
   const script = [
-    `rm -f ${TRACE}`,
-    `until pid=$(pidof -s ${app}); do sleep 0.05; done`,
-    `echo "recorder $$ $pid"`,
-    `exec strace -f -qq -ttt -yy -v -xx -s 64 -e trace=bind,connect,sendto,sendmsg,sendmmsg -e signal=none -o ${TRACE} -p $pid`,
+    `trap '' HUP`,
+    `rm -f ${TRACE} ${TRACE}.*`,
+    `n=0; first=1; st=; stopped=`,
+    `trap 'stopped=1; [ -n "$st" ] && kill -TERM $st' INT`,
+    `while [ -z "$stopped" ]; do until pid=$(pidof -s ${app}) || [ -n "$stopped" ]; do sleep 0.05; done`,
+    `[ -n "$stopped" ] && break`,
+    `if [ -n "$first" ]; then echo "recorder $$ $pid"; first=; fi`,
+    `strace -f -qq -ttt -yy -v -xx -s 64 -e trace=bind,connect,sendto,sendmsg,sendmmsg -e signal=none -o ${TRACE}.$n -p $pid & st=$!`,
+    `wait $st; code=$?; wait $st; st=`,
+    `if [ $code = 127 ]; then exit 127; fi`,
+    `n=$((n+1)); sleep 0.2; done; wait`,
   ].join("; ");
   const child = spawn(adb, ["-s", serial, "shell", script], { stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "";
   let stderr = [];
   let closed = false;
+  let exitCode = null;
   const closing = new Promise((resolve) => {
-    child.on("close", () => {
+    child.on("close", (code) => {
       closed = true;
+      exitCode = code;
       resolve();
     });
     child.on("error", (error) => {
@@ -47,7 +58,9 @@ export function recordApkNetwork({ adb, serial, app }) {
 
   async function finish() {
     const found = /recorder (\d+) (\d+)/.exec(stdout);
-    if (closed) {
+    // adb losing the emulator for a moment closes the shell with another code; the script ignores HUP and keeps
+    // recording on the device, so only a missing strace (127) or a shell that never reported a pid is an early stop.
+    if (closed && (exitCode === 127 || !found)) {
       return {
         trace: "",
         pid: 0,
@@ -59,6 +72,20 @@ export function recordApkNetwork({ adb, serial, app }) {
       return { trace: "", pid: 0, error: "Ben's app never started while recording" };
     }
     const [, tracer, appPid] = found;
+    if (closed) {
+      const up = await adbText({
+        adb,
+        serial,
+        args: ["shell", `kill -0 ${tracer} 2>/dev/null && echo up`],
+      });
+      if (up !== "up") {
+        return {
+          trace: "",
+          pid: 0,
+          error: `the recorder stopped early: ${stderr.at(-1) ?? stdout.trim()}`,
+        };
+      }
+    }
     await adbText({ adb, serial, args: ["shell", `kill -INT ${tracer}`] });
     const timer = setTimeout(async () => {
       await adbText({ adb, serial, args: ["shell", `kill -KILL ${tracer}`] });
@@ -66,7 +93,22 @@ export function recordApkNetwork({ adb, serial, app }) {
     }, 10_000);
     await closing;
     clearTimeout(timer);
-    const trace = await adbText({ adb, serial, trim: false, args: ["exec-out", "cat", TRACE] });
+    for (let i = 0; i < 50; i++) {
+      const up = await adbText({
+        adb,
+        serial,
+        args: ["shell", `kill -0 ${tracer} 2>/dev/null && echo up`],
+      });
+      if (up !== "up") break;
+      if (i === 49) await adbText({ adb, serial, args: ["shell", `kill -KILL ${tracer}`] });
+      else await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    const trace = await adbText({
+      adb,
+      serial,
+      trim: false,
+      args: ["exec-out", "sh", "-c", `cat ${TRACE}.*`],
+    });
     return { trace, pid: Number(appPid), error: "" };
   }
 
