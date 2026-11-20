@@ -1,0 +1,25 @@
+appId: no.cankode.justus
+---
+# Step 12 of the release walk: Ben opens Leave album. Words come in with -e from the catalogue.
+# The album's photo list is loaded, so the sheet is not the not-loaded text.
+- extendedWaitUntil:
+    visible: ${TILE}
+    timeout: 20000
+- tapOn:
+    text: ${MEMBERS}
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${MORE}
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${LEAVE_ITEM}
+    waitToSettleTimeoutMs: 500
+# The sheet is named after the album.
+- extendedWaitUntil:
+    visible: ${LEAVE_TITLE}
+    timeout: 10000
+# Maestro matches text against text, hint and accessibility text, and Chromium puts aria-describedby
+# into the Android hint: only the focused Keep button carries the sheet's text.
+- assertVisible:
+    text: ${LEAVE_DETAIL}
+    focused: true

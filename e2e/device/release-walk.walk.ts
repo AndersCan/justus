@@ -2,7 +2,8 @@
  * The release walk: Ada (web, in Chromium) makes an album and copies her invite link. Ben (the release
  * APK on an emulator) opens it in Chrome, taps Open in Justus, asks to join, Ada accepts, and Ben sees
  * her photo, opens it, and Ada's photo says it is on Ben's phone. Then Ada's phone goes off and Ben's
- * Members list says so, and back. Ben's app is recorded from its start (apk-network.mjs). Run through
+ * Members list says so, and back. Ben opens Leave album and the Keep button holds the sheet's words.
+ * Ben's app is recorded from its start (apk-network.mjs). Run through
  * `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` (or the release-walk workflow).
  * Ben's words come from the copy catalogue by id, never as English written here.
  */
@@ -49,6 +50,10 @@ const CONNECTED_NOW = words("gallery.connected_now", { connected: 1 });
 const ALBUM = "Walk";
 const PHOTO = "walk.png";
 const BEN = "Ben";
+const LEAVE_TITLE = words("album.leave", { name: ALBUM });
+// Ben added nothing to the album.
+const LEAVE_DETAIL =
+  words("album.leave_no_photos_added") + words("album.leave_come_back", { adminName: ADA });
 // The invite page's button is page copy, not an app catalogue entry.
 const OPEN = exact(
   /<a id="open"[^>]*>([^<]+)<\/a>/.exec(
@@ -71,6 +76,7 @@ const STEPS = [
   `Ada reads “${words("holders.on_and_your_phone", { names: `${BEN}'s` })}” on her photo`,
   `Ada's phone goes off; with her photo open the page behind is out of reach; Ben closes it, opens Members and reads “${OFF_WORDS[0]}” or “${OFF_WORDS[1]}” once`,
   `Ada's phone comes back; Ben's album reads “${CONNECTED_NOW}”`,
+  `Ben opens Leave album; TalkBack's tree holds “${LEAVE_TITLE}” and its text on the focused Keep`,
   "Ben's APK sent only to Ada's phone and DHT nodes, from its start to the end of the walk",
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
 
@@ -250,7 +256,21 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         120_000,
       );
     });
-    await step(12, async () => {
+    await step(12, () =>
+      ben(
+        "12-leave-sheet",
+        {
+          TILE: exact(words("gallery.view", { name: PHOTO })),
+          MEMBERS: exact(words("gallery.invite_members")),
+          MORE: exact(words("album.more_options")),
+          LEAVE_ITEM: exact(words("album.leave_album")),
+          LEAVE_TITLE: exact(LEAVE_TITLE),
+          LEAVE_DETAIL: exact(LEAVE_DETAIL),
+        },
+        60_000,
+      ),
+    );
+    await step(13, async () => {
       const seen = await recorder.stop();
       if (seen.error) throw new Error(`Ben's app could not be recorded: ${seen.error}`);
       const state = await (await a.context().request.get(new URL("/__state", a.url()).href)).json();
@@ -267,7 +287,8 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         writeFileSync(join(out, "apk-trace.txt"), seen.trace);
         throw new Error(report.outside.join("; "));
       }
-      STEPS[11].name = `Ben's APK sent only to Ada's phone at ${report.adaAddresses.join(", ")} (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes. Outside: none`;
+      STEPS.at(-1).name =
+        `Ben's APK sent only to Ada's phone at ${report.adaAddresses.join(", ")} (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes. Outside: none`;
     });
   } finally {
     resumeAll();
