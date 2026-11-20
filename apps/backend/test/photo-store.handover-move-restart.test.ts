@@ -65,6 +65,9 @@ describe("a handed Admin who removes someone", () => {
     expect((await back.list({ all: true })).map((p) => p.name)).toEqual(["b.jpg"]);
     const fdKey = (back.debugState() as { folders: Array<{ folderDrive: { key: string } }> })
       .folders[0]!.folderDrive.key;
+    expect(fdKey).toBe((await back.folders()).folders[0]!.shareKey);
+    const admin = (await back.status()).members.find((m: { admin?: boolean }) => m.admin === true);
+    expect(admin?.handedBy).toBe("Ada");
     const [, fd] = await rdeps.drives.open(fdKey, { timeoutMs: 2_000 });
     const got: string[] = [];
     for await (const e of fd!.list("/photos", { wait: false })) {

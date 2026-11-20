@@ -451,6 +451,8 @@ type FolderRecord = {
   handedBy?: { identity: string; name: string };
   /** Album drive keys the Admin role passed along, starting with the share key. The last is the Admin's drive now. */
   adminChain?: string[];
+  /** Drive keys of the Admins before this one, kept after a Remove moves the album off the chain. */
+  earlierAdmins?: string[];
   /** New Admin: the proof chain for each invite code the earlier Admin handed over. */
   handoverChains?: Record<string, HandoverProof[]>;
 };
@@ -1194,6 +1196,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (Array.isArray(f.adminChain)) {
       const chain = f.adminChain.filter((k): k is string => typeof k === "string" && isHexKey(k));
       if (chain.length > 0 && chain.length <= MAX_ADMIN_CHAIN) out.adminChain = chain;
+    }
+    if (Array.isArray(f.earlierAdmins)) {
+      const keys = f.earlierAdmins.filter((k): k is string => typeof k === "string" && isHexKey(k));
+      if (keys.length > 0 && keys.length <= MAX_ADMIN_CHAIN) out.earlierAdmins = keys;
     }
     if (isTextJSON(f.handoverChains)) {
       const chains = parseChains(f.handoverChains);
@@ -2144,7 +2150,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         new Set(removed.filter((k) => k.startsWith(`${key}:`)).map((k) => k.slice(key.length + 1)));
       const done = new Set<string>();
       for (const e of earlier) {
-        if (e.keptVersion !== undefined || rt.record.adminChain?.includes(e.key)) continue;
+        if (e.keptVersion !== undefined || pastAdminKeys(rt.record).includes(e.key)) continue;
         const oldDrive = rt.memberDrives.get(e.key);
         const identity = presence.identities.get(e.key);
         if (!oldDrive || !identity) continue;
@@ -3217,7 +3223,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
                       kind: "inAlbum",
                       people,
                       former: rt.former,
-                      pastAdmins: new Set(rt.record.adminChain?.slice(0, -1) ?? []),
+                      pastAdmins: new Set(pastAdminKeys(rt.record)),
                     },
                 presence: (k) => memberPresence(presence, k),
                 yourColor: people.find((p) => p.self)?.color,
@@ -3712,9 +3718,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return albumSummary(rt, { ownIdentity: ownDrive.key });
   }
 
+  /** Drive keys of the Admins before the current one, oldest first. */
+  function pastAdminKeys(record: FolderRecord): string[] {
+    return record.adminChain?.slice(0, -1) ?? record.earlierAdmins ?? [];
+  }
+
   /** The name of the Admin before this album's current one, when it was handed on and her entry is still listed. */
   function handedByName(rt: FolderRuntime): string | undefined {
-    const previous = rt.record.adminChain?.at(-2);
+    const previous = pastAdminKeys(rt.record).at(-1);
     if (previous === undefined) return undefined;
     return rt.record.earlier?.find((e) => e.key === previous)?.name;
   }
@@ -6003,6 +6014,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       movingUnknown: Object.keys(unknown).length > 0 ? unknown : undefined,
       moveOwed: undefined,
       earlier: moved.earlier,
+      earlierAdmins: record.adminChain ? record.adminChain.slice(0, -1) : record.earlierAdmins,
+      adminChain: undefined,
     };
     const persisted = state.folders.find((f) => f.id === record.id);
     for (const target of persisted ? [record, persisted] : [record]) Object.assign(target, patch);
@@ -6011,9 +6024,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.selfDrive = fresh;
     rt.viewers = {};
     saveState();
-    if ((record.adminChain?.length ?? 0) <= 1) {
-      void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
-    }
+    void clearOldDrive(oldDrive, { folderId: record.id, why: "moved", copiedTo: fresh });
     joinTopic(topicOf(fresh), { server: true });
     rediscover(topicOf(fresh), fresh);
     if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });
