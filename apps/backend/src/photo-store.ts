@@ -5665,30 +5665,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function handOverNow(
     rt: FolderRuntime,
     key: string,
-    checked?: HandoverCheck,
+    checked: HandoverCheck,
   ): Promise<EitherResult<{ ok: boolean }>> {
     const record = rt.record;
     const refused = (message: string) => err(PhotoError.HANDOVER_REFUSED, message);
     const refusal = handoverRefusal(rt);
     if (refusal) return refusal;
-    let found = checked;
-    if (!found) {
-      const [checkErr, result] = await checkHandover(rt, key);
-      if (checkErr) return [checkErr, null];
-      found = result;
-    }
-    const { drive } = found;
-    const device = { identityKey: found.identityKey };
-    const chains = await signHandover(rt, device.identityKey);
+    const { drive, identityKey } = checked;
+    const chains = await signHandover(rt, identityKey);
     if (!chains) return refused("This phone could not sign the handover");
     patchRecord(rt, {
       handover: {
-        to: { key, identity: device.identityKey, name: await readDeviceName(drive) },
+        to: { key, identity: identityKey, name: await readDeviceName(drive) },
         at: Date.now(),
         chains,
       },
     });
-    log("handover.started", { folder: short(record.id), to: short(device.identityKey) });
+    log("handover.started", { folder: short(record.id), to: short(identityKey) });
     void deliverHandover(rt).catch(answerErr("handover"));
     deps.onChanged({ cause: "enroll", folderId: record.id });
     return ok({ ok: true });
