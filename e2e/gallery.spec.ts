@@ -305,6 +305,59 @@ test.describe("holders", () => {
   });
 });
 
+test.describe("screen reader", () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  test("an open photo is a dialog named after it, the page behind leaves the tree, and closing returns to its tile", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const tile = page.locator("figure").first();
+    await expect(tile).toBeAttached({ timeout: 20_000 });
+    const tileName = await tile.getAttribute("aria-label");
+    await tile.click();
+    const viewer = page.locator("[data-lightbox]");
+    const alt = (await viewer.locator("img[alt]:not([alt=''])").first().getAttribute("alt")) ?? "";
+    expect(alt).not.toBe("");
+    await expect(page.getByRole("dialog", { name: alt, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Close" })).toBeFocused();
+    await expect(page.locator("[data-app-shell]")).toHaveAttribute("inert", "");
+
+    const cdp = await page.context().newCDPSession(page);
+    const { nodes } = await cdp.send("Accessibility.getFullAXTree");
+    const named = (role: string | undefined, name: string) =>
+      nodes.some(
+        (n) =>
+          !n.ignored && (role === undefined || n.role?.value === role) && n.name?.value === name,
+      );
+    expect(named("dialog", alt)).toBe(true);
+    if (tileName) expect(named(undefined, tileName)).toBe(false);
+    expect(named(undefined, "Photos")).toBe(false);
+
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press("Tab");
+      expect(
+        await page.evaluate(() => document.activeElement?.closest("[inert]") ?? null),
+      ).toBeNull();
+    }
+
+    await page.getByRole("button", { name: "Close" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("dialog", { name: alt, exact: true })).toHaveCount(0);
+    const lastAlt = await viewer.locator("img[alt]:not([alt=''])").first().getAttribute("alt");
+    await expect(page.getByRole("button", { name: "Close" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(viewer).toHaveCount(0, { timeout: 5_000 });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.activeElement?.closest("[data-photo-tile]")?.querySelector("img")?.alt,
+        ),
+      )
+      .toBe(lastAlt);
+  });
+});
+
 test.describe("photo alone", () => {
   test.use({ viewport: { width: 320, height: 568 } });
   test("a tap on the photo hides the controls and a second brings them back", async ({ page }) => {
@@ -344,7 +397,7 @@ test.describe("dark", () => {
     await page.locator("figure").first().click();
     await page.getByRole("button", { name: "More options" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.locator("dialog[open]");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     const bg = await dialog
       .locator("xpath=ancestor-or-self::*[1]")
