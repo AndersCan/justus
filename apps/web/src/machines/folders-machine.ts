@@ -223,6 +223,8 @@ type FoldersContext = {
   pendingCreate: string | null;
   pendingActive: string | null;
   pendingName: string | null;
+  /** The name was saved while the album list was loading, so the load was dropped and must run again. */
+  reloadAfterName: boolean;
   /** The album this person left last, until dismissed or the next leave replaces it. */
   youLeft: AlbumTarget | undefined;
   /** The last archive, restore, leave, delete or dismiss, kept after it ends so the screen can toast it. */
@@ -260,6 +262,7 @@ const noPending = {
   pendingCreate: null,
   pendingActive: null,
   pendingName: null,
+  reloadAfterName: false,
   pendingChange: null,
 };
 
@@ -705,6 +708,21 @@ export const foldersMachine = machine("folders", {
             },
           });
         }
+        /** A Save pressed while the album list loads is kept; the list loads again once the name is saved. */
+        m.on(loadingAlbums, {
+          event: setName,
+          to: [savingName],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              error: null,
+              pendingName: e.payload.name,
+              reloadAfterName: true,
+            });
+            return { state: savingName };
+          },
+        });
         /** The new name is saved. */
         m.effect(savingName, {
           name: "savingName",
@@ -733,15 +751,19 @@ export const foldersMachine = machine("folders", {
         /** The new name is saved and shown everywhere. */
         m.on(savingName, {
           event: nameSaved,
-          to: [showingAlbums],
+          to: [showingAlbums, loadingAlbums],
           handler: (e, opts) => {
+            const reload = opts.context.get().reloadAfterName;
             opts.context.set({
               ...opts.context.get(),
               ...noPending,
               userName: e.payload.name,
               error: null,
             });
-            return { state: showingAlbums, emit: [renamed.create({ name: e.payload.name })] };
+            return {
+              state: reload ? loadingAlbums : showingAlbums,
+              emit: [renamed.create({ name: e.payload.name })],
+            };
           },
         });
         /** Saving the name failed: the old name stays and the person sees why. */
