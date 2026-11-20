@@ -13,6 +13,8 @@ import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { expect, test } from "@playwright/test";
 import { recordApkNetwork, traceFacts } from "./apk-network.mjs";
+import { networkInterfaces } from "node:os";
+import { apkAddressReport } from "../hub/apk-trace.mjs";
 import { copyInviteLink, createAlbum, pausePhone, resumeAll, skipIntro } from "../p2p/steps";
 
 const catalogue = JSON.parse(
@@ -59,6 +61,7 @@ const STEPS = [
   `Ada reads “${words("holders.on_and_your_phone", { names: `${BEN}'s` })}” on her photo`,
   `Ada's phone goes off; Ben opens Members and reads “${OFF_WORDS[0]}” or “${OFF_WORDS[1]}”`,
   `Ada's phone comes back; Ben's album reads “${CONNECTED_NOW}”`,
+  "Ben's APK sent only to Ada's phone and DHT nodes, from its start to the end of the walk",
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
 
 let record = "";
@@ -234,6 +237,25 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         },
         120_000,
       );
+    });
+    await step(12, async () => {
+      const seen = await recorder.stop();
+      if (seen.error) throw new Error(`Ben's app could not be recorded: ${seen.error}`);
+      const state = await (await a.context().request.get(new URL("/__state", a.url()).href)).json();
+      const ports = Object.keys(state.addresses.bound).map((addr) => Number(addr.split(":").pop()));
+      const hosts = [
+        "10.0.2.2",
+        ...Object.values(networkInterfaces()).flatMap((list) => list.map((i) => i.address)),
+      ];
+      const report = apkAddressReport({
+        trace: seen.trace,
+        ada: { hosts: new Set(hosts), ports: new Set(ports) },
+      });
+      if (report.outside.length > 0) {
+        writeFileSync(join(out, "apk-trace.txt"), seen.trace);
+        throw new Error(report.outside.join("; "));
+      }
+      STEPS[11].name = `Ben's APK sent only to Ada's phone at ${report.adaAddresses.join(", ")} (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes. Outside: none`;
     });
   } finally {
     resumeAll();
