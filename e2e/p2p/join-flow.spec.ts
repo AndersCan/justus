@@ -572,7 +572,10 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await a.goto("/sharing");
   await a.getByText(FRIEND_ALBUM).click();
   await expect(
-    a.locator("li", { hasText: words("album.friend") }).getByText("Sam").first(),
+    a
+      .locator("li", { hasText: words("album.friend") })
+      .getByText("Sam")
+      .first(),
   ).toBeVisible({ timeout: 30_000 });
 });
 
