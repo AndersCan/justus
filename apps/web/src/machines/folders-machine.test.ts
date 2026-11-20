@@ -669,3 +669,72 @@ describe("album lifecycle in the folders machine", () => {
     } as any);
   });
 });
+
+describe("actions sent while a known list reloads", () => {
+  const send = (actor: ReturnType<typeof foldersMachine.create>, type: string, payload?: unknown) =>
+    (actor as any).send({ type, payload });
+  const path = (actor: ReturnType<typeof foldersMachine.create>) => actor.snapshot().path[0];
+  const ok = () => vi.fn().mockResolvedValue([null, { ok: true }]);
+
+  test("a stale reload answering during the archive does not overwrite the archived list", async () => {
+    let answerStale: (v: unknown) => void = () => {};
+    const listed = vi
+      .fn()
+      .mockResolvedValueOnce([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }])
+      .mockReturnValueOnce(new Promise((r) => (answerStale = r)))
+      .mockResolvedValue([
+        null,
+        { folders: [], activeFolderId: null, archived: [folder("f1", "Trip")] },
+      ]);
+    let finishArchive: (v: unknown) => void = () => {};
+    const gw = {
+      folders: listed,
+      archiveAlbum: vi.fn().mockReturnValue(new Promise((r) => (finishArchive = r))),
+      leaveAlbum: ok(),
+      handOverAlbum: ok(),
+    };
+    const actor = foldersMachine.create({ gateway: gw as any });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    send(actor, "REFRESH");
+    expect(path(actor)).toBe("loadingAlbums");
+    send(actor, "ARCHIVE_ALBUM", { folderId: "f1", name: "Trip" });
+    expect(path(actor)).toBe("archivingAlbum");
+    answerStale([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(path(actor)).toBe("archivingAlbum");
+    finishArchive([null, { ok: true }]);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(actor.snapshot().context.archived.map((f) => f.id)).toEqual(["f1"]);
+  });
+
+  test.each([
+    ["LEAVE_ALBUM", "leavingAlbum", "leaveAlbum"],
+    ["HAND_OVER_ALBUM", "handingOverAlbum", "handOverAlbum"],
+    ["DELETE_ALBUM", "deletingAlbum", "deleteAlbum"],
+    ["RESTORE_ALBUM", "restoringAlbum", "restoreAlbum"],
+  ])("%s sent while a known list reloads is not dropped", async (type, inFlight, call) => {
+    let answer: (v: unknown) => void = () => {};
+    const listed = vi
+      .fn()
+      .mockResolvedValueOnce([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }])
+      .mockReturnValueOnce(new Promise((r) => (answer = r)))
+      .mockResolvedValue([null, { folders: [], activeFolderId: null }]);
+    const gw = {
+      folders: listed,
+      leaveAlbum: ok(),
+      handOverAlbum: ok(),
+      deleteAlbum: ok(),
+      restoreAlbum: ok(),
+    };
+    const actor = foldersMachine.create({ gateway: gw as any });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    send(actor, "REFRESH");
+    expect(path(actor)).toBe("loadingAlbums");
+    send(actor, type, { folderId: "f1", name: "Trip", memberKey: "ben" });
+    expect(path(actor)).toBe(inFlight);
+    await vi.waitFor(() => expect((gw as any)[call]).toHaveBeenCalled());
+    answer([null, { folders: [], activeFolderId: null }]);
+  });
+});
