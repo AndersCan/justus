@@ -375,3 +375,16 @@ describe("holdersSheet outside Justus", () => {
     );
   });
 });
+
+describe("holdersRow change", () => {
+  it("draws a new line element when the text changes, so its fade plays again", () => {
+    const el = document.createElement("div");
+    render(holdersRow(photo(h({})), 0), el);
+    const before = el.querySelector(".justus-holders-text");
+    const beforeText = before?.textContent;
+    render(holdersRow(photo(h({ others: [m("Ben")] })), 0), el);
+    const after = el.querySelector(".justus-holders-text");
+    expect(after?.textContent).not.toBe(beforeText);
+    expect(after).not.toBe(before);
+  });
+});
