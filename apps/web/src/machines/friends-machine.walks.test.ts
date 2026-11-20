@@ -8,7 +8,7 @@ test("Anna taps Nils in Trip and saves him as a friend", async () => {
   const actor = make.create();
   actor.inject({ type: "FRIENDS_LOADED", payload: { friends: [] } });
   await actor.settled();
-  actor.send({ type: "OPEN", payload: { target: { identity: "nils", ownName: "Nils" } } });
+  actor.send({ type: "OPEN_FRIEND", payload: { target: { identity: "nils", ownName: "Nils" } } });
   actor.send({ type: "ADD" });
   actor.send({ type: "SAVE" });
   actor.inject({
@@ -39,7 +39,7 @@ test("Anna renames Ben B to Ben", async () => {
     payload: { friends: [{ identity: "ben", name: "Ben B" }] },
   });
   await actor.settled();
-  actor.send({ type: "OPEN", payload: { target: { identity: "ben", ownName: "Ben" } } });
+  actor.send({ type: "OPEN_FRIEND", payload: { target: { identity: "ben", ownName: "Ben" } } });
   actor.send({ type: "RENAME" });
   actor.send({ type: "TYPE", payload: { text: "Ben" } });
   actor.send({ type: "SAVE" });

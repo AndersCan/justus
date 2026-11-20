@@ -34,7 +34,7 @@ const namingFriend = state("namingFriend")<FriendTarget & { draft: string; renam
 const savingFriend = state("savingFriend")<FriendTarget & { name: string; renaming?: boolean }>();
 
 /** The person taps a member to see them in the friend sheet. */
-const open = event("OPEN")<{ target: FriendTarget }>();
+const open = event("OPEN_FRIEND")<{ target: FriendTarget }>();
 /** The person taps Add to friends. */
 const add = event("ADD")();
 /** The person taps Rename on a saved friend. */
