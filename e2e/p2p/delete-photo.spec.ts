@@ -20,6 +20,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
+import { spokenSheet } from "../spoken";
 import {
   askToJoin,
   copyInviteLink,
@@ -409,6 +410,17 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
     await expect(dialog, "Ben off · Ada's dialog names Ben").toContainText(
       words("lightbox.phones_drop_copy", { list: "Ben's", n: 1 }),
     );
+    const sheet = await spokenSheet(a);
+    expect(sheet.name, "Ben off · Ada's sheet is named as shown").toBe(
+      words("lightbox.delete", { name: GONE }),
+    );
+    expect(sheet.shown.text, "Ben off · Ada's sheet text names Ben").toContain(
+      words("lightbox.phones_drop_copy", { list: "Ben's", n: 1 }),
+    );
+    expect(sheet.buttons, "Ben off · Keep says the sheet's text").toEqual([
+      { name: words("confirm.keep"), description: sheet.shown.text },
+      { name: words("lightbox.delete_2"), description: "" },
+    ]);
     await dialog.getByRole("button", { name: words("lightbox.delete_2") }).click();
     // 20 s: a local delete.
     await expect(view(GONE)).toHaveCount(0, { timeout: 20_000 });
@@ -419,6 +431,12 @@ test("a photo the Admin deletes while Ben's phone is off leaves his phone when i
       .toContainEqual(
         expect.stringContaining(words("lightbox.will_see_it_when_connected", { list: "Ben" })),
       );
+    await expect(
+      a.locator("[data-toast-host][role=status] .justus-toast", {
+        hasText: words("lightbox.will_see_it_when_connected", { list: "Ben" }),
+      }),
+      "Ben off · Ada's toast is in the status line",
+    ).toHaveCount(1);
     // Back to Away trip: the still-to-drop line is on its page.
     await a.goto(albumA);
     // 20 s: the album list reloads after the page loads.
