@@ -260,6 +260,7 @@ export const PhotoError = {
   REQUEST_CANCELLED: "justus.photos/request-cancelled",
   HANDOVER_REFUSED: "justus.photos/handover-refused",
   HANDOVER_MOVE_OPEN: "justus.photos/handover-move-open",
+  HANDOVER_PHONE_UNPROVEN: "justus.photos/handover-phone-unproven",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -559,7 +560,7 @@ export interface PhotoStore {
    * own devices, but the album stops syncing with them). */
   makeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   makeViewer(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
-  /** Admin only: hand the album to a Collaborator. The Admin's phone keeps the album until the new Admin's phone has it. */
+  /** Admin only: hand the album to a Collaborator or a Viewer. The Admin's phone keeps the album until the new Admin's phone has it. */
   handOver(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin: calls off a handover before the new Admin's phone has it. */
   stayAdmin(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
@@ -5609,10 +5610,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return chains;
   }
 
-  async function handOverNow(
-    rt: FolderRuntime,
-    key: string,
-  ): Promise<EitherResult<{ ok: boolean }>> {
+  /** Refusals that need no key. */
+  function handoverRefusal(rt: FolderRuntime): EitherResult<never> | undefined {
     const record = rt.record;
     const refused = (message: string) => err(PhotoError.HANDOVER_REFUSED, message);
     if (record.role !== "creator")
@@ -5628,30 +5627,88 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return err(PhotoError.HANDOVER_MOVE_OPEN, "The album is still moving people after a Remove");
     if ((record.adminChain?.length ?? 1) >= MAX_ADMIN_CHAIN - 1)
       return refused("The album has passed through too many Admins");
-    const registry = await readRegistryIn(rt.folderDrive);
-    const listed = registry.members[key];
-    if (!listed) return refused("Only someone who can add photos can take over");
     if (!fitsPackage(record))
       return refused("The album has too many links and answers to hand over");
+    return undefined;
+  }
+
+  type HandoverCheck = { drive: Drive; identityKey: string; isViewer: boolean };
+
+  /** Every refusal, before anything is written: the album, who `key` is, and whether their phone is open. */
+  async function checkHandover(
+    rt: FolderRuntime,
+    key: string,
+  ): Promise<EitherResult<HandoverCheck>> {
+    const refusal = handoverRefusal(rt);
+    if (refusal) return refusal;
+    const registry = await readRegistryIn(rt.folderDrive);
+    const isViewer = !registry.members[key] && Boolean(rt.viewers[key]);
+    if (!registry.members[key] && !isViewer)
+      return err(PhotoError.HANDOVER_REFUSED, "Only someone who can add photos can take over");
     const drive = rt.memberDrives.get(key) ?? (await openDriveWithTopic(key, { server: false }));
-    const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
-      driveKey: key,
-      verify: (p) => deps.drives.verifyIdentity(p),
-    });
-    if (device.status !== "verified") return refused("That phone has not proved who it is yet");
-    const chains = await signHandover(rt, device.identityKey);
+    await Promise.race([drive.update().catch(() => undefined), sleep(2_000)]);
+    const device = verifiedDeviceIdentity(
+      (await readText(drive, DRIVE_PATH_DEVICE, { timeout: 5_000 })) ?? "",
+      {
+        driveKey: key,
+        verify: (p) => deps.drives.verifyIdentity(p),
+      },
+    );
+    if (device.status !== "verified")
+      return err(
+        PhotoError.HANDOVER_PHONE_UNPROVEN,
+        "That phone needs Justus open to take the album over",
+      );
+    return ok({ drive, identityKey: device.identityKey, isViewer });
+  }
+
+  async function handOverNow(
+    rt: FolderRuntime,
+    key: string,
+    checked: HandoverCheck,
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    const record = rt.record;
+    const refused = (message: string) => err(PhotoError.HANDOVER_REFUSED, message);
+    const refusal = handoverRefusal(rt);
+    if (refusal) return refusal;
+    const { drive, identityKey } = checked;
+    const chains = await signHandover(rt, identityKey);
     if (!chains) return refused("This phone could not sign the handover");
     patchRecord(rt, {
       handover: {
-        to: { key, identity: device.identityKey, name: await readDeviceName(drive) },
+        to: { key, identity: identityKey, name: await readDeviceName(drive) },
         at: Date.now(),
         chains,
       },
     });
-    log("handover.started", { folder: short(record.id), to: short(device.identityKey) });
+    log("handover.started", { folder: short(record.id), to: short(identityKey) });
     void deliverHandover(rt).catch(answerErr("handover"));
     deps.onChanged({ cause: "enroll", folderId: record.id });
     return ok({ ok: true });
+  }
+
+  /** Admin: lets the Viewer `key` add photos, through the membership actor. */
+  async function makeMemberNow(
+    rt: FolderRuntime,
+    folderId: string,
+    key: string,
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    let alreadyCollaborator = false;
+    const actor = await sendToMember(rt, key, undefined, (a) => {
+      if (String(a.state.name) === "collaboratorInAlbum") alreadyCollaborator = true;
+      else a.send({ type: "makeCollaborator" });
+    });
+    if (!actor) return err(PhotoError.NOT_FOUND, "No such Viewer");
+    if (alreadyCollaborator) {
+      // Listed in both files after a half-finished change: already enrolled; only in the registry: no longer a Viewer.
+      return rt.viewers[key]
+        ? err(PhotoError.ALREADY_ENROLLED, "Member already enrolled")
+        : err(PhotoError.NOT_FOUND, "No such Viewer");
+    }
+    if (String(actor.state.name) !== "makingCollaborator") return membershipRefusal(actor);
+    await actor.settled();
+    if (String(actor.state.name) === "collaboratorInAlbum") return ok({ ok: true });
+    return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
   }
 
   /** Admin: sends the handover to the next Admin on every connection proven to be them, until `/admin.json` is written. */
@@ -7397,23 +7454,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
-      const key = memberKey.toLowerCase();
-      let alreadyCollaborator = false;
-      const actor = await sendToMember(rt, key, undefined, (a) => {
-        if (String(a.state.name) === "collaboratorInAlbum") alreadyCollaborator = true;
-        else a.send({ type: "makeCollaborator" });
-      });
-      if (!actor) return err(PhotoError.NOT_FOUND, "No such Viewer");
-      if (alreadyCollaborator) {
-        // Listed in both files after a half-finished change: already enrolled; only in the registry: no longer a Viewer.
-        return rt.viewers[key]
-          ? err(PhotoError.ALREADY_ENROLLED, "Member already enrolled")
-          : err(PhotoError.NOT_FOUND, "No such Viewer");
-      }
-      if (String(actor.state.name) !== "makingCollaborator") return membershipRefusal(actor);
-      await actor.settled();
-      if (String(actor.state.name) === "collaboratorInAlbum") return ok({ ok: true });
-      return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
+      return makeMemberNow(rt, folderId, memberKey.toLowerCase());
     },
 
     async handOver(folderId, memberKey) {
@@ -7425,7 +7466,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
-      return oneChangePerAlbum(rt.record.id, () => handOverNow(rt, key));
+      const [checkErr, checked] = await oneChangePerAlbum(rt.record.id, () =>
+        checkHandover(rt, key),
+      );
+      if (checkErr) return [checkErr, null];
+      // The membership step takes the album lock itself, so it runs between two locked steps.
+      if (checked.isViewer) {
+        const [promoteErr] = await makeMemberNow(rt, folderId, key);
+        if (promoteErr) return [promoteErr, null];
+      }
+      return oneChangePerAlbum(rt.record.id, () => handOverNow(rt, key, checked));
     },
 
     async stayAdmin(folderId) {

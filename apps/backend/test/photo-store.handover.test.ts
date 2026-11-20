@@ -220,11 +220,8 @@ describe("refusing a handover", () => {
     await s.close();
   });
 
-  it("is for someone who can add photos", async () => {
+  it("is for someone in the album", async () => {
     const s = await scene();
-    expect((await s.ada.store.makeViewer(s.folderId, s.benKey))[0]).toBeNull();
-    const viewer = await s.ada.store.handOver(s.folderId, s.benKey);
-    expect(viewer[0]?.code).toBe(PhotoError.HANDOVER_REFUSED);
     const stranger = await s.ada.store.handOver(s.folderId, "ab".repeat(32));
     expect(stranger[0]?.code).toBe(PhotoError.HANDOVER_REFUSED);
     const notHex = await s.ada.store.handOver(s.folderId, "nope");
@@ -691,4 +688,49 @@ describe("other phones follow the new Admin", () => {
       await s.ben.store.close();
     }, 90_000);
   }
+});
+
+describe("handing an album to a Viewer", () => {
+  it("lets a Viewer add photos, then makes their phone the Admin", async () => {
+    const s = await scene();
+    expect((await s.ada.store.makeViewer(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "reader");
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    expect((await trip(s.ben)).notice).toEqual({ kind: "madeAdmin", fromName: "Ada" });
+    expect(debugOf(s.ben).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
+    const lists = JSON.parse((await s.read(s.cy, s.benKey, "/members.json"))!);
+    expect(Object.values(lists.members).map((m) => (m as { key: string }).key)).toEqual([s.cyKey]);
+    await s.close();
+  });
+
+  it("changes nothing when the Viewer's phone is off", async () => {
+    const s = await scene();
+    const kim = phone(s.hub, "Kim");
+    (kim.deps as { isFriend?: (id: string) => boolean }).isFriend = (id) =>
+      id === identityOf(s.ada);
+    await kim.store.ready();
+    expect((await s.ada.store.offerAlbum(s.folderId, identityOf(kim), "reader"))[0]).toBeNull();
+    await until(async () => (await kim.store.folders()).offers.length === 1);
+    const card = (await kim.store.folders()).offers[0]!;
+    expect((await kim.store.joinOffer(card.code, card.owner))[0]).toBeNull();
+    let kimKey: string | undefined;
+    await until(async () => {
+      const m = (await s.ada.store.status()).members.find(
+        (x: { name?: string }) => x.name === "Kim",
+      ) as { key?: string; viewer?: boolean } | undefined;
+      kimKey = m?.viewer ? m.key : undefined;
+      return kimKey !== undefined;
+    });
+    setFakeNodeConnected({ hub: s.hub, node: kim.node, connected: false });
+    const [error] = await s.ada.store.handOver(s.folderId, kimKey!);
+    expect(error?.code).toBe(PhotoError.HANDOVER_PHONE_UNPROVEN);
+    const after = (await s.ada.store.status()).members.find(
+      (x: { name?: string }) => x.name === "Kim",
+    );
+    expect(after).toMatchObject({ viewer: true });
+    expect(debugOf(s.ada).folders[0]!.handover).toBeUndefined();
+    await kim.store.close();
+    await s.close();
+  }, 30_000);
 });
