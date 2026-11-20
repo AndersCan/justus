@@ -6347,9 +6347,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       (r) => r.record.role !== "creator" && move.from.includes(r.record.shareKey),
     );
     let rt = held.find((r) => r.record.invite?.owner === sender);
-    if (!rt && held.length > 0) {
+    if (!rt) {
       // The sender may be the new Admin this phone has not followed yet (a Viewer reads the handover late); Ben's offer is resent only a few times.
-      for (const r of held) await advanceAdmin(r).catch(answerErr("advance"));
+      for (const r of held) {
+        while (advancing.has(r.record.id)) await sleep(50);
+        await advanceAdmin(r).catch(answerErr("advance"));
+      }
       rt = held.find((r) => r.record.invite?.owner === sender);
     }
     if (!rt) {
