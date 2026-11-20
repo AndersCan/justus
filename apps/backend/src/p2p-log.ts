@@ -13,7 +13,14 @@
  *   conn.close conn noise ms              swarm connection ended
  *   conn.error conn noise err             socket error (connection stays tracked until close)
  *   identity.learned conn identity new    peer told us its identity drive (conn -> identity)
- *   topic.join topic served               first join of a swarm topic
+ *   topic.join topic served table firewalled bootstrapped conns   first join of a swarm topic, with the DHT state then
+ *   connect.attempt peer                  swarm dialled a peer
+ *   connect.error peer ms err             a dial failed
+ *   connect.close peer ms                 a dial ended without an error
+ *   connect.ban peer err                  swarm gave up on a peer
+ *   lookup.peer topic peer                a lookup returned a peer
+ *   lookup.done kind topic peers closest ms   a lookup or announce finished
+ *   lookup.error kind topic err           a lookup or announce failed
  *   topic.upgrade topic                   client-only topic now also announced
  *   topic.leave topic                     topic released
  *   topic.flushed topic ms                DHT announce/lookup round finished
