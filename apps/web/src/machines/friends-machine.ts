@@ -394,7 +394,7 @@ export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
       ? {
           identity: payload.identity,
           ownName: payload.ownName,
-          ...(payload.words ? { words: payload.words } : {}),
+          words: payload.words,
         }
       : null;
   const draft = payload?.draft ?? payload?.name ?? "";
