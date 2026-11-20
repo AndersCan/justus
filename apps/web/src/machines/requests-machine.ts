@@ -130,6 +130,8 @@ type RequestsContext = {
   heldDeclines: { request: JoinRequest; index: number }[];
   /** The last person let in; the album page shows it until the page changes. */
   accepted: JoinRequest | null;
+  /** Who the Admin declined on this page visit, in tap order; the album page names them until the page changes. */
+  declined: JoinRequest[];
 };
 
 const initialContext: RequestsContext = {
@@ -140,6 +142,7 @@ const initialContext: RequestsContext = {
   stoppedBatch: null,
   heldDeclines: [],
   accepted: null,
+  declined: [],
 };
 
 /** The error code the backend gives when the joiner cancelled the request. */
@@ -178,7 +181,12 @@ function restoreHeld(
   if (!held) return null;
   const requests = [...ctx.requests];
   requests.splice(Math.min(held.index, requests.length), 0, held.request);
-  context.set({ ...ctx, requests, heldDeclines: ctx.heldDeclines.filter((h) => h !== held) });
+  context.set({
+    ...ctx,
+    requests,
+    heldDeclines: ctx.heldDeclines.filter((h) => h !== held),
+    declined: ctx.declined.filter((d) => !sameKey(d, key)),
+  });
   return held;
 }
 
@@ -204,6 +212,7 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
     accepted: s.context.accepted,
+    declined: s.context.declined,
   };
 }
 
@@ -276,6 +285,7 @@ export const requestsMachine = machine("requests", {
                   e.payload.requesterKey,
                 ),
                 heldDeclines: [...ctx.heldDeclines, { request, index }],
+                declined: [...ctx.declined, request],
               });
               return {
                 emit: [
@@ -287,14 +297,14 @@ export const requestsMachine = machine("requests", {
               };
             },
           });
-          /** The album page closed: the "is in" card is forgotten. */
+          /** The album page closed: the "is in" card and the declined line are forgotten. */
           m.on(at, {
             event: forgetAccepted,
             to: [],
             handler: (_e, opts) => {
               const ctx = opts.context.get();
-              if (ctx.accepted === null) return {};
-              opts.context.set({ ...ctx, accepted: null });
+              if (ctx.accepted === null && ctx.declined.length === 0) return {};
+              opts.context.set({ ...ctx, accepted: null, declined: [] });
               return {};
             },
           });
@@ -482,7 +492,13 @@ export const requestsMachine = machine("requests", {
               (r) => !ctx.heldDeclines.some((h) => sameKey(h.request, r)),
             );
             const fresh = listed.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
-            opts.context.set({ ...ctx, requests: listed, error: null, loadedOnce: true });
+            opts.context.set({
+              ...ctx,
+              requests: listed,
+              declined: ctx.declined.filter((d) => !listed.some((r) => sameKey(r, d))),
+              error: null,
+              loadedOnce: true,
+            });
             if (ctx.loadedOnce && fresh.length > 0) {
               return {
                 state: showingRequests,

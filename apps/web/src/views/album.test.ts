@@ -925,6 +925,21 @@ describe("album join requests", () => {
     expect(flat(host)).not.toContain("nils wants");
   });
 
+  test("the Declined line stays after the toast closes and goes when the page changes", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true)]);
+    expect(host.querySelector("[data-declined-line]")).toBeNull();
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(host.querySelector("[data-declined-line]")).not.toBeNull());
+    expect(host.querySelector("[data-declined-line]")!.textContent!.trim()).toBe("Declined nils");
+    declineToast().onClose();
+    await requestsActor.settled();
+    expect(host.querySelector("[data-declined-line]")!.textContent!.trim()).toBe("Declined nils");
+    open("/help");
+    await vi.waitFor(() => expect(host.querySelector("[data-declined-line]")).toBeNull());
+    open("/");
+  });
+
   test("Decline, Undo, then Accept lets the person in and nothing was declined", async () => {
     vi.mocked(toast).mockClear();
     vi.mocked(gateway.respond).mockClear();
@@ -1555,7 +1570,9 @@ describe("album requests motion", () => {
         ? [...el.children].reduce((n, e) => n + height(e), 0)
         : el.matches('[data-motion-key="section:requests"]')
           ? 56 * (1 + el.querySelectorAll("li").length)
-          : 56;
+          : el.matches("[data-declined-line]")
+            ? 20 * el.querySelectorAll("p").length
+            : 56;
     Element.prototype.getBoundingClientRect = function (this: Element) {
       let box: Element = this;
       while (box.parentElement?.classList.contains("contents")) box = box.parentElement;
