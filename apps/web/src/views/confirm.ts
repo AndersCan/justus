@@ -73,7 +73,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
     );
     // A screen reader says the sheet's text with Keep, where focus lands.
     if (options.detail) {
-      host.querySelector("[slot=footer] > button")?.setAttribute("aria-describedby", detailId);
+      host.querySelector("[slot=footer]>button")?.setAttribute("aria-describedby", detailId);
     }
     // The dialog's own autofocus can run before it is upgraded.
     requestAnimationFrame(() => {
