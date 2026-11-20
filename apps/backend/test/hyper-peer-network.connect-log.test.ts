@@ -53,6 +53,12 @@ it("logs the DHT state at join, each lookup's peers and each dial", async () => 
   const lookups = bLog.filter((e) => e.event === "lookup.done" && e.fields.kind === "lookup");
   expect(lookups.length).toBeGreaterThan(1);
   expect(Number(lookups[1].fields.peers)).toBeGreaterThan(0);
+  // Each lookup counts only its own peers: no more than were reported since the previous one finished.
+  const at = lookups.map((e) => bLog.indexOf(e));
+  for (let i = 1; i < lookups.length; i++) {
+    const reported = bLog.slice(at[i - 1] + 1, at[i]).filter((e) => e.event === "lookup.peer");
+    expect(Number(lookups[i].fields.peers)).toBeLessThanOrEqual(reported.length);
+  }
 }, 20_000);
 
 it("a served topic only announces, so no lookup.done says kind=lookup", async () => {
