@@ -49,7 +49,7 @@ export async function moveAlbum(
     device: (driveKey: string) => Promise<Uint8Array>;
     inviteCode: string;
     /** Drives of the Admins before this phone, whose photos move to a drive of their own. */
-    earlierAdmins?: { drive: Drive; name?: string }[];
+    earlierAdmins?: { drive: Drive }[];
   },
 ): Promise<AlbumResult<MovedAlbum>> {
   const { drives, log } = ports;
@@ -66,7 +66,7 @@ export async function moveAlbum(
 
     const removedAll = parseRemoved(await readRecord(oldDrive, { path: "/removed.json", log }));
     const adminKeys: string[] = [];
-    const copies = new Map<string, EarlierEntry>();
+    const copies = new Map<string, string>();
     for (const [i, past] of pastAdmins.entries()) {
       const prefix = `${past.drive.key}:`;
       const removedIds = new Set(
@@ -78,14 +78,11 @@ export async function moveAlbum(
       try {
         const [copyErr] = await copyEarlierAdmin(past.drive, copy, removedIds);
         if (copyErr) {
-          log("move.earlierAdmin", { drive: past.drive.key.slice(0, 8), kept: 1 });
           adminKeys.push(past.drive.key);
           continue;
         }
         adminKeys.push(copy.key);
-        const name =
-          past.name ?? (record.earlier ?? []).find((e) => e.key === past.drive.key)?.name ?? "";
-        copies.set(past.drive.key, { key: copy.key, name });
+        copies.set(past.drive.key, copy.key);
       } finally {
         await drives.release(copy).catch(() => {});
       }
@@ -93,8 +90,8 @@ export async function moveAlbum(
 
     const sources = new Map<string, EarlierEntry>();
     for (const e of record.earlier ?? []) {
-      const copy = copies.get(e.key);
-      sources.set((copy ?? e).key, { key: (copy ?? e).key, name: e.name });
+      const key = copies.get(e.key) ?? e.key;
+      sources.set(key, { key, name: e.name });
     }
     for (const m of Object.values(remaining.members)) {
       sources.set(m.key, { key: m.key, name: m.name });
@@ -146,30 +143,25 @@ export async function moveAlbum(
 /**
  * Copies an earlier Admin's photos and thumbnails, except the album's removed ones, onto `to`.
  * Each file is downloaded first, since a read of a missing block waits forever. The first file
- * that is not here makes the copy incomplete. Paths already on `to` with the same size are skipped.
+ * that is not here makes the copy incomplete.
  */
 export async function copyEarlierAdmin(
   from: Drive,
   to: Drive,
   removedIds: ReadonlySet<string>,
-): Promise<AlbumResult<number>> {
-  let copied = 0;
+): Promise<AlbumResult<true>> {
   try {
     for (const dir of ["/photos", "/thumbs"]) {
-      const have = new Map<string, number>();
-      for await (const entry of to.list(dir)) have.set(entry.path, entry.size);
       for await (const entry of from.list(dir)) {
         if (removedIds.has(idOfPath(entry.path))) continue;
-        if (have.get(entry.path) === entry.size) continue;
         const found = await from.download(entry.path, { timeoutMs: EARLIER_ADMIN_COPY_MS });
         if (found !== "here") return [{ kind: "copy-incomplete", message: entry.path }, null];
         const bytes = await from.readBytes(entry.path);
         if (!bytes) return [{ kind: "copy-incomplete", message: entry.path }, null];
         await to.put(entry.path, bytes, { metadata: entry.metadata });
-        if (dir === "/photos") copied++;
       }
     }
-    return [null, copied];
+    return [null, true];
   } catch (thrown: unknown) {
     return [{ kind: "copy-incomplete", message: errText(thrown) }, null];
   }

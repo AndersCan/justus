@@ -6061,7 +6061,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rediscover(topicOf(fresh), fresh);
     if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });
     serveInvite(moved.invite.code);
-    log("move.start", { folder: short(record.id), moves: moved.moves });
+    log("move.start", {
+      folder: short(record.id),
+      moves: moved.moves,
+      kept: copiedAdmins.filter((d, i) => moved.earlierAdmins[i] === d.key).length,
+    });
     if (Object.keys(unknown).length > 0) {
       log("move.unknown", { folder: short(record.id), n: Object.keys(unknown).length });
     }
