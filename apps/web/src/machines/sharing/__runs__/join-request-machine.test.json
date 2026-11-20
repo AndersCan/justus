@@ -136,7 +136,7 @@
       ]
     },
     {
-      "name": "Ben waits, and Ada's phone says she ended this link",
+      "name": "Ben's link was ended while he waited",
       "end": "linkEndedByAdmin",
       "steps": [
         {

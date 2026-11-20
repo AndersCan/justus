@@ -1485,19 +1485,6 @@ describe("joiner design", () => {
         ],
       },
       {
-        name: "Ben's link was ended while he waited",
-        steps: [
-          { kind: "event" as const, event: "openLink", payload: { text: LINK } },
-          { kind: "event" as const, event: "linkChecked", payload: { turnedOff: false } },
-          { kind: "event" as const, event: "askToJoin", payload: null },
-          {
-            kind: "event" as const,
-            event: "requestAnswered",
-            payload: { code: INVITE.code, answer: "linkOff", why: "ended" },
-          },
-        ],
-      },
-      {
         name: "Maya opens Nils's link after it ended",
         steps: [
           { kind: "advance" as const, ms: 600_000 },
@@ -1623,7 +1610,7 @@ test("Maya closes the waiting screen, and Nils turns off his links", async () =>
   expect(actor.state.name).toBe("linkTurnedOffByAdmin");
 });
 
-test("Ben waits, and Ada's phone says she ended this link", async () => {
+test("Ben's link was ended while he waited", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
