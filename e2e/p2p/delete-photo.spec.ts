@@ -205,7 +205,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
-  await expect(a.getByRole("status").filter({ hasText: `Deleted “${ANA}”.` })).toHaveText(
+  await expect(a.locator(".justus-toast", { hasText: `Deleted “${ANA}”.` })).toHaveText(
     /^\s*Deleted “del-ana\.png”\. .+ (has|have) the full photo\.\s*$/,
   );
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
@@ -249,7 +249,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     /.+'s phones? stops? showing it and drops? (its|their) cop(y|ies) once (it's|they're) connected\./,
   );
   await benDialog.getByRole("button", { name: "Delete" }).click();
-  await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
+  await expect(b.locator(".justus-toast", { hasText: `Deleted “${BEN}”.` })).toHaveText(
     /^\s*Deleted “del-ben\.png”\. The photo no longer shows for .+\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });

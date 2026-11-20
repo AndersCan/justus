@@ -138,7 +138,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   const link = await copyInviteLink(a);
   await a.getByRole("link", { name: "Photos", exact: true }).click();
   await askToJoin(b, link, ALBUM);
-  const asked = a.getByRole("status").filter({ hasText: `wants to join “${ALBUM}”` });
+  const asked = a.locator(".justus-toast", { hasText: `wants to join “${ALBUM}”` });
   await expect(asked).toBeVisible({ timeout: 60_000 });
   await asked.getByRole("button", { name: "Review" }).click();
   await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
@@ -593,7 +593,7 @@ test("B asks by link, A declines, B taps Ask again, A sees Declined earlier and 
   await a.getByRole("button", { name: "Decline" }).click();
 
   await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
-  await expect(a.getByRole("status").filter({ hasText: /^Declined/ })).toHaveCount(0, {
+  await expect(a.locator(".justus-toast", { hasText: /^Declined/ })).toHaveCount(0, {
     timeout: 10_000,
   });
   await expect(a.locator("[data-declined-line]")).toHaveText(/^\s*Declined/);
