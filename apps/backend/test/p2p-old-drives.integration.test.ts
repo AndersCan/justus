@@ -276,4 +276,116 @@ describe("old drives after a Remove", () => {
     expect(await ask(after, one!.photo)).toBe("timedOut");
     expect(await ask(after, "/photos/late.jpg")).toBe("here");
   }, 90_000);
+
+  it("after a handover then a Remove, no old key opens a photo the removed phone never opened", async () => {
+    const net = await realNet();
+    nets.push(net);
+    const ada = await net.peer("Ada");
+    const ben = await net.peer("Ben");
+    const cy = await net.peer("Cy");
+    const dee = await net.peer("Dee");
+
+    const created = await ok(ada.store.createFolder("Summer"));
+    const { id: folderId, shareKey, invite } = created.folder;
+    await ok(ada.store.setActive(folderId));
+    const benKey = await letIn(ada, ben, folderId, invite!.code);
+    const cyKey = await letIn(ada, cy, folderId, invite!.code);
+    await letIn(ada, dee, folderId, invite!.code);
+    const side = await ok(cy.store.createFolder("Side"));
+    await letIn(cy, ben, side.folder.id, side.folder.invite!.code);
+    await letIn(cy, dee, side.folder.id, side.folder.invite!.code);
+
+    await addPhoto(ada, folderId, "one.jpg", 10);
+    await addPhoto(ada, folderId, "two.jpg", 40);
+    const albumOf = (peer: Peer, key: string) =>
+      eventually(
+        () => albumIn(peer.store, key),
+        (a) => a?.role === "member",
+        `${peer.name} a member of the album`,
+        30_000,
+      ).then((a) => a!);
+    const benAlbum = await albumOf(ben, shareKey);
+    await albumOf(cy, shareKey);
+    const deeAlbum = await albumOf(dee, shareKey);
+    await ok(ben.store.setActive(benAlbum.id));
+    await addPhoto(ben, benAlbum.id, "b1.jpg", 100);
+
+    const oldB0 = benAlbum.driveKey;
+    const [one, two] = await pathsOn(await open(ada, shareKey), 2);
+    const [b1] = await pathsOn(await open(ada, oldB0), 1);
+    const adaOnCy = await open(cy, shareKey);
+    expect(await ask(adaOnCy, one!.photo)).toBe("here");
+    await pathsOn(await open(cy, oldB0), 1);
+    expect(await ask(await open(dee, shareKey), two!.photo)).toBe("here");
+
+    await ok(ada.store.handOver(folderId, benKey));
+    await eventually(
+      async () => (await ada.store.folders()).folders.length,
+      (n) => n === 0,
+      "the album left Ada's phone",
+      60_000,
+    );
+    await ada.stop();
+    await eventually(
+      async () => (await albumIn(ben.store, shareKey))?.role,
+      (role) => role === "creator",
+      "Ben the Admin",
+      60_000,
+    );
+
+    await ok(ben.store.removeMember(benAlbum.id, cyKey));
+    const moved = (await ben.store.folders()).folders.find((f) => f.id === benAlbum.id)!;
+    expect(moved.shareKey).not.toBe(shareKey);
+    await eventually(
+      async () => (await dee.store.folders()).folders.find((f) => f.id === deeAlbum.id)?.shareKey,
+      (key) => key === moved.shareKey,
+      "Dee on the new key",
+      90_000,
+    );
+    const cleared = (peer: Peer, drive: string) =>
+      peer.events.some((e) => e.event === "move.cleared" && e.fields.drive === drive.slice(0, 8));
+    await eventually(
+      async () => [cleared(ben, shareKey), cleared(ben, oldB0), cleared(dee, shareKey)].join(),
+      (r) => r === "true,true,true",
+      "Ben and Dee to clear the old drives",
+      60_000,
+    );
+
+    await addPhoto(cy, side.folder.id, "control.jpg", 70);
+    const sideOnCy = await open(cy, side.folder.shareKey);
+    const [control] = await pathsOn(sideOnCy, 1);
+    for (const peer of [ben, dee]) {
+      const sideOnPeer = await open(peer, side.folder.shareKey);
+      await eventually(
+        () => ask(sideOnPeer, control!.photo),
+        (r) => r === "here",
+        `${peer.name} reaching Cy after the Remove`,
+        15_000,
+      );
+    }
+
+    const adaOld = await open(cy, shareKey);
+    expect(await ask(adaOld, two!.photo)).toBe("timedOut");
+    const benOld = await open(cy, oldB0);
+    expect(await ask(benOld, b1!.photo)).toBe("timedOut");
+    expect(await ask(adaOld, one!.photo)).toBe("here");
+
+    for (const peer of [ben, dee]) {
+      const shown = await eventually(
+        async () => (await peer.store.list({ all: true })).filter((p) => p.name !== "control.jpg"),
+        (photos) => photos.length >= 3,
+        `${peer.name} listing every photo`,
+        30_000,
+      );
+      expect(
+        shown
+          .map((p) => p.name)
+          .filter((n) => n !== "control.jpg")
+          .sort(),
+      ).toEqual(["b1.jpg", "one.jpg", "two.jpg"]);
+      for (const p of shown) {
+        if (p.name !== "b1.jpg") expect(p.member?.name).toBe("Ada");
+      }
+    }
+  }, 180_000);
 });

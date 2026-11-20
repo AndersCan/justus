@@ -2632,10 +2632,43 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Earlier Admins' drives the new album no longer reads: clears this phone's
+   * copy. Waits for the new Admin's `/earlier.json`; without it nothing is known
+   * to be unread. Never awaited by the join. */
+  async function clearUnreadDrives(rt: FolderRuntime, newAdmin: Drive): Promise<void> {
+    // The new drive always writes it, so absent means it has not replicated yet.
+    let earlier: ReturnType<typeof parseEarlier> = [];
+    for (let tries = 0; tries < 30 && earlier.length === 0; tries++) {
+      await Promise.race([newAdmin.update().catch(() => undefined), sleep(2_000)]);
+      earlier = parseEarlier(await readText(newAdmin, DRIVE_PATH_EARLIER, { timeout: 1_000 }));
+      if (earlier.length === 0) await sleep(1_000);
+    }
+    if (earlier.length === 0) return;
+    const registry = await readRegistryIn(newAdmin);
+    const keep = new Set([
+      rt.folderDrive.key,
+      rt.selfDrive.key,
+      ...(rt.record.formerSelf ?? []),
+      ...Object.values(registry.members).map((m) => m.key),
+      ...earlier.map((e) => e.key),
+    ]);
+    const unread = [
+      ...(rt.record.earlier ?? []).filter((e) => e.keptVersion === undefined).map((e) => e.key),
+      ...pastAdminKeys(rt.record),
+    ].filter((k, i, all) => !keep.has(k) && all.indexOf(k) === i);
+    for (const key of unread) {
+      const [openErr, drive] = await deps.drives.open(key, { timeoutMs: 2_000 });
+      if (openErr) continue;
+      void clearOldDrive(drive, { folderId: rt.record.id, why: "followed" }).finally(() => {
+        void deps.drives.release(drive).catch(() => {});
+      });
+    }
+  }
+
   /** This phone follows the album to its new key: the old album's drives are
    * released (never purged) and its record is replaced by the one the join
    * makes under the same local id. */
-  async function retireMovedAlbum(rt: FolderRuntime): Promise<void> {
+  async function retireMovedAlbum(rt: FolderRuntime, newAdmin?: Drive): Promise<void> {
     const id = rt.record.id;
     try {
       await unmountRuntime(rt);
@@ -2644,6 +2677,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       void clearOldDrive(old, { folderId: id, why: "followed" }).finally(() => {
         void deps.drives.release(old).catch(() => {});
       });
+      if (newAdmin) void clearUnreadDrives(rt, newAdmin).catch(answerErr("clearUnreadDrives"));
     } catch (e) {
       log("error", { where: "retireMovedAlbum", folder: short(id), err: errText(e) });
     }
@@ -6558,7 +6592,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       catchUp = { from: old.selfDrive, removedIds };
     }
-    if (old) await retireMovedAlbum(old);
+    if (old) await retireMovedAlbum(old, drive);
 
     const rt: FolderRuntime = {
       record: {
