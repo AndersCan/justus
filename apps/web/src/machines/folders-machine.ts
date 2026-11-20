@@ -147,8 +147,11 @@ const restoreAlbum = event("RESTORE_ALBUM")<AlbumTarget>();
 /** The person confirmed leaving an album. */
 const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
 /** The Admin confirmed handing an album to a Collaborator. */
-const handOverAlbum = event("HAND_OVER_ALBUM")<AlbumTarget & { memberKey: string }>();
-const HANDOVER_REFUSED_CODE = "justus.photos/handover-refused";
+const handOverAlbum = event("HAND_OVER_ALBUM")<
+  AlbumTarget & { memberKey: string; memberName: string }
+>();
+export const HANDOVER_REFUSED_CODE = "justus.photos/handover-refused";
+export const HANDOVER_PHONE_UNPROVEN_CODE = "justus.photos/handover-phone-unproven";
 /** The Admin calls a handover off. */
 const stayAdmin = event("STAY_ADMIN")<AlbumTarget>();
 /** The Admin confirmed deleting an album for everyone. */
@@ -164,7 +167,7 @@ const dismissAdminChanged = event("DISMISS_ADMIN_CHANGED")<AlbumTarget>();
 /** The person dismisses the line saying they left an album. */
 const dismissYouLeft = event("DISMISS_YOU_LEFT")();
 /** Archiving, restoring, leaving, deleting or dismissing did not work. */
-const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string; refused?: boolean }>();
+const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string; code?: string }>();
 /** The album list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person names and creates a new album. */
@@ -193,7 +196,13 @@ export const nameSeen = event("NAME_SEEN")<{ name: string }>();
 /** The new name was saved and should be shown everywhere. */
 const renamed = event("RENAMED")<{ name: string }>();
 
-type AlbumTarget = { folderId: string; name: string; removed?: true; memberKey?: string };
+type AlbumTarget = {
+  folderId: string;
+  name: string;
+  removed?: true;
+  memberKey?: string;
+  memberName?: string;
+};
 type AlbumChange =
   | "handOver"
   | "stayAdmin"
@@ -218,8 +227,8 @@ type FoldersContext = {
   deleted: DeletedAlbum[];
   activeId: string | null;
   error: string | null;
-  /** The last album change was refused because the handover already finished; trying again cannot work. */
-  changeRefused: boolean;
+  /** The error code of the last failed album change, so the toast can say why. */
+  changeCode: string | undefined;
   pendingCreate: string | null;
   pendingActive: string | null;
   pendingName: string | null;
@@ -258,7 +267,7 @@ const settledStates = [
 ] as const;
 
 const noPending = {
-  changeRefused: false,
+  changeCode: undefined,
   pendingCreate: null,
   pendingActive: null,
   pendingName: null,
@@ -328,14 +337,13 @@ function runChange(
     dismissWhoJoined: port.dismissWhoJoined,
     dismissAdminChanged: port.dismissAdminChanged,
   };
-  let refused = false;
-  const fail = (message: string) => emit(albumChangeFailed.create({ message, refused }));
+  let code: string | undefined;
+  const fail = (message: string) => emit(albumChangeFailed.create({ message, code }));
   return runInvoke(
     signal,
     async () => {
       const outcome = await calls[pending.kind](pending.folderId);
-      const code = (outcome[0] as { code?: string } | null)?.code;
-      refused = pending.kind === "stayAdmin" && code === HANDOVER_REFUSED_CODE;
+      code = (outcome[0] as { code?: string } | null)?.code;
       return outcome;
     },
     () =>
@@ -956,7 +964,7 @@ export const foldersMachine = machine("folders", {
               opts.context.set({
                 ...opts.context.get(),
                 error: e.payload.message,
-                changeRefused: e.payload.refused === true,
+                changeCode: e.payload.code,
               });
               return { state: couldNotChangeAlbum };
             },
@@ -1013,8 +1021,8 @@ export const folders = {
     foldersActor.send(
       leaveAlbum.create(removed ? { folderId, name, removed: true } : { folderId, name }),
     ),
-  handOver: (folderId: string, name: string, memberKey: string) =>
-    foldersActor.send(handOverAlbum.create({ folderId, name, memberKey })),
+  handOver: (folderId: string, name: string, memberKey: string, memberName: string) =>
+    foldersActor.send(handOverAlbum.create({ folderId, name, memberKey, memberName })),
   stayAdmin: (folderId: string, name: string) =>
     foldersActor.send(stayAdmin.create({ folderId, name })),
   delete: (folderId: string, name: string) =>

@@ -115,7 +115,36 @@ describe("Stop adding photos", () => {
 
   test("a Collaborator row shows Stop Nils adding photos before Remove Nils", () => {
     const row = memberRows(open()).find((r) => r.textContent?.includes("Nils"));
-    expect(controls(row!).slice(-2)).toEqual(["Stop Nils adding photos", "Remove Nils"]);
+    expect(controls(row!).slice(-3)).toEqual([
+      "Stop Nils adding photos",
+      "Hand Trip to Nils",
+      "Remove Nils",
+    ]);
+  });
+
+  test("each row has Hand Trip to Nils between the role button and Remove", () => {
+    const rows = memberRows(open());
+    const of = (name: string) =>
+      controls(rows.find((r) => r.textContent?.includes(name))!).slice(-3);
+    expect(of("Nils")).toEqual(["Stop Nils adding photos", "Hand Trip to Nils", "Remove Nils"]);
+    expect(of("Vi")).toEqual(["Let Vi add photos", "Hand Trip to Vi", "Remove Vi"]);
+  });
+
+  test("tapping Hand Trip to Vi opens only the confirm and hands over on yes, not on no", async () => {
+    const spy = vi.spyOn(folders, "handOver").mockImplementation(() => {});
+    vi.mocked(chooseNewAdmin).mockClear();
+    vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
+    buttonNamed(open(), /^Hand Trip to Vi$/)?.click();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Hand Trip to Vi and leave?", tone: "danger" }),
+      ),
+    );
+    expect(chooseNewAdmin).not.toHaveBeenCalled();
+    expect(spy).not.toHaveBeenCalled();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    buttonNamed(open(), /^Hand Trip to Vi$/)?.click();
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith("f1", "Trip", "k2", "Vi"));
   });
 
   test("confirm copy names the person", async () => {
@@ -1346,7 +1375,11 @@ describe("album viewer rows", () => {
     expect(row.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
       copy("people.connected"),
     );
-    expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
+    expect(controls(row).slice(-3)).toEqual([
+      "Let Kimmy add photos",
+      "Hand Trip to Kimmy",
+      "Remove Kimmy",
+    ]);
   });
 
   test("Remove on a Viewer asks with the Viewer text", async () => {
@@ -2476,7 +2509,7 @@ describe("Leave album for the Admin", () => {
       confirmLabel: "Hand over and leave",
       tone: "danger",
     });
-    expect(spy).toHaveBeenCalledWith("f1", "Summer", "b");
+    expect(spy).toHaveBeenCalledWith("f1", "Summer", "b", "Ben");
   });
 
   test("the confirm says Ada can stay Admin until Ben's phone has the album, not that it can't be undone", async () => {
@@ -2501,7 +2534,7 @@ describe("Leave album for the Admin", () => {
     vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(true);
     await handOverAlbum(st, [ada, ben, cy]);
     expect(vi.mocked(confirmAction).mock.calls[0]?.[0].title).toBe("Hand Summer to Cy and leave?");
-    expect(spy).toHaveBeenLastCalledWith("f1", "Summer", "c");
+    expect(spy).toHaveBeenLastCalledWith("f1", "Summer", "c", "Cy");
   });
 
   test("closing the pick or Stay Admin changes nothing", async () => {
@@ -2560,6 +2593,10 @@ describe("Admin handover on the album page", () => {
     expect(buttonNamed(kim, /^(Remove|Stop|Let) /)).toBeUndefined();
     expect(buttonNamed(zed, /^Stop .* adding photos$/)).toBeDefined();
     expect(buttonNamed(zed, /^Remove /)).toBeDefined();
+  });
+
+  test("no Hand button on any row while a handover runs", () => {
+    expect(buttonNamed(page(handing), /^Hand Trip to/)).toBeUndefined();
   });
 
   test("after Stay Admin Kim's row offers both again", () => {

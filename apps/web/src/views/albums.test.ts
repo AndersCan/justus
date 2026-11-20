@@ -1015,12 +1015,28 @@ describe("calling off a handover that fails", () => {
     await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
     const calledOff = () => document.body.textContent?.split("can't be called off").length;
     const before = calledOff();
-    folders.handOver("a", "Summer", "b");
+    folders.handOver("a", "Summer", "b", "Ben");
     await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("couldNotChangeAlbum"));
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("Couldn't hand over “Summer”. Try again."),
     );
     expect(calledOff()).toBe(before);
+  });
+
+  test("a hand-over to a phone that has not shown it is theirs says to ask them to open Justus", async () => {
+    mock.folders.mockResolvedValue([null, { folders: [album("a")], activeFolderId: "a" }]);
+    mock.handOverAlbum.mockResolvedValue([
+      Object.assign(new Error("not proven"), { code: "justus.photos/handover-phone-unproven" }),
+      null,
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().path[0]).toBe("showingAlbums"));
+    folders.handOver("a", "Summer", "b", "Ben");
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "Ben's phone needs Justus open to take “Summer” over. Ask Ben to open Justus, then try again.",
+      ),
+    );
   });
 
   test("any other failure still says Try again", async () => {
