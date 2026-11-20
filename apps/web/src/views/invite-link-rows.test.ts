@@ -74,6 +74,8 @@ describe("the links you sent", () => {
     const ends = rows(host).map((r) => r.querySelectorAll("button")[1]?.getAttribute("aria-label"));
     expect(new Set(ends).size).toBe(2);
     expect(rows(host)[0]?.textContent).toContain("Works until");
+    for (const r of rows(host)) expect(r.textContent).toContain("Anyone with it can ask to join.");
+    expect(host.textContent).toContain("Nobody sees a photo until you accept them.");
     expect(host.querySelector("select")).not.toBeNull();
     expect(button(host, /^\s*Make a new link\s*$/)).toBeDefined();
     expect(button(host, /Copy invite link|Copy link/)).toBeUndefined();

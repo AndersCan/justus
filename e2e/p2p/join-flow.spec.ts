@@ -203,6 +203,9 @@ test("A sees B's request on the album page, Invite & members opens the card, Acc
   await expect(b.getByRole("button", { name: `View ${LINE_PHOTO}` }).locator("img")).toBeAttached({
     timeout: 60_000,
   });
+  const row = a.locator("[data-link-row]").first();
+  await expect(row).toContainText("Works until");
+  await expect(row).toContainText("Anyone with it can ask to join.");
 });
 
 const LONG_NAME = "Alexandra Montgomery-Featherstonehaugh";
