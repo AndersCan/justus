@@ -1727,7 +1727,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     network.leave(keyHex);
   }
 
-  /** Looks the topic up again whenever the drive has no peer. */
+  /** Watches the topic: looks it up again whenever the drive has no peer. */
   function rediscover(topic: Buffer, drive: Drive) {
     network.findPeers(hex(topic), () => drive.stats().peers > 0, {
       drive: drive.key,
