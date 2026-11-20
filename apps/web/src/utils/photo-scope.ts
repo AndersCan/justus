@@ -61,23 +61,18 @@ export function groupPhotos(photos: Photo[], sort: PhotoSort, now = Date.now()):
 export type TakenMonth = { month: string; count: number };
 
 /** Counts photos whose `takenAt` parses and falls in a different month than `addedAt`;
- * the month with most photos wins, a tie goes to the newer month. */
+ * the month with most photos wins. */
 export function takenMonthOf(photos: Photo[]): TakenMonth | undefined {
-  const counts = new Map<string, { count: number; at: number }>();
+  const counts = new Map<string, number>();
   for (const photo of photos) {
     const at = photo.takenAt ? Date.parse(photo.takenAt) : NaN;
     if (Number.isNaN(at) || sameMonth(at, photo.addedAt)) continue;
     const month = formatMonthGroup(at);
-    const seen = counts.get(month);
-    counts.set(month, { count: (seen?.count ?? 0) + 1, at: seen?.at ?? at });
+    counts.set(month, (counts.get(month) ?? 0) + 1);
   }
   let best: TakenMonth | undefined;
-  let bestAt = 0;
-  for (const [month, { count, at }] of counts) {
-    if (!best || count > best.count || (count === best.count && at > bestAt)) {
-      best = { month, count };
-      bestAt = at;
-    }
+  for (const [month, count] of counts) {
+    if (!best || count > best.count) best = { month, count };
   }
   return best;
 }

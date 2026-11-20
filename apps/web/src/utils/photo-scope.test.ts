@@ -177,10 +177,4 @@ describe("takenMonthOf", () => {
       count: 2,
     });
   });
-
-  test("a tie goes to the newer month", () => {
-    const photos = [taken("a", 7, 1), taken("b", 6, 1), taken("c", 6, 2), taken("d", 7, 2)];
-    expect(takenMonthOf(photos)).toEqual({ month: "July 2026", count: 2 });
-    expect(takenMonthOf([...photos].reverse())).toEqual({ month: "July 2026", count: 2 });
-  });
 });

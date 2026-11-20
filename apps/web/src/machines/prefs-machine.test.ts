@@ -29,6 +29,8 @@ describe("prefs", () => {
   });
 
   it("showSortForNow changes what the screens show and saves nothing", () => {
+    prefs.setSort("added");
+    localStorage.clear();
     prefs.showSortForNow("taken");
     expect(prefsActor.snapshot().context.sort).toBe("taken");
     expect(localStorage.getItem("justus:photo-sort")).toBeNull();
