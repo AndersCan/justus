@@ -10,8 +10,12 @@ import { copy } from "../copy/copy";
  * The friends list is loaded once when the app starts.
  */
 
-export type FriendTarget = { identity: string; ownName: string };
-export type FriendsPort = Pick<typeof gateway.friends, "list" | "add" | "rename" | "remove">;
+/** `words` are the four words both phones show for this person; absent until read or if they cannot be. */
+export type FriendTarget = { identity: string; ownName: string; words?: string };
+export type FriendsPort = Pick<
+  typeof gateway.friends,
+  "list" | "add" | "rename" | "remove" | "words"
+>;
 
 export const FRIEND_NAME_LIMIT = 40;
 export const SAVE_FAILED_COPY = copy("friends.couldn_t_save_try_again");
@@ -55,6 +59,8 @@ const removed = event("REMOVED")();
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 /** The friend being renamed is no longer on the list. */
 const friendGone = event("FRIEND_GONE")();
+/** The four matching words for the person in the sheet were worked out. */
+const wordsRead = event("WORDS_READ")<{ identity: string; words: string }>();
 /** The friend could not be saved. */
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 /** A new friend was saved under this name, so the app can say so. */
@@ -75,7 +81,16 @@ export const friendsMachine = machine("friends", {
     const { port = gateway.friends } = options;
     return Actor({
       inputs: [open, add, rename, type, save, close, remove],
-      internal: [loaded, loadFailed, saved, saveFailed, friendGone, removed, removeFailed],
+      internal: [
+        loaded,
+        loadFailed,
+        saved,
+        saveFailed,
+        friendGone,
+        removed,
+        removeFailed,
+        wordsRead,
+      ],
       outputs: [friendSaved, friendRemoved, friendNotRemoved],
       states: [
         loadingFriends,
@@ -133,6 +148,38 @@ export const friendsMachine = machine("friends", {
           handler: (e, opts) => {
             opts.context.set({ ...opts.context.get(), error: null });
             return { state: showingMember.create(e.payload.target) };
+          },
+        });
+        /** The matching words are read once per sheet opening; a failure leaves the sheet without them. */
+        m.effect(showingMember, {
+          name: "readingWords",
+          sends: [wordsRead],
+          fn: ({ signal, emit, state: current }) => {
+            const { identity, words } = current.payload;
+            if (words !== undefined) return;
+            return runInvoke(
+              signal,
+              () => port.words(identity),
+              (result) => {
+                const found = (result as { words?: string } | null)?.words;
+                if (typeof found === "string" && found !== "") {
+                  emit(wordsRead.create({ identity, words: found }));
+                }
+              },
+              (message) => console.error("friends: could not read words", message),
+            );
+          },
+        });
+        /** The words arrived while the sheet still shows this person. */
+        m.on(showingMember, {
+          event: wordsRead,
+          to: [showingMember],
+          handler: (e, opts) => {
+            // Same state name, so only a context write makes the view redraw.
+            opts.context.set({ ...opts.context.get() });
+            return {
+              state: showingMember.create({ ...opts.state.payload, words: e.payload.words }),
+            };
           },
         });
         /** The person starts naming a member who is not a friend yet, with their own name as the first draft. */
@@ -195,14 +242,14 @@ export const friendsMachine = machine("friends", {
           event: save,
           to: [savingFriend, namingFriend, friendSheetClosed],
           handler: (_e, opts) => {
-            const { identity, ownName, draft, renaming } = opts.state.payload;
+            const { identity, ownName, words, draft, renaming } = opts.state.payload;
             const name = draft.trim();
             if (name === "") return { state: namingFriend.create(opts.state.payload) };
             if (renaming && opts.context.get().friends[identity] === name) {
               opts.context.set({ ...opts.context.get(), error: null });
               return { state: friendSheetClosed };
             }
-            return { state: savingFriend.create({ identity, ownName, name, renaming }) };
+            return { state: savingFriend.create({ identity, ownName, words, name, renaming }) };
           },
         });
 
@@ -254,9 +301,11 @@ export const friendsMachine = machine("friends", {
           event: saveFailed,
           to: [namingFriend],
           handler: (_e, opts) => {
-            const { identity, ownName, name, renaming } = opts.state.payload;
+            const { identity, ownName, words, name, renaming } = opts.state.payload;
             opts.context.set({ ...opts.context.get(), error: SAVE_FAILED_COPY });
-            return { state: namingFriend.create({ identity, ownName, draft: name, renaming }) };
+            return {
+              state: namingFriend.create({ identity, ownName, words, draft: name, renaming }),
+            };
           },
         });
         /** The friend was taken off the list meanwhile: the sheet closes quietly and the name is dropped here too. */
@@ -342,7 +391,11 @@ export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
     | undefined;
   const target =
     payload?.identity !== undefined && payload.ownName !== undefined
-      ? { identity: payload.identity, ownName: payload.ownName }
+      ? {
+          identity: payload.identity,
+          ownName: payload.ownName,
+          words: payload.words,
+        }
       : null;
   const draft = payload?.draft ?? payload?.name ?? "";
   return {

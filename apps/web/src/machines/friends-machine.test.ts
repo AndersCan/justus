@@ -19,6 +19,7 @@ vi.mock("../gateway", () => ({
         { friend: { identity, name } },
       ]),
       remove: vi.fn(async () => [null, { removed: true }]),
+      words: vi.fn(async () => [null, {}]),
     },
   },
 }));
@@ -32,7 +33,9 @@ const type = (text: string) => ({ type: "TYPE", payload: { text } }) as never;
 const save = () => ({ type: "SAVE" }) as never;
 const close = () => ({ type: "CLOSE" }) as never;
 
-async function setup(options: { list?: Reply; add?: Reply; rename?: Reply; remove?: Reply } = {}) {
+async function setup(
+  options: { list?: Reply; add?: Reply; rename?: Reply; remove?: Reply; words?: Reply } = {},
+) {
   const port = {
     list: vi.fn(options.list ?? (async () => [null, { friends: [] }])),
     add: vi.fn(
@@ -45,6 +48,7 @@ async function setup(options: { list?: Reply; add?: Reply; rename?: Reply; remov
           [null, { friend: { identity, name } }] as [null, unknown]),
     ),
     remove: vi.fn(options.remove ?? (async () => [null, { removed: true }] as [null, unknown])),
+    words: vi.fn(options.words ?? (async () => [null, {}] as [null, unknown])),
   };
   const actor = friendsMachine.create({ port: port as unknown as FriendsPort });
   const outputs: unknown[] = [];
@@ -407,5 +411,43 @@ describe("friendSheetOf", () => {
       draft: "Kimmy",
       canSave: false,
     });
+  });
+});
+
+describe("friends machine matching words", () => {
+  test("opening a person reads their words once and the sheet carries them", async () => {
+    const { actor, port } = await setup({
+      words: async () => [null, { words: "early steel produce clap" }],
+    });
+    actor.send(open("k1", "Kim"));
+    await actor.settled();
+    expect(port.words).toHaveBeenCalledTimes(1);
+    expect(port.words).toHaveBeenCalledWith("k1");
+    expect(friendSheetOf(actor.snapshot() as never).target).toEqual({
+      identity: "k1",
+      ownName: "Kim",
+      words: "early steel produce clap",
+    });
+    await actor.settled();
+    expect(port.words).toHaveBeenCalledTimes(1);
+  });
+
+  test("a failed or empty reply leaves the sheet without words and asks only once", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const words of [
+      async () => [new Error("down"), null] as [unknown, unknown],
+      async () => [null, {}] as [unknown, unknown],
+      async () => [null, { words: "" }] as [unknown, unknown],
+    ]) {
+      const { actor, port } = await setup({ words });
+      actor.send(open("k1", "Kim"));
+      await actor.settled();
+      expect(port.words).toHaveBeenCalledTimes(1);
+      expect(friendSheetOf(actor.snapshot() as never).target).toEqual({
+        identity: "k1",
+        ownName: "Kim",
+      });
+    }
+    quiet.mockRestore();
   });
 });
