@@ -5987,15 +5987,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     void tellHandoverDone(taking.from).catch(answerErr("handoverDone"));
   }
 
-  /** New Admin: tells the earlier Admin's phone it has the album, on every connection proven to be them. */
+  /** New Admin: tells the earlier Admin's phone it has the album, once under each key the album has had, since that phone knows only the key it handed over. */
   async function tellHandoverDone(identity: string): Promise<void> {
     for (const rt of Array.from(runtimes.values())) {
       if (rt.record.handedBy?.identity !== identity) continue;
-      await tellIdentity(invitePorts, {
-        identity,
-        message: { kind: "handoverDone", album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
-        timeoutMs: 2_000,
-      });
+      for (const key of new Set([rt.record.shareKey, ...(rt.record.pastKeys ?? [])])) {
+        await tellIdentity(invitePorts, {
+          identity,
+          message: { kind: "handoverDone", album: deps.drives.discoveryKeyOf(key) },
+          timeoutMs: 2_000,
+        });
+      }
     }
   }
 
