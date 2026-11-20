@@ -31,6 +31,7 @@ import { friendlyError } from "../utils/friendly-error";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
 import {
   leaverHolders,
+  memberKeeps,
   memberHoldings,
   memberPhotosLine,
   type MemberHolding,
@@ -444,10 +445,49 @@ onOutput(requestsActor, (e) => {
   if (!a.approve) toast(declinedToast(a.requesterName));
 });
 
-/** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
-export function removeDetail(name: string, viewer: boolean): string {
-  const added = viewer ? "" : copy("album.and_the_photos_added_leave", { name });
-  return copy("album.won_t_see_photos_added", { name, added });
+/** What the Remove sheet says: what the person's phone keeps, whose phones lose the photos they added, and that they see they are out. */
+export function removeDetail(input: {
+  /** The person being removed, as their Members row shows them. */
+  person: Pick<Person, "key" | "name">;
+  /** This album's photos on this phone; undefined while the photo list is not loaded. */
+  photos: readonly Photo[] | undefined;
+  people: readonly Pick<Person, "key" | "name" | "you">[];
+}): string {
+  const { person, photos, people } = input;
+  const name = person.name;
+  const own = photos?.filter((p) => p.member?.key === person.key) ?? [];
+  const keeps = photos === undefined ? undefined : memberKeeps(photos, person.key);
+  const parts =
+    keeps?.kind !== "known"
+      ? []
+      : [
+          keeps.yours > 0 ? copy("album.remove_part_yours", { n: keeps.yours }) : "",
+          keeps.others > 0
+            ? copy("album.remove_part_others", { count: photoCount(keeps.others) })
+            : "",
+          own.length > 0
+            ? copy("album.remove_part_added", { count: photoCount(own.length), name })
+            : "",
+        ].filter((x) => x !== "");
+  const kept =
+    parts.length === 0
+      ? copy("album.remove_gets_nothing", { name })
+      : copy("album.remove_keeps", { name, parts: nameList(parts) });
+  const leave = own.length === 0 ? "" : copy("album.remove_added_leave_now", { name });
+  const holders = leaverHolders(own);
+  const named =
+    holders.kind !== "known"
+      ? []
+      : people.filter((p) => !p.you && p.key !== person.key && holders.keys.has(p.key));
+  const later =
+    named.length === 0
+      ? ""
+      : copy("album.leave_lose_them_when_they_connect", {
+          list: nameList(named.map((p) => p.name)),
+          n: named.length,
+          k: 0, // "them": the sentence before names "The photos"
+        });
+  return kept + leave + later + copy("album.remove_sees_and_everyone_else", { name });
 }
 
 /** The words under an Admin's name: who left and handed the album on when it was handed on, else the plain role. */
@@ -626,9 +666,14 @@ function memberRow(
               class="${roleButtonClass} text-danger-fg"
               ?disabled=${vm.busy}
               @click=${async () => {
+                const g = galleryViewModel(galleryActor.snapshot(), null);
+                const photos =
+                  g.settled && vm.folder
+                    ? photosInScope(g.photos, { kind: "album", id: vm.folder.id })
+                    : undefined;
                 const ok = await confirmAction({
                   title: copy("album.remove", { name: p.name }),
-                  detail: removeDetail(p.name, p.viewer === true),
+                  detail: removeDetail({ person: p, photos, people: vm.people }),
                   confirmLabel: copy("album.remove_2"),
                   tone: "danger",
                 });
