@@ -10,6 +10,7 @@ import { onStateChange } from "../machines/actor-utils";
 
 import { copy, t } from "../copy/copy";
 import { modalDialog } from "./modal-dialog";
+import { onEnter, onPress } from "./enter-submit";
 
 const albumModal = modalDialog();
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
@@ -25,6 +26,10 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
       host.remove();
       resolve(result);
     };
+    const submit = (root: HTMLElement) => {
+      const name = root.querySelector("input")?.value.trim() ?? "";
+      if (name) close(name);
+    };
     render(
       html`
         <dialog
@@ -32,16 +37,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
           aria-label=${copy("start_album.start_an_album")}
           ${ref(albumModal)}
         >
-          <form
-            autocomplete="off"
-            class="justus-sheet ui-sheet"
-            @submit=${(e: SubmitEvent) => {
-              e.preventDefault();
-              const input = (e.target as HTMLFormElement).querySelector("input");
-              const name = input?.value.trim() ?? "";
-              if (name) close(name);
-            }}
-          >
+          <div data-fields class="justus-sheet ui-sheet" @keydown=${onEnter(submit)}>
             <h3 class="text-base font-semibold text-fg">${t("start_album.start_an_album")}</h3>
             <p class="mt-1 text-sm text-muted">${detail}</p>
             <input
@@ -57,9 +53,9 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
               <button class="ui-btn-ghost" type="button" data-dismiss @click=${() => close(null)}>
                 ${t("start_album.cancel")}
               </button>
-              <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>
+              <wa-button variant="brand" @click=${onPress(submit)}>${confirmLabel}</wa-button>
             </div>
-          </form>
+          </div>
         </dialog>
       `,
       host,

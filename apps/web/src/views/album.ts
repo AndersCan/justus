@@ -47,6 +47,7 @@ import { toast } from "./toast";
 import { pickerInput, startAdd } from "./photo-picker";
 import { planAdd } from "../utils/add-photos";
 import { gridMotion } from "./grid-motion";
+import { onEnter, onPress } from "./enter-submit";
 
 import { copy, t } from "../copy/copy";
 /** Why a Member or Viewer needs the Admin again after leaving. */
@@ -173,6 +174,12 @@ function tryRefocus(el: HTMLElement) {
 const refocusMenu = ref((el) => {
   if (el instanceof HTMLElement) queueMicrotask(() => tryRefocus(el));
 });
+
+function enrollDevice(root: HTMLElement) {
+  const key = root.querySelector<HTMLInputElement>("[data-k]")?.value.trim();
+  const name = root.querySelector<HTMLInputElement>("[data-n]")?.value.trim();
+  if (key && name) sync.enroll(key, name);
+}
 
 async function chooseAlbumAction(value: string, status: Status, people: readonly Person[]) {
   const { id, name, role } = status.folder;
@@ -799,17 +806,7 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
     <section class="mt-5">
       <h3 class="text-sm font-semibold text-fg">${t("album.add_a_member_by_drive")}</h3>
       <p class="mb-3 mt-1 text-sm">${t("album.paste_a_device_s_drive")}</p>
-      <form
-        autocomplete="off"
-        class="flex flex-col gap-2 sm:flex-row"
-        @submit=${(e: SubmitEvent) => {
-          e.preventDefault();
-          const form = e.target as HTMLFormElement;
-          const key = (form.querySelector("[data-k]") as HTMLInputElement | null)?.value.trim();
-          const name = (form.querySelector("[data-n]") as HTMLInputElement | null)?.value.trim();
-          if (key && name) sync.enroll(key, name);
-        }}
-      >
+      <div data-fields class="flex flex-col gap-2 sm:flex-row" @keydown=${onEnter(enrollDevice)}>
         <input
           class="ui-input flex-1"
           placeholder=${copy("album.device_drive_key_hex")}
@@ -827,10 +824,15 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
           data-n
           autocomplete="off"
         />
-        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || !settled}>
+        <button
+          class="ui-btn-ghost"
+          type="button"
+          ?disabled=${busy || !settled}
+          @click=${onPress(enrollDevice)}
+        >
           ${t("album.enroll")}
         </button>
-      </form>
+      </div>
     </section>
   `;
 }

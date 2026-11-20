@@ -25,6 +25,7 @@ import { errorBanner } from "./error-banner";
 import { friendlyError } from "../utils/friendly-error";
 import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
+import { onEnter, onPress } from "./enter-submit";
 
 import { copy, t } from "../copy/copy";
 const SEEN_KEY = "justus:welcome-seen";
@@ -206,21 +207,18 @@ function avatar(name: string, size: "lg" | "sm" = "lg") {
   >`;
 }
 
+function saveName(root: HTMLElement) {
+  const input = root.querySelector("input");
+  const name = input?.value.trim();
+  if (name) {
+    onboarding.editName(name);
+    onboarding.saveProfile();
+  } else input?.focus();
+}
+
 function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
   return html`
-    <form
-      autocomplete="off"
-      class="ui-card mx-auto max-w-md space-y-4 p-6"
-      @submit=${(e: SubmitEvent) => {
-        e.preventDefault();
-        const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-        const name = input.value.trim();
-        if (name) {
-          onboarding.editName(name);
-          onboarding.saveProfile();
-        } else input.focus();
-      }}
-    >
+    <div data-fields class="ui-card mx-auto max-w-md space-y-4 p-6" @keydown=${onEnter(saveName)}>
       <h1 class="text-xl font-bold text-fg">${t("welcome.what_should_we_call_you")}</h1>
       <p class="text-sm text-fg">${t("welcome.your_name_is_shared_only")}</p>
       <div class="flex items-center gap-4">
@@ -243,11 +241,16 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
         <button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>
           ${t("welcome.back")}
         </button>
-        <button class="ui-btn-primary" type="submit" ?disabled=${vm.saving}>
+        <button
+          class="ui-btn-primary"
+          type="button"
+          ?disabled=${vm.saving}
+          @click=${onPress(saveName)}
+        >
           ${vm.saving ? copy("welcome.saving") : copy("welcome.continue")}
         </button>
       </div>
-    </form>
+    </div>
   `;
 }
 
@@ -278,6 +281,11 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
   `;
 }
 
+function createAlbum(root: HTMLElement) {
+  const name = root.querySelector("input")?.value.trim();
+  if (name) folders.create(name);
+}
+
 export function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4" data-invite-scope>
@@ -292,18 +300,7 @@ export function chooseStep() {
             vm.state === "couldNotLoadAlbums" && !vm.fatal ? () => folders.retry() : undefined,
             vm.fatal ? () => window.location.reload() : undefined,
           )}
-          <form
-            autocomplete="off"
-            class="ui-card space-y-3 p-5"
-            @submit=${(e: SubmitEvent) => {
-              e.preventDefault();
-              const input = (e.target as HTMLFormElement).querySelector(
-                "input",
-              ) as HTMLInputElement;
-              const name = input.value.trim();
-              if (name) folders.create(name);
-            }}
-          >
+          <div data-fields class="ui-card space-y-3 p-5" @keydown=${onEnter(createAlbum)}>
             <h2 class="ui-label">${t("welcome.create_an_album")}</h2>
             <input
               class="ui-input"
@@ -317,13 +314,13 @@ export function chooseStep() {
               variant="brand"
               data-create-album
               class="w-full"
-              type="submit"
               ?disabled=${busy}
+              @click=${onPress(createAlbum)}
             >
               ${vm.state === "creatingAlbum" ? copy("welcome.creating") : copy("welcome.create_an_album")}
             </wa-button>
             ${vm.state === "couldNotCreateAlbum" && vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
-          </form>
+          </div>
         `;
       })}
       ${joinPanel(true)}

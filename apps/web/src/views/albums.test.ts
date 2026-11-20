@@ -307,7 +307,9 @@ describe("Join tab", () => {
   const submit = (host: HTMLElement, text: string) => {
     const input = host.querySelector("input[aria-label='Invite link']") as HTMLInputElement;
     input.value = text;
-    input.form?.dispatchEvent(new Event("submit", { cancelable: true }));
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
     return input;
   };
 
@@ -392,7 +394,7 @@ describe("Join tab", () => {
     const send = deferred<[unknown, unknown]>();
     mock.linkTurnedOff.mockReturnValue(check.promise);
     mock.ask.mockReturnValue(send.promise);
-    const button = () => host.querySelector<HTMLButtonElement>("button[type='submit']")!;
+    const button = () => host.querySelector<HTMLButtonElement>("button[data-join-continue]")!;
     const paste = () =>
       host.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!;
     const input = host.querySelector<HTMLInputElement>("input[aria-label='Invite link']")!;
@@ -514,7 +516,7 @@ describe("join card", () => {
     expect(host.querySelector("button[aria-label='Paste from clipboard']")?.textContent).toContain(
       "Paste",
     );
-    expect(host.querySelector("button[type='submit']")?.textContent).toContain("Ask to join");
+    expect(host.querySelector("button[data-join-continue]")?.textContent).toContain("Ask to join");
     expect([...host.querySelectorAll("button")].map((b) => b.textContent?.trim())).not.toContain(
       "Continue",
     );
@@ -559,7 +561,9 @@ describe("join card", () => {
     await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("showingAlbum"));
     await syncActor.settled();
     await vi.waitFor(() =>
-      expect(host.querySelector<HTMLButtonElement>("button[type='submit']")?.disabled).toBe(false),
+      expect(host.querySelector<HTMLButtonElement>("button[data-join-continue]")?.disabled).toBe(
+        false,
+      ),
     );
   });
 

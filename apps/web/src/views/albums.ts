@@ -23,6 +23,7 @@ import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
 import { deletedNoticeText, noticeRow, youLeftText } from "./notices";
 import { toast } from "./toast";
+import { onEnter, onPress } from "./enter-submit";
 
 import { copy, t } from "../copy/copy";
 // A friend's invite opens the album once the Admin's phone lets this phone in;
@@ -441,25 +442,22 @@ function albumList(view: FoldersViewModel) {
   </ul>`;
 }
 
+function createAlbum(root: HTMLElement) {
+  const input = root.querySelector("input");
+  const name = input?.value.trim();
+  if (input && name) {
+    folders.create(name);
+    input.value = "";
+  }
+}
+
 function newAlbumSection(view: FoldersViewModel) {
   const busy = view.state === "creatingAlbum";
   return html`
     <section class="ui-card p-5" data-motion-key="section:new">
       <h2 class="ui-label mb-1">${t("albums.new_album")}</h2>
       <p class="mb-3 text-sm text-fg">${t("albums.start_one_per_trip_family")}</p>
-      <form
-        autocomplete="off"
-        class="flex flex-col gap-2 sm:flex-row"
-        @submit=${(e: SubmitEvent) => {
-          e.preventDefault();
-          const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          const name = input.value.trim();
-          if (name) {
-            folders.create(name);
-            input.value = "";
-          }
-        }}
-      >
+      <div data-fields class="flex flex-col gap-2 sm:flex-row" @keydown=${onEnter(createAlbum)}>
         <input
           class="ui-input flex-1"
           autocomplete="off"
@@ -467,10 +465,14 @@ function newAlbumSection(view: FoldersViewModel) {
           aria-label=${copy("albums.album_name")}
           maxlength="60"
         />
-        <wa-button variant="brand" type="submit" ?disabled=${busy || !view.settled}>
+        <wa-button
+          variant="brand"
+          ?disabled=${busy || !view.settled}
+          @click=${onPress(createAlbum)}
+        >
           ${busy ? copy("albums.creating") : copy("albums.create_album")}
         </wa-button>
-      </form>
+      </div>
     </section>
   `;
 }
@@ -501,20 +503,21 @@ function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
   `;
 }
 
+function askWithPasted(root: HTMLElement) {
+  const input = root.querySelector("input");
+  if (input) join.askWithPastedLink(input.value);
+}
+
 /** The paste box, its buttons and the problem line. One template for every join state, so the primary class `applyPrimaryButtons` sets survives a re-render. */
 function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
   return watch(joinActor, (s) => {
     const { state, error } = joinViewOf(s);
     const checking = state === "checkingPastedLink";
     const pasting = checking || state === "sendingPastedRequest";
-    return html`<form
-        autocomplete="off"
+    return html`<div
+        data-fields
         class="flex flex-col gap-2 sm:flex-row"
-        @submit=${(e: SubmitEvent) => {
-          e.preventDefault();
-          const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          join.askWithPastedLink(input.value);
-        }}
+        @keydown=${onEnter(askWithPasted)}
       >
         <input
           class="ui-input flex-1"
@@ -539,8 +542,8 @@ function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
             type="button"
             aria-label=${copy("albums.paste_from_clipboard")}
             @click=${(e: Event) => {
-              const form = (e.currentTarget as HTMLButtonElement).closest("form");
-              const input = form?.querySelector("input");
+              const root = (e.currentTarget as HTMLButtonElement).closest("[data-fields]");
+              const input = root?.querySelector("input");
               if (input) void pasteKey(input as HTMLInputElement);
             }}
           >
@@ -549,9 +552,10 @@ function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
           <button
             class="${rivalsCreate ? "ui-btn-ghost" : "ui-btn-primary"} flex-1"
             data-join-continue
-            type="submit"
+            type="button"
             ?disabled=${busy || !settled}
             aria-disabled=${pasting ? "true" : "false"}
+            @click=${onPress(askWithPasted)}
           >
             ${
               checking
@@ -562,7 +566,7 @@ function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
             }
           </button>
         </div>
-      </form>
+      </div>
       ${
         state === "showingLinkProblem" && error
           ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`

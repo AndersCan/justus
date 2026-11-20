@@ -13,6 +13,7 @@ import { densitySetting, themeSetting } from "./theme-toggle";
 import { friends, friendsActor, savedFriends } from "../machines/friends-machine";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
+import { onEnter, onPress } from "./enter-submit";
 
 import { copy, t } from "../copy/copy";
 type SyncViewModel = ReturnType<typeof syncViewModel>;
@@ -54,21 +55,16 @@ function pictureRow(name: string) {
 
 function profileSection(view: FoldersViewModel) {
   const saving = view.state === "savingName";
+  const rename = (root: HTMLElement) => {
+    const name = root.querySelector("input")?.value.trim();
+    if (name && name !== view.userName) folders.rename(name);
+  };
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("settings.profile")}</h2>
       <p class="mb-4 text-sm text-fg">${t("settings.your_name_is_shown_to")}</p>
       ${pictureRow(view.userName)}
-      <form
-        autocomplete="off"
-        class="flex flex-col gap-2 sm:flex-row"
-        @submit=${(e: SubmitEvent) => {
-          e.preventDefault();
-          const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          const name = input.value.trim();
-          if (name && name !== view.userName) folders.rename(name);
-        }}
-      >
+      <div data-fields class="flex flex-col gap-2 sm:flex-row" @keydown=${onEnter(rename)}>
         <input
           class="ui-input flex-1"
           placeholder=${copy("settings.your_name")}
@@ -77,10 +73,10 @@ function profileSection(view: FoldersViewModel) {
           spellcheck="false"
           autocomplete="off"
         />
-        <button class="ui-btn-primary" type="submit" ?disabled=${saving}>
+        <button class="ui-btn-primary" type="button" ?disabled=${saving} @click=${onPress(rename)}>
           ${saving ? copy("settings.saving") : copy("settings.save")}
         </button>
-      </form>
+      </div>
     </section>
   `;
 }
