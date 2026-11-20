@@ -30,7 +30,6 @@ export function holdersRow(photo: Photo, now: number) {
     class="justus-holders-text min-w-0 flex-1 text-left text-xs ${
       tappable ? "text-fg" : "text-muted"
     }"
-    aria-live="polite"
     >${text}</span
   >`;
   const body = keyed(text, label);

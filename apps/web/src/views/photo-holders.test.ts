@@ -157,10 +157,10 @@ describe("holdersSheet waiting", () => {
   });
 });
 
-describe("holdersRow live region", () => {
-  it("announces changes to the line politely", () => {
+describe("holdersRow line", () => {
+  it("has no live region of its own", () => {
     const el = draw(holdersRow(photo(h({})), 0));
-    expect(el.querySelector(".justus-holders-text")?.getAttribute("aria-live")).toBe("polite");
+    expect(el.querySelector("[aria-live]")).toBeNull();
   });
 });
 
@@ -373,5 +373,18 @@ describe("holdersSheet outside Justus", () => {
     expect(line[0]?.closest("p")?.textContent?.replace(/\s+/g, " ").trim()).toBe(
       `${copy("photo_holders.no_server_keeps_a_copy")} ${copy("photo_holders.copies_outside_justus_not_listed")}`,
     );
+  });
+});
+
+describe("holdersRow change", () => {
+  it("draws a new line element when the text changes, so its fade plays again", () => {
+    const el = document.createElement("div");
+    render(holdersRow(photo(h({})), 0), el);
+    const before = el.querySelector(".justus-holders-text");
+    const beforeText = before?.textContent;
+    render(holdersRow(photo(h({ others: [m("Ben")] })), 0), el);
+    const after = el.querySelector(".justus-holders-text");
+    expect(after?.textContent).not.toBe(beforeText);
+    expect(after).not.toBe(before);
   });
 });
