@@ -37,6 +37,12 @@ function stoppedSheet(
         body: copy("join_request.ask_owner_for_a_new_link", { owner }),
         askedLine: true,
       };
+    case "linkEndedByAdmin":
+      return {
+        title: copy("join_request.owner_ended_this_link", { owner: Owner }),
+        body: copy("join_request.ask_owner_for_a_new_link", { owner }),
+        askedLine: true,
+      };
     case "linkReplacedByAdmin":
       return {
         title: copy("join_request.owner_replaced_this_link", { owner: Owner }),
