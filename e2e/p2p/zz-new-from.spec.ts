@@ -84,5 +84,3 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(ben.locator("[data-new-photos-line]")).toHaveCount(0);
   await expect(marks).toHaveCount(0);
 });
-  }
-});
