@@ -159,6 +159,11 @@ export async function setName(page, name) {
   await field.fill(name);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(field).toHaveValue(name);
+  // Settings draws the saved name as avatar initials; the field alone only echoes the typing, so
+  // the phone could still send its device name in a join request. 60 s: the worklet saves it.
+  await expect(page.locator(".ui-avatar-lg")).toHaveText(name.slice(0, 2).toUpperCase(), {
+    timeout: 60_000,
+  });
 }
 
 export async function closePhoto(page) {

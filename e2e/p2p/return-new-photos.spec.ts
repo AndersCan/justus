@@ -133,12 +133,6 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
     .click();
   const card = ben.locator("[data-album-card]", { hasText: album });
   await card.click();
-  // 60 s: Cy's name reaches Ben after his photos (one run read "2 from Device-62629").
-  await expect(
-    ben.getByRole("button", {
-      name: words("gallery.view_added_by", { name: cyFiles[0], adder: "Cy" }),
-    }),
-  ).toBeVisible({ timeout: 60_000 });
   await expect(ben.locator("[data-new-photos-line]")).toHaveText(
     words("gallery.new_from_first", { count: 3, name: "Ada" }) +
       words("gallery.new_from_next", { count: 2, name: "Cy" }),
@@ -150,12 +144,4 @@ test("new from: Ben scrolls Photos > All, then the album reads 3 new from Ada, 2
   await expect(runTiles).toHaveCount(6);
   await expect(ben.locator("[data-new-photos-line]")).toHaveCount(0);
   await expect(marks).toHaveCount(0);
-
-  // The phones are shared with later tests; delete the album so they do not carry its 6 photos and 3 peers.
-  await a.goto("/sharing");
-  await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
-  await a.getByRole("button", { name: "More options" }).click();
-  await a.getByRole("menuitem", { name: "Delete album" }).click();
-  await a.getByRole("button", { name: "Delete album", exact: true }).click();
-  await expect(a).toHaveURL(/\/sharing$/);
 });
