@@ -88,6 +88,14 @@ describe("the album's new photos line", () => {
     expect(host.querySelectorAll('[data-copy-id="gallery.new_photo"]')).toHaveLength(10);
   });
 
+  it("sums an unnamed adder as more next to one name", async () => {
+    await ready();
+    const someone = { key: "kn", name: "New member" };
+    expect(await line([by("b", ada), by("c", ada), by("d", someone), by("e", someone)])).toBe(
+      "2 new from Ada and 2 more",
+    );
+  });
+
   it("is absent with nothing new, and counts one as one", async () => {
     await ready();
     expect(await line([by("a", ada)])).toBeUndefined();

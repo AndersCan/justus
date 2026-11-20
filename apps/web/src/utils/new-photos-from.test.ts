@@ -47,6 +47,13 @@ describe("newPhotosFrom", () => {
       more: 6,
     });
   });
+  it("orders a tie by key, not by which photo came first", () => {
+    expect(newPhotosFrom([...by("c", "Cy", 1), ...by("a", "Ada", 1)])?.named).toEqual([
+      { key: "a", name: "Ada", count: 1 },
+      { key: "c", name: "Cy", count: 1 },
+    ]);
+  });
+
   it("keeps two people who share a name apart", () => {
     expect(newPhotosFrom([...by("a", "Ada", 1), ...by("b", "Ada", 1)])?.named).toHaveLength(2);
   });
