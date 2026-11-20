@@ -115,6 +115,52 @@ describe("background previews", () => {
     expect((await s.nilsPhoto("a.jpg"))!.holders).toMatchObject({ previewHere: true });
   });
 
+  it("a photo listed while a pass runs gets its preview when that pass ends, with no further listing", async () => {
+    const s = await album();
+    let release = () => {};
+    s.nils.hold.gate = new Promise<void>((r) => (release = r));
+    await s.addThumbed("a.jpg");
+    await until(async () => {
+      await s.nilsPhoto("a.jpg");
+      return s.nils.hold.calls > 0;
+    });
+    await s.addThumbed("b.jpg");
+    await until(async () => (await s.nilsPhoto("b.jpg")) !== undefined);
+    release();
+    const own = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    const previewed = async () => {
+      const listed: string[] = [];
+      for await (const entry of own.list("/previewed")) listed.push(entry.path);
+      return listed;
+    };
+    await until(async () => (await previewed()).length === 2);
+    expect(await previewed()).toHaveLength(2);
+  });
+
+  it("of two listings while a pass runs, the later one runs when the pass ends", async () => {
+    const s = await album();
+    let release = () => {};
+    s.nils.hold.gate = new Promise<void>((r) => (release = r));
+    await s.addThumbed("a.jpg");
+    await until(async () => {
+      await s.nilsPhoto("a.jpg");
+      return s.nils.hold.calls > 0;
+    });
+    // An earlier listing waits with only a.jpg; the later one also has b.jpg.
+    await s.nilsPhoto("a.jpg");
+    await s.addThumbed("b.jpg");
+    await until(async () => (await s.nilsPhoto("b.jpg")) !== undefined);
+    release();
+    const own = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    const previewed = async () => {
+      const listed: string[] = [];
+      for await (const entry of own.list("/previewed")) listed.push(entry.path);
+      return listed;
+    };
+    await until(async () => (await previewed()).length === 2);
+    expect(await previewed()).toHaveLength(2);
+  });
+
   it("a preview that lands after the phone was removed is not recorded", async () => {
     const s = await album();
     let release = () => {};
