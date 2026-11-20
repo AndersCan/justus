@@ -657,7 +657,7 @@ describe("the viewer is a dialog", () => {
   });
 
   it("returns focus to the photo's tile on close, and does nothing without one", async () => {
-    const host = open([photo("a")]);
+    open([photo("a")]);
     const tile = document.createElement("figure");
     tile.tabIndex = 0;
     tile.dataset.photoTile = photoKey(photo("a"));
@@ -672,6 +672,17 @@ describe("the viewer is a dialog", () => {
     lightboxActor.send(lightboxEvents.closed.create());
     await Promise.resolve();
     expect(document.activeElement).not.toBe(tile);
-    expect(host).toBeDefined();
+  });
+
+  it("a step from Next leaves focus on Next", async () => {
+    const host = open([photo("a"), photo("b"), photo("c")]);
+    await Promise.resolve();
+    const next = host.querySelector<HTMLElement>("[data-lightbox] [data-part='next'] button");
+    expect(next).not.toBeNull();
+    next!.focus();
+    next!.click();
+    await Promise.resolve();
+    expect(host.querySelector("[data-lightbox]")?.getAttribute("aria-label")).toBe("b");
+    expect(document.activeElement).toBe(next);
   });
 });
