@@ -12,7 +12,7 @@ import { requests, requestsActor } from "../machines/requests-machine";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { gateway } from "../gateway";
 import type { Person } from "../utils/people";
-import { gallery } from "../machines/gallery-machine";
+import { gallery, galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import {
   acceptAllToast,
   albumMenuItems,
@@ -1688,12 +1688,81 @@ describe("album requests motion", () => {
 });
 
 describe("leave and delete copy", () => {
-  test("a Member is told their photos go; a Viewer is not", () => {
-    expect(leaveDetail("member", "Nils")).toBe(
-      "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from Nils.",
+  const ada = { key: "ada", name: "Ada", you: false, admin: true, connected: true };
+  const cy = { key: "cy", name: "Cy", you: false, admin: false, connected: false };
+  const ben = { key: "ben", name: "Ben", you: true, admin: false, connected: true };
+  const people = [ada, cy, ben];
+  const holds = (over: Record<string, unknown>) =>
+    ({
+      kind: "inAlbum",
+      here: true,
+      previewHere: false,
+      others: [],
+      quiet: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+      ...over,
+    }) as never;
+  const photo = (over: Record<string, unknown>) =>
+    ({ id: "p", mine: true, holders: holds(over) }) as never;
+  const sheet = (mine: unknown[] | undefined, who = people) =>
+    leaveDetail({ role: "member", adminName: "Ada", mine: mine as never, people: who });
+  const base = (n: string) =>
+    `It disappears from this phone, along with the ${n} you added to it, and you drop off the people list. Your ${n} will be removed from the album on every member's phone.`;
+  const back = " To come back you need a new invite from Ada.";
+  const adaHas = { others: [ada] };
+
+  test("A: Ada's phone is on, Cy has previews", () => {
+    const mine = [adaHas, adaHas, { others: [ada], previews: [cy] }].map(photo);
+    expect(sheet(mine)).toBe(
+      `${base("3 photos")} Ada loses them now. Cy loses them the next time their phone connects.${back}`,
     );
-    expect(leaveDetail("reader", "the Admin")).toBe(
+  });
+
+  test("B: Ada's phone is off, so both lose them later", () => {
+    const off = [{ ...ada, connected: false }, cy, ben];
+    const mine = [adaHas, { others: [ada], previews: [cy] }].map(photo);
+    expect(sheet(mine, off)).toBe(
+      `${base("2 photos")} Ada and Cy lose them the next time their phones connect.${back}`,
+    );
+  });
+
+  test("C: a Collaborator who added nothing reads no photo sentence", () => {
+    expect(sheet([])).toBe(
+      `It disappears from this phone, and you drop off the people list.${back}`,
+    );
+  });
+
+  test("D: a Viewer reads the plain sheet", () => {
+    expect(leaveDetail({ role: "reader", adminName: "the Admin", mine: undefined, people })).toBe(
       "It disappears from this phone. To come back you need a new invite from the Admin.",
+    );
+  });
+
+  test("E: a photo no one else has is named as only on this phone", () => {
+    const mine = [adaHas, adaHas, { waiting: [ada] }].map(photo);
+    expect(sheet(mine)).toBe(
+      `${base("3 photos")} Ada loses them now. 1 photo is on no other phone yet, so no one else can get it after you leave.${back}`,
+    );
+  });
+
+  test("E1: one photo, only his", () => {
+    expect(sheet([photo({})])).toBe(
+      `${base("1 photo")} 1 photo is on no other phone yet, so no one else can get it after you leave.${back}`,
+    );
+  });
+
+  test("F: a photo with unknown holders drops the names and the sole line", () => {
+    const mine = [photo({}), { id: "q", mine: true }];
+    expect(sheet(mine)).toBe(`${base("2 photos")}${back}`);
+  });
+
+  test("an unloaded photo list says only what is always true", () => {
+    expect(sheet(undefined)).toBe(
+      `It disappears from this phone, along with the photos you added to it, and you drop off the people list.${back}`,
     );
   });
 
@@ -2139,6 +2208,145 @@ describe("album member status", () => {
     ] as never);
     await gallery.load();
     expect(kimLine()).toBe("2 in full");
+  });
+});
+
+describe("the Leave sheet reads this phone's photos", () => {
+  test("a Collaborator is told which person loses the photo now", async () => {
+    const asMember = {
+      ...status,
+      folder: { ...status.folder, role: "member" },
+      members: [
+        { key: "k1", name: "Ben", admin: false, connected: true, color: 1 },
+        { key: "k0", name: "Ada", admin: true, connected: true, color: 0 },
+      ],
+    } as unknown as SyncStatus;
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      {
+        photos: [
+          {
+            id: "a",
+            folderId: "f1",
+            mine: true,
+            holders: {
+              kind: "inAlbum",
+              here: true,
+              previewHere: false,
+              others: [{ key: "k0", name: "Ada", connected: true }],
+              quiet: [],
+              unsure: [],
+              waiting: [],
+              previews: [],
+              former: [],
+              left: [],
+            },
+          },
+        ],
+      },
+    ] as never);
+    await gallery.load();
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
+    );
+    syncActor.send(statusSeen.create({ status: asMember }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    vi.mocked(confirmAction).mockClear();
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "leave" } } }));
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Leave “Trip”?",
+          detail:
+            "It disappears from this phone, along with the 1 photo you added to it, and you drop off the people list. Your 1 photo will be removed from the album on every member's phone. Ada loses it now. To come back you need a new invite from Ada.",
+        }),
+      ),
+    );
+  });
+});
+
+describe("the Leave sheet counts only this phone's photos in this album", () => {
+  const asMember = {
+    ...status,
+    folder: { ...status.folder, role: "member" },
+    members: [
+      { key: "k1", name: "Ben", admin: false, connected: true, color: 1 },
+      { key: "k0", name: "Ada", admin: true, connected: true, color: 0 },
+    ],
+  } as unknown as SyncStatus;
+  const held = {
+    kind: "inAlbum",
+    here: true,
+    previewHere: false,
+    others: [{ key: "k0", name: "Ada", connected: true }],
+    quiet: [],
+    unsure: [],
+    waiting: [],
+    previews: [],
+    former: [],
+    left: [],
+  };
+  const openSheet = () => {
+    syncActor.send(statusSeen.create({ status: asMember }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    vi.mocked(confirmAction).mockClear();
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "leave" } } }));
+  };
+
+  test("a friend's photo and a photo in another album are not counted", async () => {
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      {
+        photos: [
+          { id: "a", folderId: "f1", mine: true, holders: held },
+          { id: "b", folderId: "f1", mine: false, holders: held },
+          { id: "c", folderId: "f2", mine: true, holders: held },
+        ],
+      },
+    ] as never);
+    await gallery.load();
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
+    );
+    openSheet();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail:
+            "It disappears from this phone, along with the 1 photo you added to it, and you drop off the people list. Your 1 photo will be removed from the album on every member's phone. Ada loses it now. To come back you need a new invite from Ada.",
+        }),
+      ),
+    );
+  });
+
+  test("while the photo list reloads, the sheet says only what is always true", async () => {
+    let finish: (v: unknown) => void = () => {};
+    vi.mocked(gateway.list).mockReturnValueOnce(new Promise((r) => (finish = r)) as never);
+    gallery.load();
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("loadingPhotos"),
+    );
+    openSheet();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail:
+            "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from Ada.",
+        }),
+      ),
+    );
+    finish([null, { photos: [] }]);
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
+    );
   });
 });
 
