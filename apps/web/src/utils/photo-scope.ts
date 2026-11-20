@@ -57,6 +57,31 @@ export function groupPhotos(photos: Photo[], sort: PhotoSort, now = Date.now()):
   return groups;
 }
 
+/** The month most of a group's photos were taken in, when that is not the month they were added. */
+export type TakenMonth = { month: string; count: number };
+
+/** Counts photos whose `takenAt` parses and falls in a different month than `addedAt`;
+ * the month with most photos wins, a tie goes to the newer month. */
+export function takenMonthOf(photos: Photo[]): TakenMonth | undefined {
+  const counts = new Map<string, { count: number; at: number }>();
+  for (const photo of photos) {
+    const at = photo.takenAt ? Date.parse(photo.takenAt) : NaN;
+    if (Number.isNaN(at) || sameMonth(at, photo.addedAt)) continue;
+    const month = formatMonthGroup(at);
+    const seen = counts.get(month);
+    counts.set(month, { count: (seen?.count ?? 0) + 1, at: seen?.at ?? at });
+  }
+  let best: TakenMonth | undefined;
+  let bestAt = 0;
+  for (const [month, { count, at }] of counts) {
+    if (!best || count > best.count || (count === best.count && at > bestAt)) {
+      best = { month, count };
+      bestAt = at;
+    }
+  }
+  return best;
+}
+
 export type AlbumCard = { folder: FolderSummary; cover: Photo | null; count: number };
 
 /** One card per album: its newest photo as the cover, and its photo count. */

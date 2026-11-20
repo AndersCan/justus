@@ -6,6 +6,7 @@ import {
   albumCards,
   groupPhotos,
   photosInScope,
+  takenMonthOf,
   takenTime,
 } from "./photo-scope";
 
@@ -132,5 +133,54 @@ describe("addTargets", () => {
       folder("waiting", { role: "member", pending: true }),
     ]);
     expect(targets.map((f) => f.id)).toEqual(["mine", "member"]);
+  });
+});
+
+describe("takenMonthOf", () => {
+  const added = new Date(2026, 10, 18, 12).getTime();
+  const taken = (id: string, m: number, d: number) =>
+    photo(id, {
+      addedAt: added,
+      takenAt: `2026-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T12:00:00`,
+    });
+
+  test("names the month 4 photos were taken in, ignoring photos without a date", () => {
+    const photos = [
+      taken("a", 7, 1),
+      taken("b", 7, 2),
+      taken("c", 7, 3),
+      taken("d", 7, 4),
+      photo("e", { addedAt: added }),
+      photo("f", { addedAt: added }),
+    ];
+    expect(takenMonthOf(photos)).toEqual({ month: "July 2026", count: 4 });
+  });
+
+  test("is undefined when no photo has a taken date", () => {
+    expect(takenMonthOf([photo("a", { addedAt: added })])).toBeUndefined();
+    expect(takenMonthOf([])).toBeUndefined();
+  });
+
+  test("is undefined when the taken date is in the month it was added", () => {
+    expect(takenMonthOf([taken("a", 11, 2)])).toBeUndefined();
+  });
+
+  test("does not count a taken date that does not parse", () => {
+    expect(takenMonthOf([photo("a", { addedAt: added, takenAt: "garbage" })])).toBeUndefined();
+  });
+
+  test("the month with most photos wins", () => {
+    const photos = [taken("a", 6, 3), taken("b", 7, 1), taken("c", 7, 2), taken("d", 7, 3)];
+    expect(takenMonthOf(photos)).toEqual({ month: "July 2026", count: 3 });
+    expect(takenMonthOf([taken("a", 6, 3), taken("b", 6, 4), taken("c", 7, 1)])).toEqual({
+      month: "June 2026",
+      count: 2,
+    });
+  });
+
+  test("a tie goes to the newer month", () => {
+    const photos = [taken("a", 7, 1), taken("b", 6, 1), taken("c", 6, 2), taken("d", 7, 2)];
+    expect(takenMonthOf(photos)).toEqual({ month: "July 2026", count: 2 });
+    expect(takenMonthOf([...photos].reverse())).toEqual({ month: "July 2026", count: 2 });
   });
 });
