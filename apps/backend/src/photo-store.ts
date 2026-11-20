@@ -2610,7 +2610,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     runtimes.delete(id);
   }
 
-  /** Deletes this device's copy of an old drive's photo bytes (everything, or what `copiedTo` holds too). Logged, never thrown. */
+  /** Deletes this device's copy of an old drive's photo bytes (everything, or what `copiedTo` holds too). Logged, never thrown; true when the clear succeeded. */
   async function clearOldDrive(
     drive: Drive,
     options: {
@@ -2618,7 +2618,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       why: "moved" | "followed" | "start" | "own" | "copied";
       copiedTo?: Drive;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { folderId } = options;
     const [err, cleared] = await clearMovedPhotos(drive, { copiedTo: options.copiedTo });
     if (err) {
@@ -2636,11 +2636,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         cleared,
       });
     }
+    return !err;
   }
 
   /** Old drives the new album no longer reads: clears this phone's copy. Waits for
    * the new Admin's `/earlier.json`; without it nothing is known to be unread.
-   * The keys wait on the saved record, so a restart finishes it. Never awaited by the join. */
+   * The keys stay on the saved record until every clear succeeded, so a restart or
+   * a failure is retried at the next start. Never awaited by the join. */
   async function clearUnreadDrives(record: FolderRecord, newAdmin: Drive): Promise<void> {
     const candidates = record.unreadDrives ?? [];
     if (candidates.length === 0) return;
@@ -2653,14 +2655,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (earlier.length === 0) return;
     const keep = new Set(earlier.map((e) => e.key));
+    let allCleared = true;
     for (const key of candidates.filter((k) => !keep.has(k))) {
       const [openErr, drive] = await deps.drives.open(key, { timeoutMs: 2_000 });
-      if (openErr) continue;
-      void clearOldDrive(drive, { folderId: record.id, why: "followed" }).finally(() => {
-        void deps.drives.release(drive).catch(() => {});
-      });
+      if (openErr) {
+        allCleared = false;
+        continue;
+      }
+      const ok = await clearOldDrive(drive, { folderId: record.id, why: "followed" });
+      void deps.drives.release(drive).catch(() => {});
+      if (!ok) allCleared = false;
     }
-    if (!state.folders.includes(record)) return;
+    if (!allCleared || !state.folders.includes(record)) return;
     delete record.unreadDrives;
     saveState();
   }
