@@ -72,6 +72,20 @@ export function recordApkNetwork({ adb, serial, app }) {
       return { trace: "", pid: 0, error: "Ben's app never started while recording" };
     }
     const [, tracer, appPid] = found;
+    if (closed) {
+      const up = await adbText({
+        adb,
+        serial,
+        args: ["shell", `kill -0 ${tracer} 2>/dev/null && echo up`],
+      });
+      if (up !== "up") {
+        return {
+          trace: "",
+          pid: 0,
+          error: `the recorder stopped early: ${stderr.at(-1) ?? stdout.trim()}`,
+        };
+      }
+    }
     await adbText({ adb, serial, args: ["shell", `kill -INT ${tracer}`] });
     const timer = setTimeout(async () => {
       await adbText({ adb, serial, args: ["shell", `kill -KILL ${tracer}`] });

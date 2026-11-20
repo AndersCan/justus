@@ -22,7 +22,7 @@ while [ "$1" != -o ]; do shift; done
 out=$2; pid=\${4}
 echo "bind($pid)" > $out
 if [ $pid = 100 ]; then sleep 0.3; touch ${fake}/died; exit 0; fi
-trap 'exit 0' TERM
+trap 'sleep 0.3; echo "bind(end $pid)" >> $out; exit 0' TERM
 while :; do sleep 0.05; done
 `,
   );
@@ -34,15 +34,17 @@ while :; do sleep 0.05; done
 FAKE=${fake}
 shift 2
 case "$*" in
-  "shell kill "*) $2 ;;
+  "shell kill "*) sh -c "$2" ;;
   "exec-out sh -c cat "*) if ls "$FAKE"/justus-net.trace.* >/dev/null 2>&1; then sh -c "\${4//\\/data\\/local\\/tmp/$FAKE}"; else printf 'bind(7<UDP:[0.0.0.0:0]>)\\n'; fi ;;
   *)
     case ${mode} in
       missing) echo "recorder $$ 200"; echo "/system/bin/sh: strace: inaccessible or not found" >&2; exit 127 ;;
       never) exec sleep 30 ;;
       restarts) FAKE=${fake} PATH="${fake}/bin:$PATH" bash -c "\${2//\\/data\\/local\\/tmp/${fake}}" ;;
-      nostrace) rm "$FAKE"/bin/strace; PATH="$FAKE/bin:/usr/bin:/bin" sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" ;;
-      offline) echo "recorder $$ 200"; sleep 0.3; echo "error: device offline" >&2; exit 1 ;;
+      nostrace) rm "$FAKE"/bin/strace; ln -s "$(command -v rm)" "$(command -v sleep)" "$FAKE"/bin/; PATH="$FAKE/bin" /bin/sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" ;;
+      offline) python3 -c 'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' sh -c "trap 'exit 0' INT; while :; do sleep 0.05; done" >/dev/null 2>&1 & echo "recorder $! 200"; sleep 0.3; echo "error: device offline" >&2; exit 1 ;;
+      hup) PATH="$FAKE/bin:$PATH" python3 -c 'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" >"$FAKE"/out 2>&1 & sleep 0.1; cat "$FAKE"/out; kill -HUP $!; echo "error: device offline" >&2; exit 1 ;;
+      gone) echo "recorder 999999 200"; sleep 0.1; echo "error: device offline" >&2; exit 1 ;;
       records) echo "recorder $$ 200"; trap 'exit 0' INT; while :; do sleep 0.05; done ;;
     esac ;;
 esac
@@ -89,6 +91,23 @@ describe("recordApkNetwork", () => {
     const recorder = recordApkNetwork({ adb: stubAdb("offline"), serial: "s", app: "a" });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect((await recorder.stop()).error).toBe("");
+  });
+  it("keeps recording on the device after adb drops the shell with HUP", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("hup"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const seen = await recorder.stop();
+    expect(seen.error).toBe("");
+    expect(seen.trace).toContain("bind(101)");
+  });
+  it("reads the record only after the recorder on the device has finished", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("hup"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect((await recorder.stop()).trace).toContain("bind(end 101)");
+  });
+  it("returns an error when the recorder died on the device while adb was away", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("gone"), serial: "s", app: "a" });
+    await settle();
+    expect((await recorder.stop()).error).toMatch(/^the recorder stopped early/);
   });
   it("returns the same record when stopped twice", async () => {
     const recorder = recordApkNetwork({ adb: stubAdb("records"), serial: "s", app: "a" });
