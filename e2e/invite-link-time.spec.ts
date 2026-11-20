@@ -56,7 +56,7 @@ test("copies a link that works for the time picked while its end time saved", as
     .click();
   await picker.selectOption("7d");
   await expect(picker).toHaveValue("7d");
-  await expect(page.locator('[data-copy-id="invite.this_link_works_until"]')).toBeVisible({
+  await expect(page.locator("[data-link-row]").first()).toBeVisible({
     timeout: 10_000,
   });
   const link = await page.evaluate(() => navigator.clipboard.readText());

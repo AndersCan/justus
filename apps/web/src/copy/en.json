@@ -3212,12 +3212,75 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": "album"
   },
-  "invite.this_link_works_until": {
-    "text": "This link works until {end}.",
+  "invite.links_you_sent": {
+    "text": "Links you sent",
     "status": "draft",
     "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.works_until": {
+    "text": "Works until {end}.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.copy": {
+    "text": "Copy",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.end_link": {
+    "text": "End link",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.copy_the_link_that_works_until": {
+    "text": "Copy the link that works until {end}",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.end_the_link_that_works_until": {
+    "text": "End the link that works until {end}",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.end_this_link_title": {
+    "text": "End this link?",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.end_link_detail": {
+    "text": "Nobody can ask to join with the link that works until {end} any more. Your other links keep working.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.cancel": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.make_a_new_link": {
+    "text": "Make a new link",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
   },
   "invite.send_invite_link": {
     "text": "Send invite link",

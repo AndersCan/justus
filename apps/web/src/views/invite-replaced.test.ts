@@ -18,12 +18,13 @@ vi.mock("./toast", () => ({ toast: mock.toast }));
 
 const LINE = "Cy was removed, so your old invite link stopped working. Copy a new one to send.";
 
-const folder = (id: string, code: string) =>
+const END = Date.now() + 86_400_000;
+const folder = (id: string, code: string, live = false) =>
   ({
     id,
     name: `Album ${id}`,
     role: "creator",
-    invite: { code, owner: "o" },
+    invite: { code, owner: "o", ...(live ? { links: [{ madeAt: Date.now(), endsAt: END }] } : {}) },
   }) as unknown as FolderSummary;
 
 let invitePanel: typeof import("./invite").invitePanel;
@@ -42,11 +43,11 @@ beforeEach(async () => {
 
 afterEach(() => document.body.replaceChildren());
 
-const mount = (id: string, code: string) => {
+const mount = (id: string, code: string, live = false) => {
   const host = document.createElement("div");
   document.body.append(host);
   render(
-    invitePanel(folder(id, code), "Nils", "Nils", false, () => {}),
+    invitePanel(folder(id, code, live), "Nils", "Nils", false, () => {}),
     host,
   );
   return host;
@@ -56,22 +57,22 @@ const hasLine = (host: HTMLElement) =>
   [...host.querySelectorAll('[role="status"]')].some((e) => e.textContent?.includes(LINE));
 
 describe("invite card after a removal", () => {
-  test("the line and the picker replace 'works until'; a new link clears the line", async () => {
+  test("the line replaces the rows, the picker stays; a new link clears the line", async () => {
     inviteLink.createLink("f1", "c");
     await actor.settled();
-    expect(mount("f1", "c").textContent).toContain("This link works until");
+    expect(mount("f1", "c", true).textContent).toContain("Works until");
     inviteLink.linkReplaced("f1", "c", "Cy");
     await actor.settled();
     const f1 = mount("f1", "c2");
     expect(hasLine(f1)).toBe(true);
-    expect(f1.textContent).not.toContain("This link works until");
+    expect(f1.textContent).not.toContain("Works until");
     expect(f1.querySelector("select")).not.toBeNull();
     expect(hasLine(mount("f2", "x"))).toBe(false);
     inviteLink.createLink("f1", "c2");
     await actor.settled();
-    const again = mount("f1", "c2");
+    const again = mount("f1", "c2", true);
     expect(hasLine(again)).toBe(false);
-    expect(again.textContent).toContain("This link works until");
+    expect(again.textContent).toContain("Works until");
   });
 
   test("a removal with no link shown adds no line", async () => {
@@ -84,7 +85,7 @@ describe("invite card after a removal", () => {
     inviteLink.createLink("f1", "c");
     await actor.settled();
     const host = mount("f1", "c2");
-    expect(host.textContent).not.toContain("This link works until");
+    expect(host.textContent).not.toContain("Works until");
     expect(host.querySelector("select")).not.toBeNull();
   });
 
