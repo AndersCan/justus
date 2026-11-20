@@ -3297,15 +3297,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return photos;
   }
 
-  /** Fetches missing previews for one album, one pass at a time; a call while a pass runs is dropped (the next listing brings a fresh one). Never rejects. */
+  /**
+   * Fetches missing previews for one album, one pass at a time. A call while a pass runs is kept (the
+   * latest one per album) and runs when the pass ends: the pass in flight may have started before a
+   * friend's phone connected, and stops at its first timeout, so nothing else would fetch what the
+   * new call found. Never rejects.
+   */
   const thumbRuns = new Set<string>();
+  const thumbsWaiting = new Map<
+    string,
+    { rt: FolderRuntime; todo: ThumbToFetch[]; driveByKey: ReadonlyMap<string, Drive> }
+  >();
   async function fetchThumbsIn(
     rt: FolderRuntime,
     todo: ThumbToFetch[],
     driveByKey: ReadonlyMap<string, Drive>,
   ): Promise<void> {
     const id = rt.record.id;
-    if (todo.length === 0 || thumbRuns.has(id)) return;
+    if (todo.length === 0) return;
+    if (thumbRuns.has(id)) {
+      thumbsWaiting.set(id, { rt, todo, driveByKey });
+      return;
+    }
     if (runtimes.get(id) !== rt || freezesAlbum(rt.record)) return;
     thumbRuns.add(id);
     try {
@@ -3321,6 +3334,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     } finally {
       thumbRuns.delete(id);
     }
+    const waiting = thumbsWaiting.get(id);
+    thumbsWaiting.delete(id);
+    if (waiting) await fetchThumbsIn(waiting.rt, waiting.todo, waiting.driveByKey);
   }
 
   /**
