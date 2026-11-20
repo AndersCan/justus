@@ -453,7 +453,13 @@ export type Answer =
     }
   | { code: string; answer: "declined"; askedAt?: number }
   /** The Admin handed the album on: `chain` signs the asker's code over to the new Admin's identity. */
-  | { code: string; answer: "handedOver"; chain: HandoverProof[] }
+  | {
+      code: string;
+      answer: "handedOver";
+      chain: HandoverProof[];
+      /** The ask this answers, so a later ask through the same code is told too. */
+      askedAt?: number;
+    }
   /** The code no longer works for this ask; `why` says which, when known. */
   | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy }
   /** The Admin's phone has this ask and it waits on the Admin: the names the asker's screens show. Never a key. */

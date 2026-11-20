@@ -415,6 +415,32 @@ describe("answers: a turned-off link", () => {
 });
 
 describe("answers: delivering what is owed", () => {
+  it("a handedOver goes out once per ask time on a connection", async () => {
+    const w = await adminAndJoiners();
+    const id = w.joiner.identity.key;
+    const chain = [
+      { from: hex("a"), to: hex("b"), publicKey: hex("c"), signature: "d".repeat(128) },
+    ];
+    const album: OwingAlbum = {
+      role: "creator",
+      name: "Summer",
+      shareKey: SHARE,
+      invite: { code: CODE },
+      handoverChains: { [CODE]: chain },
+    };
+    let requestedAt = 5;
+    const options = {
+      identity: id,
+      owed: () => handedOverFirst([album], [{ code: CODE, requestedAt, opens: false }], []),
+      log: noLog,
+    };
+    const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    expect((await deliverOwed(ports, options)).sent).toBe(0);
+    requestedAt = 9;
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+  });
+
   it("delivery: only connections proven to be the identity get the answer", async () => {
     const w = await adminAndJoiners();
     const id = w.joiner.identity.key;
@@ -913,7 +939,7 @@ describe("answers: a new Admin owes handedOver first", () => {
   it("owes handedOver for an ask that does not open here, and nothing else for that code", () => {
     const asked = [{ code: CODE, requestedAt: 5, opens: false }];
     expect(handedOverOwed([album], asked)).toEqual([
-      { code: CODE, answer: "handedOver", chain: [proof] },
+      { code: CODE, answer: "handedOver", chain: [proof], askedAt: 5 },
     ]);
   });
 
@@ -933,7 +959,7 @@ describe("answers: a new Admin owes handedOver first", () => {
     const other: Answer = { code: hex("2"), answer: "declined" };
     const asked = [{ code: CODE, requestedAt: 5, opens: false }];
     expect(handedOverFirst([album], asked, [accepted, other])).toEqual([
-      { code: CODE, answer: "handedOver", chain: [proof] },
+      { code: CODE, answer: "handedOver", chain: [proof], askedAt: 5 },
       other,
     ]);
     expect(handedOverFirst([album], [{ ...asked[0]!, opens: true }], [accepted])).toEqual([

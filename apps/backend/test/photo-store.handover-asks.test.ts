@@ -140,6 +140,43 @@ describe("a request made with the old Admin's link", () => {
     await s.close();
   }, 40_000);
 
+  it("asked again after a Cancel, reaches Ben", async () => {
+    const s = await scene();
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    expect((await s.cy.store.cancelAsk(s.code))[0]).toBeNull();
+    await until(async () => (await s.ben.store.requests()).requests.length === 0);
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    await s.close();
+  }, 60_000);
+
+  it("made with a link Ada ended before the handover is turned away, and her live link still reaches Ben", async () => {
+    const s = await scene();
+    const day = 24 * 60 * 60 * 1000;
+    const live = Date.now() + day;
+    const ended = Date.now() + 2 * day;
+    expect((await s.ada.store.saveInviteLink(s.folderId, live))[0]).toBeNull();
+    expect((await s.ada.store.saveInviteLink(s.folderId, ended))[0]).toBeNull();
+    expect((await s.ada.store.endInviteLink(s.folderId, ended))[0]).toBeNull();
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada), linkEnd: ended });
+    await until(async () => (await s.cy.store.folders()).asks[0]?.status === "linkOff");
+    expect((await s.ben.store.requests()).requests).toEqual([]);
+
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada), linkEnd: live });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    const [req] = (await s.ben.store.requests()).requests;
+    const benFolder = await trip(s.ben);
+    expect((await s.ben.store.respond(benFolder.id, req!.requesterKey, true))[0]).toBeNull();
+    await until(async () => (await s.cy.store.folders()).folders.some((f) => f.name === "Trip"));
+    await s.close();
+  }, 60_000);
+
   it("is not re-pointed by a phone that is not the new Admin", async () => {
     const s = await scene();
     await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
