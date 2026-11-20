@@ -3262,7 +3262,7 @@
     "screen": "album"
   },
   "invite.end_link_detail": {
-    "text": "Nobody can ask to join with the link that works until {end} any more. Your other links keep working.",
+    "text": "Nobody can ask to join with the link that works until {end} any more. People already in stay in.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites",

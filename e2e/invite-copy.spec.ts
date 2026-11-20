@@ -57,14 +57,18 @@ for (const [name, hold] of [
     );
     await page
       .locator(
-        'button:has([data-copy-id="invite.copy_invite_link"]), button:has([data-copy-id="invite.copy_link"])',
+        'button:has([data-copy-id="invite.copy_invite_link"]), button:has([data-copy-id="invite.copy_link"]), button:has([data-copy-id="invite.make_a_new_link"])',
       )
       .first()
       .click();
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 10_000 })
       .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=.*[#&]e=\d+/);
-    await expect(page.locator('[data-copy-id="invite.copied_paste_it"]')).toBeVisible();
-    await expect(page.locator(".justus-toast")).toHaveCount(0);
+    // First link: the button says Copied. A link already shown: Make a new link says so in a toast.
+    await expect(
+      page
+        .locator('[data-copy-id="invite.copied_paste_it"]')
+        .or(page.locator(".justus-toast", { hasText: "copied" })),
+    ).toBeVisible();
   });
 }

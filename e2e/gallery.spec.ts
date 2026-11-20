@@ -184,15 +184,17 @@ test("an album page offers the invite at once and keeps the QR behind a tap", as
     .click();
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });
   await expect(
-    page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }),
+    page.getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ }),
   ).toBeVisible();
   await expect(page.getByText(/They see no photos until you accept/)).toBeVisible();
   await expect(page.getByText("Link works for")).toBeVisible();
   await expect(page.getByRole("combobox", { name: /Link works for/ })).toHaveValue("1d");
   await expect(page.getByRole("button", { name: "With them now? Show a QR code" })).toHaveCount(0);
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toHaveCount(0);
-  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
-  await expect(page.getByText(/Works until/)).toBeVisible();
+  await page
+    .getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ })
+    .click();
+  await expect(page.getByText(/Works until/).first()).toBeVisible();
   await page.getByRole("button", { name: "With them now? Show a QR code" }).click();
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toBeVisible();
 });
@@ -208,8 +210,10 @@ async function openInvitePanel(page: Page) {
 
 test("the owner can turn off the links they sent", async ({ page }) => {
   await openInvitePanel(page);
-  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
-  await expect(page.getByText(/Works until/)).toBeVisible();
+  await page
+    .getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ })
+    .click();
+  await expect(page.getByText(/Works until/).first()).toBeVisible();
   await page.getByRole("button", { name: "Turn off links you sent" }).click();
   await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toBeVisible();
   await page.getByRole("button", { name: "Turn off", exact: true }).click();
@@ -220,22 +224,24 @@ test("the owner can turn off the links they sent", async ({ page }) => {
   await expect(turnOffButton).toHaveCount(0);
   await expect(page.getByText("Link works for")).toBeVisible();
   await page
-    .getByRole("button", { name: /^(Send invite link|Copy invite link)$/ })
+    .getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ })
     .click({ timeout: 20_000 });
-  await expect(page.getByText(/Works until/)).toBeVisible();
+  await expect(page.getByText(/Works until/).first()).toBeVisible();
   await expect(line).toHaveCount(0);
   await expect(turnOffButton).toBeVisible();
 });
 
 test("keeping the links leaves the invite panel as it was", async ({ page }) => {
   await openInvitePanel(page);
-  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
-  await expect(page.getByText(/Works until/)).toBeVisible();
+  await page
+    .getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ })
+    .click();
+  await expect(page.getByText(/Works until/).first()).toBeVisible();
   await page.getByRole("button", { name: "Turn off links you sent" }).click();
   await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toBeVisible();
   await page.getByRole("button", { name: "Keep" }).click();
   await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toHaveCount(0);
-  await expect(page.getByText(/Works until/)).toBeVisible();
+  await expect(page.getByText(/Works until/).first()).toBeVisible();
 });
 
 test("a photo's Delete sits in its More menu and asks first", async ({ page }) => {

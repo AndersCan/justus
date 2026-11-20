@@ -59,7 +59,9 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
+  await page
+    .getByRole("button", { name: /^(Send invite link|Copy invite link|Make a new link)$/ })
+    .click();
   await expect(page.locator('[data-copy-id="invite.copied_works_until"]')).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
     /^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/,

@@ -82,6 +82,18 @@ async function madeLink(
   myName: string,
   another = false,
 ): Promise<{ link: string; expiresAt: number } | null> {
+  if (!another) {
+    const newest = (folder.invite?.links ?? [])
+      .filter((l) => l.endsAt > Date.now())
+      .reduce<number | null>(
+        (best, l) => (best === null || l.endsAt > best ? l.endsAt : best),
+        null,
+      );
+    if (newest !== null) {
+      const link = inviteLinkFor(folder, myName, newest);
+      return link === null ? null : { link, expiresAt: newest };
+    }
+  }
   if (another) inviteLink.makeNewLink(folder.id, folder.invite?.code ?? "");
   else inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   await inviteLinkActor.settled();
@@ -168,8 +180,13 @@ async function endRow(folder: FolderSummary, endsAt: number) {
 }
 
 /** The album's links that still work, newest first, each with its end time, Copy and End. */
-function linkList(folder: FolderSummary, myName: string, view: InviteLinkView, now: number) {
-  const live = (folder.invite?.links ?? []).filter((l) => l.endsAt > now);
+function linkList(
+  folder: FolderSummary,
+  myName: string,
+  view: InviteLinkView,
+  live: { endsAt: number }[],
+  now: number,
+) {
   if (live.length === 0) return null;
   return html`<h3 class="ui-label mb-1">${t("invite.links_you_sent")}</h3>
     <ul class="mb-4 divide-y divide-line">
@@ -503,7 +520,9 @@ function invitePanelBody(
   const linksOff = view.offFolderId === folder.id;
   const replaced = view.replacedFolderId === folder.id;
   const linkBlocked = linkBlockedFor(folder, view);
-  const hasLive = (folder.invite?.links ?? []).some((l) => l.endsAt > Date.now());
+  const now = Date.now();
+  const liveLinks = (folder.invite?.links ?? []).filter((l) => l.endsAt > now);
+  const hasLive = liveLinks.length > 0;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
@@ -543,7 +562,7 @@ function invitePanelBody(
       <p class="mb-4 text-sm text-fg">
         ${t("invite.send_the_link_to_people", { name: folder.name })}
       </p>
-      ${linkList(folder, myName, view, Date.now())}
+      ${linkList(folder, myName, view, liveLinks, now)}
       <label class="mb-4 flex items-center gap-2 text-sm text-fg">
         ${t("invite.link_works_for")}
         <select
