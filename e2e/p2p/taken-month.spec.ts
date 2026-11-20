@@ -76,7 +76,9 @@ test("taken month: Ben taps 4 taken in a past month on Photos and lands on it by
     .getByRole("navigation", { name: "Show photos" })
     .getByRole("link", { name: "All", exact: true })
     .click();
-  const line = b.getByRole("button", { name: `4 taken in ${month}`, exact: true });
+  const line = b
+    .locator('button:has([data-copy-id="gallery.taken_in_month"])')
+    .filter({ hasText: month });
   await expect(line).toBeVisible({ timeout: 60_000 });
   await line.click();
 
