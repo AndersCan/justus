@@ -605,4 +605,10 @@ describe("leaverHolders", () => {
     expect(leaverHolders([ph({ unsure: [m("A")] })])).toMatchObject({ sole: 0 });
     expect(leaverHolders([ph({ former: ["Z"] })])).toMatchObject({ sole: 0 });
   });
+  it("does not count a photo only previewed, or only held by a quiet phone, as sole", () => {
+    expect(leaverHolders([ph({ previews: [m("P")] })])).toMatchObject({ sole: 0 });
+    expect(leaverHolders([ph({ quiet: [{ ...m("Q"), lastSeenAt: 1 }] })])).toMatchObject({
+      sole: 0,
+    });
+  });
 });

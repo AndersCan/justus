@@ -1708,7 +1708,9 @@ describe("leave and delete copy", () => {
   test("B: Ada's phone is off, so both lose them later", () => {
     const off = [{ ...ada, connected: false }, cy, ben];
     const mine = [adaHas, { others: [ada], previews: [cy] }].map(photo);
-    expect(sheet(mine, off)).toContain("Ada and Cy lose them the next time their phones connect.");
+    expect(sheet(mine, off)).toBe(
+      `${base("2 photos")} Ada and Cy lose them the next time their phones connect.${back}`,
+    );
   });
 
   test("C: a Collaborator who added nothing reads no photo sentence", () => {
@@ -2246,6 +2248,87 @@ describe("the Leave sheet reads this phone's photos", () => {
             "It disappears from this phone, along with the 1 photo you added to it, and you drop off the people list. Your 1 photo will be removed from the album on every member's phone. Ada loses it now. To come back you need a new invite from Ada.",
         }),
       ),
+    );
+  });
+});
+
+describe("the Leave sheet counts only this phone's photos in this album", () => {
+  const asMember = {
+    ...status,
+    folder: { ...status.folder, role: "member" },
+    members: [
+      { key: "k1", name: "Ben", admin: false, connected: true, color: 1 },
+      { key: "k0", name: "Ada", admin: true, connected: true, color: 0 },
+    ],
+  } as unknown as SyncStatus;
+  const held = {
+    kind: "inAlbum",
+    here: true,
+    previewHere: false,
+    others: [{ key: "k0", name: "Ada", connected: true }],
+    quiet: [],
+    unsure: [],
+    waiting: [],
+    previews: [],
+    former: [],
+    left: [],
+  };
+  const openSheet = () => {
+    syncActor.send(statusSeen.create({ status: asMember }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    vi.mocked(confirmAction).mockClear();
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "leave" } } }));
+  };
+
+  test("a friend's photo and a photo in another album are not counted", async () => {
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      {
+        photos: [
+          { id: "a", folderId: "f1", mine: true, holders: held },
+          { id: "b", folderId: "f1", mine: false, holders: held },
+          { id: "c", folderId: "f2", mine: true, holders: held },
+        ],
+      },
+    ] as never);
+    await gallery.load();
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
+    );
+    openSheet();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail:
+            "It disappears from this phone, along with the 1 photo you added to it, and you drop off the people list. Your 1 photo will be removed from the album on every member's phone. Ada loses it now. To come back you need a new invite from Ada.",
+        }),
+      ),
+    );
+  });
+
+  test("while the photo list reloads, the sheet says only what is always true", async () => {
+    let finish: (v: unknown) => void = () => {};
+    vi.mocked(gateway.list).mockReturnValueOnce(new Promise((r) => (finish = r)) as never);
+    gallery.load();
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("loadingPhotos"),
+    );
+    openSheet();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail:
+            "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from Ada.",
+        }),
+      ),
+    );
+    finish([null, { photos: [] }]);
+    await vi.waitFor(() =>
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
     );
   });
 });
