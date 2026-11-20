@@ -260,6 +260,7 @@ export const PhotoError = {
   REQUEST_CANCELLED: "justus.photos/request-cancelled",
   HANDOVER_REFUSED: "justus.photos/handover-refused",
   HANDOVER_MOVE_OPEN: "justus.photos/handover-move-open",
+  HANDOVER_PHONE_UNPROVEN: "justus.photos/handover-phone-unproven",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -5609,6 +5610,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return chains;
   }
 
+  /** A Viewer's phone must be reachable before they are made a Collaborator to take the album over. */
+  async function viewerPhoneOpen(
+    rt: FolderRuntime,
+    key: string,
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    const drive = rt.memberDrives.get(key) ?? (await openDriveWithTopic(key, { server: false }));
+    await Promise.race([drive.update().catch(() => undefined), sleep(2_000)]);
+    const device = verifiedDeviceIdentity(
+      (await readText(drive, DRIVE_PATH_DEVICE, { timeout: 5_000 })) ?? "",
+      {
+        driveKey: key,
+        verify: (p) => deps.drives.verifyIdentity(p),
+      },
+    );
+    if (device.status !== "verified")
+      return err(
+        PhotoError.HANDOVER_PHONE_UNPROVEN,
+        "That phone needs Justus open to take the album over",
+      );
+    return ok({ ok: true });
+  }
+
   async function handOverNow(
     rt: FolderRuntime,
     key: string,
@@ -5652,6 +5675,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     void deliverHandover(rt).catch(answerErr("handover"));
     deps.onChanged({ cause: "enroll", folderId: record.id });
     return ok({ ok: true });
+  }
+
+  /** Admin: lets the Viewer `key` add photos, through the membership actor. */
+  async function makeMemberNow(
+    rt: FolderRuntime,
+    folderId: string,
+    key: string,
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    let alreadyCollaborator = false;
+    const actor = await sendToMember(rt, key, undefined, (a) => {
+      if (String(a.state.name) === "collaboratorInAlbum") alreadyCollaborator = true;
+      else a.send({ type: "makeCollaborator" });
+    });
+    if (!actor) return err(PhotoError.NOT_FOUND, "No such Viewer");
+    if (alreadyCollaborator) {
+      // Listed in both files after a half-finished change: already enrolled; only in the registry: no longer a Viewer.
+      return rt.viewers[key]
+        ? err(PhotoError.ALREADY_ENROLLED, "Member already enrolled")
+        : err(PhotoError.NOT_FOUND, "No such Viewer");
+    }
+    if (String(actor.state.name) !== "makingCollaborator") return membershipRefusal(actor);
+    await actor.settled();
+    if (String(actor.state.name) === "collaboratorInAlbum") return ok({ ok: true });
+    return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
   }
 
   /** Admin: sends the handover to the next Admin on every connection proven to be them, until `/admin.json` is written. */
@@ -7397,23 +7444,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.HANDOVER_REFUSED, "The album has been handed over");
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
-      const key = memberKey.toLowerCase();
-      let alreadyCollaborator = false;
-      const actor = await sendToMember(rt, key, undefined, (a) => {
-        if (String(a.state.name) === "collaboratorInAlbum") alreadyCollaborator = true;
-        else a.send({ type: "makeCollaborator" });
-      });
-      if (!actor) return err(PhotoError.NOT_FOUND, "No such Viewer");
-      if (alreadyCollaborator) {
-        // Listed in both files after a half-finished change: already enrolled; only in the registry: no longer a Viewer.
-        return rt.viewers[key]
-          ? err(PhotoError.ALREADY_ENROLLED, "Member already enrolled")
-          : err(PhotoError.NOT_FOUND, "No such Viewer");
-      }
-      if (String(actor.state.name) !== "makingCollaborator") return membershipRefusal(actor);
-      await actor.settled();
-      if (String(actor.state.name) === "collaboratorInAlbum") return ok({ ok: true });
-      return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
+      return makeMemberNow(rt, folderId, memberKey.toLowerCase());
     },
 
     async handOver(folderId, memberKey) {
@@ -7425,6 +7456,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
+      if (rt.viewers[key] && !(await readRegistryIn(rt.folderDrive)).members[key]) {
+        const [unproven] = await oneChangePerAlbum(rt.record.id, () => viewerPhoneOpen(rt, key));
+        if (unproven) return [unproven, null];
+        // A failed promotion leaves the Viewer out of the lists, so handOverNow refuses below.
+        await makeMemberNow(rt, folderId, key);
+      }
       return oneChangePerAlbum(rt.record.id, () => handOverNow(rt, key));
     },
 
