@@ -561,6 +561,7 @@ describe("requestsViewModel", () => {
       error: null,
       fatal: false,
       accepted: null,
+      declined: [],
     });
   });
 
@@ -765,6 +766,74 @@ describe("held decline", () => {
     actor.send(refresh());
     await actor.settled();
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k1", "k2"]);
+  });
+
+  const keysOf = (a: { context: { declined: { requesterKey: string }[] } }) =>
+    a.context.declined.map((r) => r.requesterKey);
+  const sent = (k: string) =>
+    ({ type: "DECLINE_SENT", payload: { folderId: "f1", requesterKey: k } }) as never;
+
+  test("a Decline is remembered after it is sent", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send(hold("k2"));
+    expect(keysOf(actor.snapshot())).toEqual(["k1", "k2"]);
+    actor.send(sent("k1"));
+    expect(actor.snapshot().context.heldDeclines.map((h) => h.request.requesterKey)).toEqual([
+      "k2",
+    ]);
+    expect(keysOf(actor.snapshot())).toEqual(["k1", "k2"]);
+    expect(requestsViewModel(actor.snapshot()).declined).toBe(actor.snapshot().context.declined);
+  });
+
+  test("Undo takes only that person off the declined list", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send(hold("k2"));
+    actor.send({ type: "UNDO_DECLINE", payload: { folderId: "f1", requesterKey: "k1" } } as never);
+    expect(keysOf(actor.snapshot())).toEqual(["k2"]);
+  });
+
+  test("a No that could not be sent takes the person off the declined list", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send({
+      type: "DECLINE_FAILED",
+      payload: { folderId: "f1", requesterKey: "k1" },
+    } as never);
+    expect(keysOf(actor.snapshot())).toEqual([]);
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toContain("k1");
+  });
+
+  test("a new ask from a declined person takes him off the list, but not while the No is held", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send(refresh());
+    await actor.settled();
+    expect(keysOf(actor.snapshot())).toEqual(["k1"]);
+    actor.send(sent("k1"));
+    actor.send(refresh());
+    await actor.settled();
+    expect(keysOf(actor.snapshot())).toEqual([]);
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toContain("k1");
+  });
+
+  test("leaving the page forgets the declined list", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send(sent("k1"));
+    actor.send({ type: "FORGET_ACCEPTED" } as never);
+    expect(keysOf(actor.snapshot())).toEqual([]);
   });
 
   test("hold emits and removes", async () => {

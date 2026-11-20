@@ -778,6 +778,14 @@ function acceptedCard(
   );
 }
 
+/** After Decline: who was turned down stays on the page after the toast goes, until the page changes. */
+function declinedLines(reqVm: ReturnType<typeof requestsViewModel>) {
+  if (reqVm.declined.length === 0) return null;
+  return html`<div class="px-1 text-sm text-fg" data-declined-line>
+    ${reqVm.declined.map((r) => html`<p>${declinedToast(r.requesterName)}</p>`)}
+  </div>`;
+}
+
 function membersSection(vm: PeopleVm, id: string, holdings: Map<string, MemberHolding>) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
     <h2 class="ui-label">${t("album.members")}</h2>
@@ -997,7 +1005,7 @@ function albumBody(
         state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
         fatal ? () => window.location.reload() : undefined,
       )}`,
-      requests: html`${requestsSection(vm, id, reqVm)}${acceptedCard(id, vm, reqVm, friends)}`,
+      requests: html`${requestsSection(vm, id, reqVm)}${acceptedCard(id, vm, reqVm, friends)}${declinedLines(reqVm)}`,
       invite: html`<div data-motion-key="section:invite">
         ${invitePanel(
           status.folder,

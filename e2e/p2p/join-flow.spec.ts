@@ -590,6 +590,10 @@ test("B asks by link, A declines, B taps Ask again, A sees Declined earlier and 
   await a.getByRole("button", { name: "Decline" }).click();
 
   await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByRole("status").filter({ hasText: /^Declined/ })).toHaveCount(0, {
+    timeout: 10_000,
+  });
+  await expect(a.locator("[data-declined-line]")).toHaveText(/^\s*Declined/);
   await expect(b.locator("img")).toHaveCount(0);
   await b.getByRole("button", { name: "Ask again", exact: true }).click();
   await expect(
@@ -599,6 +603,7 @@ test("B asks by link, A declines, B taps Ask again, A sees Declined earlier and 
   await expect(a.locator("li", { hasText: `wants to join “${REASK_ALBUM}”` })).toContainText(
     "Declined earlier",
   );
+  await expect(a.locator("[data-declined-line]")).toHaveCount(0);
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
