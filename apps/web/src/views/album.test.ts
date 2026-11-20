@@ -1457,8 +1457,58 @@ describe("album viewer rows", () => {
     remove?.click();
     await vi.waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
-        expect.stringMatching(/^Kimmy is no longer in .+\. Links you sent stopped working\.$/),
+        "Kimmy is no longer in Trip. Their phone is connected and learns it now.",
         { action: { label: "Copy new link", run: expect.any(Function) } },
+      ),
+    );
+  });
+
+  test("a removed person whose row read not connected gets the next-connect toast", async () => {
+    vi.mocked(gateway.removeMember).mockResolvedValue([null, { ok: true }] as any);
+    vi.mocked(toast).mockClear();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    buttonNamed(memberRows(host)[2], /^Remove /)?.click();
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        "Zed is no longer in Trip. Their phone learns it the next time it connects.",
+        { action: { label: "Copy new link", run: expect.any(Function) } },
+      ),
+    );
+  });
+
+  test("the toast keeps what the row read at the tap when presence flips during the call", async () => {
+    let finish: (v: unknown) => void = () => {};
+    vi.mocked(gateway.removeMember).mockReturnValue(
+      new Promise((r) => {
+        finish = r;
+      }) as any,
+    );
+    vi.mocked(toast).mockClear();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    buttonNamed(memberRows(host)[1], /^Remove /)?.click();
+    await vi.waitFor(() => expect(gateway.removeMember).toHaveBeenCalled());
+    const away = {
+      ...status,
+      members: (status as unknown as { members: object[] }).members.map((m) =>
+        (m as { key: string }).key === "k1"
+          ? { ...m, connected: false, lastSeenAt: Date.now() - 2 * 3600_000 }
+          : m,
+      ),
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: away }));
+    finish([null, { ok: true }]);
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        "Kimmy is no longer in Trip. Their phone is connected and learns it now.",
+        expect.anything(),
       ),
     );
   });
@@ -1541,10 +1591,7 @@ describe("album viewer rows", () => {
     buttonNamed(memberRows(host)[1], /^Remove /)?.click();
     await vi.waitFor(() => expect(gateway.removeMember).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
-    expect(toast).not.toHaveBeenCalledWith(
-      expect.stringContaining("Links you sent stopped working"),
-      expect.anything(),
-    );
+    expect(toast).not.toHaveBeenCalled();
     expect(inviteLinkViewOf(inviteLinkActor.snapshot()).replacedFolderId).toBe("");
   });
 

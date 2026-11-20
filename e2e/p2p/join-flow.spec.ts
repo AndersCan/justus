@@ -485,9 +485,7 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
   });
   await members.getByRole("button", { name: /^Remove /, exact: false }).click();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
-  await expect(
-    a.getByText(`is no longer in ${album}. Links you sent stopped working.`),
-  ).toBeVisible({
+  await expect(a.getByText(`is no longer in ${album}.`)).toBeVisible({
     timeout: 60_000,
   });
   await expect(a.getByText(`wants to join “${album}”`)).toHaveCount(0, { timeout: 30_000 });

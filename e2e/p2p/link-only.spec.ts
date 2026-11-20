@@ -358,7 +358,7 @@ test("a removed person never gets the new key or a later photo, even after a Col
     .getByRole("button", { name: words("album.remove_2"), exact: true })
     .last()
     .click();
-  await expect(a.getByText(pattern("album.is_no_longer_in"))).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText(`is no longer in ${album}.`)).toBeVisible({ timeout: 60_000 });
   await expect(b.getByText(pattern("gallery.you_re_no_longer_in")).first()).toBeVisible({
     timeout: 60_000,
   });
