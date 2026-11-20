@@ -7,6 +7,7 @@ import { transport } from "./gateway";
 import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
+import { lightboxActor } from "./machines/lightbox-machine";
 import { onboardingActor, onboardingViewModel, showsAppNav } from "./machines/onboarding-machine";
 import { requests } from "./machines/requests-machine";
 import { syncActor, sync } from "./machines/sync-machine";
@@ -211,7 +212,11 @@ const bottomTabs = (page: AppPage | undefined) => html`<nav
 
 render(
   html`
-    <div class="min-h-screen bg-canvas text-fg ${withAppNav((shows) => (shows ? "md:pl-60" : ""))}">
+    <div
+      class="min-h-screen bg-canvas text-fg ${withAppNav((shows) => (shows ? "md:pl-60" : ""))}"
+      data-app-shell
+      ?inert=${watch(lightboxActor, (s) => s.context.photo !== undefined)}
+    >
       ${withAppNav((shows, page) => (shows ? sideRail(page) : null))}
       <!-- No mobile app bar: the bottom tabs carry navigation. This strip only
            keeps scrolled content out from under the status bar. -->

@@ -4,8 +4,8 @@ import { render } from "lit-html";
 import { openLightbox, closeLightbox, step, deleteFromLightbox, lightboxView } from "./lightbox";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
-import { lightboxActor } from "../machines/lightbox-machine";
-import { galleryActor, gallery } from "../machines/gallery-machine";
+import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
+import { galleryActor, gallery, photoKey } from "../machines/gallery-machine";
 import { folders } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
 import { membersChanged, presenceClockActor } from "../machines/presence-clock-machine";
@@ -618,5 +618,60 @@ describe("the line ages with the presence clock", () => {
     presenceClockActor.send(membersChanged.create({ someoneNotConnected: true }));
     expect(line()).toBe("On your phone. Waiting for Ben's phone");
     render(null, host);
+  });
+});
+
+describe("the viewer is a dialog", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  function open(photos: Photo[]) {
+    setPhotos(photos);
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(lightboxView(), host);
+    openLightbox(photos[0]);
+    return host;
+  }
+
+  it("is named after the photo and is not modal", () => {
+    const host = open([photo("a.png")]);
+    const viewer = host.querySelector("[data-lightbox]");
+    expect(viewer?.getAttribute("role")).toBe("dialog");
+    expect(viewer?.getAttribute("aria-label")).toBe("a.png");
+    expect(viewer?.hasAttribute("aria-modal")).toBe(false);
+  });
+
+  it("puts focus on Close, and a step keeps focus and renames the dialog", async () => {
+    const host = open([photo("a"), photo("b")]);
+    await Promise.resolve();
+    const close = host.querySelector<HTMLElement>("[data-lightbox] [data-part='top'] button");
+    expect(close).not.toBeNull();
+    expect(document.activeElement).toBe(close);
+    step(1);
+    expect(document.activeElement).toBe(close);
+    expect(host.querySelector("[data-lightbox]")?.getAttribute("aria-label")).toBe("b");
+  });
+
+  it("returns focus to the photo's tile on close, and does nothing without one", async () => {
+    const host = open([photo("a")]);
+    const tile = document.createElement("figure");
+    tile.tabIndex = 0;
+    tile.dataset.photoTile = photoKey(photo("a"));
+    document.body.append(tile);
+    await Promise.resolve();
+    lightboxActor.send(lightboxEvents.closed.create());
+    await Promise.resolve();
+    expect(document.activeElement).toBe(tile);
+    tile.remove();
+    open([photo("a")]);
+    await Promise.resolve();
+    lightboxActor.send(lightboxEvents.closed.create());
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(tile);
+    expect(host).toBeDefined();
   });
 });

@@ -10,7 +10,7 @@ import {
   galleryViewModel,
   photoKey,
 } from "../machines/gallery-machine";
-import { photoSwap } from "./album-transition";
+import { photoSwap, tileOf } from "./album-transition";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
@@ -263,6 +263,8 @@ function lightboxBody(
     <div
       class="fixed inset-0 z-30 touch-pan-y"
       data-lightbox
+      role="dialog"
+      aria-label=${photo.name}
       @pointerdown=${notePress}
       @touchstart=${onTouchStart}
       @touchend=${onTouchEnd}
@@ -282,6 +284,24 @@ function lightboxBody(
     </div>
   `;
 }
+
+// The viewer is a dialog: focus goes to Close on open and back to the photo's tile on close.
+let shownKey: string | undefined;
+lightboxActor.on("change", {
+  fn: (s) => {
+    const photo = s.context.photo;
+    const key = shownKey;
+    if (photo && key === undefined) {
+      queueMicrotask(() =>
+        document.querySelector("[data-part=top]")?.querySelector("button")?.focus(),
+      );
+    }
+    if (!photo && key !== undefined) {
+      queueMicrotask(() => tileOf(key)?.focus());
+    }
+    shownKey = photo ? photoKey(photo) : undefined;
+  },
+});
 
 export function lightboxView() {
   return watch(lightboxActor, (s) => {

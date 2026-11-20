@@ -54,7 +54,7 @@ export function albumSwap(
     });
 }
 
-function tileOf(key: string): HTMLElement | undefined {
+export function tileOf(key: string): HTMLElement | undefined {
   return [...document.querySelectorAll<HTMLElement>("[data-photo-tile]")].find(
     (el) => el.dataset.photoTile === key,
   );
