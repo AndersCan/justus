@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
 import { CoreError } from "@ekrooh/bare/core";
 import { createFriendsPlugin } from "./friends-plugin";
+import { createHash } from "node:crypto";
 import type { FriendsStore } from "./friends-store";
 
+const crypto = { createHash } as unknown as Parameters<typeof createFriendsPlugin>[0]["crypto"];
 const A = "a".repeat(64);
+const B = "b".repeat(64);
 
 function invoke(
   plugin: ReturnType<typeof createFriendsPlugin>,
@@ -36,7 +39,7 @@ describe("justus.friends plugin", () => {
         return [null, { removed: at >= 0 }];
       },
     };
-    const plugin = createFriendsPlugin({ store });
+    const plugin = createFriendsPlugin({ store, ownIdentity: () => B, crypto });
     expect(await invoke(plugin, "friends.add", { identity: A, name: "Sam" })).toEqual([
       null,
       { friend: { identity: A, name: "Sam" } },
@@ -59,5 +62,42 @@ describe("justus.friends plugin", () => {
       { removed: true },
     ]);
     expect(await invoke(plugin, "friends.list", {})).toEqual([null, { friends: [] }]);
+  });
+
+  describe("friends.words", () => {
+    const store = {} as FriendsStore;
+    const as = (own: string | undefined) =>
+      createFriendsPlugin({ store, ownIdentity: () => own, crypto });
+
+    test("both phones get the same words", async () => {
+      const [, ab] = await invoke(as(A), "friends.words", { identity: B });
+      const [, ba] = await invoke(as(B), "friends.words", { identity: A });
+      expect((ab as { words: string }).words).toMatch(/^[a-z]+( [a-z]+){3}$/);
+      expect(ab).toEqual(ba);
+    });
+
+    test("uppercase identity gives the same words", async () => {
+      const [, lower] = await invoke(as(A), "friends.words", { identity: B });
+      const [, upper] = await invoke(as(A), "friends.words", { identity: B.toUpperCase() });
+      expect(upper).toEqual(lower);
+    });
+
+    test("a non-hex identity is refused", async () => {
+      const [e] = await invoke(as(A), "friends.words", { identity: "nope" });
+      expect(e?.code).toBe("justus.friends/invalid-key");
+    });
+
+    test("no words before the own identity is known, or for the own identity", async () => {
+      expect(await invoke(as(undefined), "friends.words", { identity: B })).toEqual([null, {}]);
+      expect(await invoke(as(A), "friends.words", { identity: A })).toEqual([null, {}]);
+      expect(await invoke(as(A.toUpperCase()), "friends.words", { identity: A })).toEqual([
+        null,
+        {},
+      ]);
+      expect(await invoke(as(A), "friends.words", { identity: A.toUpperCase() })).toEqual([
+        null,
+        {},
+      ]);
+    });
   });
 });

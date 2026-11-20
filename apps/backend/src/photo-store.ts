@@ -615,6 +615,8 @@ export interface PhotoStore {
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
+  /** This phone's identity key (hex), the one other phones save it under as a friend; undefined until `ready()` has opened the identity drive. */
+  identity(): string | undefined;
   close(): Promise<void>;
 }
 
@@ -7791,6 +7793,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    identity() {
+      return ownDrive ? ownDrive.key : undefined;
+    },
+
     debugState() {
       const driveInfo = (drive: Drive) => ({
         key: drive.key,
@@ -7953,6 +7959,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     cancelAsk: refuse,
     linkTurnedOff: refuse,
     debugState: () => inner.debugState(),
+    identity: () => inner.identity(),
     close: () => inner.close(),
   };
 }
