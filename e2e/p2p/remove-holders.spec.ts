@@ -37,18 +37,23 @@ test("Ada reads her Remove sheet, removes Ben, and his photo leaves her album", 
     mimeType: "image/png",
     buffer: pngOf(...runColour(82)),
   });
-  await expect(a.getByRole("button", { name: `View ${ADA_2}` }).locator("img")).toBeAttached({
+  await expect(
+    a.getByRole("button", { name: `View ${ADA_2}` }).locator("img"),
+    `setup · Ada: ${ADA_2}`,
+  ).toBeAttached({
     timeout: 20_000,
   });
 
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
   // 60 s: the join request travels over the hub to Ada's phone.
-  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText(`wants to join “${ALBUM}”`), "join · Ada: request").toBeVisible({
+    timeout: 60_000,
+  });
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
   await a.getByRole("link", { name: "See photos in this album" }).click();
   // 60 s: the album and its photos sync to Ben's phone after Ada accepts.
-  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  await expect(b, "join · Ben: album opens").toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await Promise.all(
     [ADA_1, ADA_2].map((file) =>
       expect(b.getByRole("button", { name: `View ${file}` }), `join · Ben: ${file}`).toBeVisible({
@@ -83,30 +88,12 @@ test("Ada reads her Remove sheet, removes Ben, and his photo leaves her album", 
     .click();
   const rows = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const benRow = rows.locator("[data-member-key]", { hasText: "Ben" });
-  // 60 s: Ada's phone reads Ben's record. At a miss the sheet poll below is the real check.
-  await expect(
-    benRow.locator("[data-member-photos]"),
-    "Ben has 2 photos and 1 preview · Members: Ben's row",
-  )
-    .toHaveText(
-      `${words("members.n_in_full", { n: 2 })}, ${words("members.n_previews", { n: 1 })}`,
-      {
-        timeout: 60_000,
-      },
-    )
-    .catch(() => {});
-
-  const one = words("album.1_photo");
+  // The sentence for this album, written out: a wording change to the Remove sheet fails here.
   const expected =
-    words("album.remove_keeps", {
-      name: "Ben",
-      parts: words("album.and", {
-        others: words("album.remove_part_yours", { n: 1 }),
-        last: words("album.remove_part_added", { count: one, name: "Ben" }),
-      }),
-    }) +
-    words("album.remove_added_leave_now", { name: "Ben" }) +
-    words("album.remove_sees_and_everyone_else", { name: "Ben" });
+    "Ben's phone keeps 1 of your photos and the 1 photo Ben added, and gets nothing added after. " +
+    "The photos Ben added leave the album on your phone now. " +
+    "Ben sees they're no longer in the album. " +
+    "Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.";
 
   const sheetText = a.locator("wa-dialog[open] p");
   const openSheet = async () => {
