@@ -5,6 +5,9 @@
  * A second story has Cy already in the album as a Viewer: his page reads that Ada handed it to
  * Ben, in place of "You're now in", whether it was open at the handover or his phone was off.
  *
+ * A second-and-a-half story has Ben join as a Viewer: Ada taps Hand over on his Members row, and his
+ * phone is the Admin from then on.
+ *
  * A third story has all three phones read every photo's holders line and every Members row before and
  * after the handover: Ada's photos stop naming her phone once the album has left it.
  *
@@ -297,6 +300,67 @@ for (const cyOff of [false, true]) {
     }
   });
 }
+
+test("Ada hands the album to Ben, a Viewer, from his Members row; Ben's phone is the Admin", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(360_000);
+  const [a, b] = instancePages;
+  const album = `Handover row ${Date.now().toString(36)}`;
+  const beforeNames = [];
+  try {
+    await skipIntro([a, b]);
+    for (const [i, page] of [a, b].entries()) beforeNames[i] = await setName(page, NAMES[i]);
+
+    await createAlbum(a, album, "handover-row.png", 94);
+    const link = await copyInviteLink(a);
+    await askToJoin(b, link, album);
+    await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+      timeout: 60_000,
+    });
+    await a.getByRole("button", { name: words("album.accept_as_viewer"), exact: true }).click();
+    await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    const benAlbumPath = new URL(b.url()).pathname;
+    await a.goto("/sharing");
+    await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+    const id = new URL(a.url()).pathname.split("/").pop();
+    const row = a.locator("li[data-member-key]").filter({ hasText: "Ben" });
+    await expect(row.getByText(words("member.role_viewer"))).toBeVisible({ timeout: 60_000 });
+
+    const hand = row.getByRole("button", {
+      name: words("album.hand_over_to", { album, name: "Ben" }),
+      exact: true,
+    });
+    await expect(hand, "Ben's row offers the handover").toBeVisible();
+    await hand.click();
+    const confirm = a.getByRole("dialog", {
+      name: words("album.hand_over_title", { album, name: "Ben" }),
+    });
+    await expect(confirm, "Ada's confirm names Ben").toBeVisible();
+    await a.getByRole("button", { name: words("album.hand_over_confirm"), exact: true }).click();
+    await expect
+      .poll(
+        async () => {
+          const res = await a.context().request.get(new URL("/__state", instances[0].url).href);
+          return (await res.json()).folders.some((f) => f.id === id);
+        },
+        { message: "the album leaves Ada's phone", timeout: 90_000, intervals: [200] },
+      )
+      .toBe(false);
+    await expect(a).toHaveURL(/\/sharing$/, { timeout: 30_000 });
+
+    await b.goto(benAlbumPath.replace("/albums/", "/sharing/"));
+    await expect(b.getByText(words("notices.made_admin", { fromName: "Ada", album }))).toBeVisible({
+      timeout: 60_000,
+    });
+  } finally {
+    resumeAll();
+    for (const [i, page] of [a, b].entries()) {
+      if (beforeNames[i]) await setName(page, beforeNames[i]);
+    }
+  }
+});
 
 /** Opens the photo, expects its holders line to read exactly `text`, and closes it. */
 async function expectHoldersLine(page, step, phone, file, text) {
