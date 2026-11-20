@@ -10,6 +10,7 @@ import {
   leaverHolders,
   lacksFullPhoto,
   memberHoldings,
+  memberKeeps,
   memberPhotosLine,
   previewOnly,
 } from "./holders";
@@ -610,5 +611,32 @@ describe("leaverHolders", () => {
     expect(leaverHolders([ph({ quiet: [{ ...m("Q"), lastSeenAt: 1 }] })])).toMatchObject({
       sole: 0,
     });
+  });
+});
+
+describe("memberKeeps", () => {
+  const ph = (id: string, by: string, mine: boolean, holders?: PhotoHolders) =>
+    ({ id, mine, member: m(by), holders }) as unknown as Photo;
+  it("counts full copies by whose photo, never previews or the person's own", () => {
+    const ben = m("Ben");
+    const photos = [
+      ph("a", "Ada", true, h({ others: [ben] })),
+      ph("b", "Cy", false, h({ quiet: [{ ...ben, lastSeen: 0 } as never] })),
+      ph("c", "Cy", false, h({ previews: [ben] })),
+      ph("d", "Cy", false, h({ waiting: [ben] })),
+      ph("e", "Ben", false, h({})),
+    ];
+    expect(memberKeeps(photos, "Ben")).toEqual({ kind: "known", yours: 1, others: 1 });
+    expect(memberKeeps([], "Ben")).toEqual({ kind: "known", yours: 0, others: 0 });
+  });
+  it("is unknown when Ben has not said for a photo or a list is missing", () => {
+    expect(memberKeeps([ph("a", "Ada", true, h({ unsure: [m("Ben")] }))], "Ben").kind).toBe(
+      "unknown",
+    );
+    expect(memberKeeps([ph("a", "Ada", true, h({}))], "Ben").kind).toBe("unknown");
+    expect(memberKeeps([ph("a", "Ben", false)], "Ben").kind).toBe("unknown");
+    expect(memberKeeps([ph("a", "Ada", true, { kind: "removed", here: true })], "Ben").kind).toBe(
+      "unknown",
+    );
   });
 });

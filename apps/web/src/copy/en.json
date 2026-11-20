@@ -1182,20 +1182,6 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.and_the_photos_added_leave": {
-    "text": ", and the photos {name} added leave the album",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
-  "album.won_t_see_photos_added": {
-    "text": "{name} keeps only the photos already on their phone and gets no others{added}. {name} sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
   "album.you": {
     "text": " (you)",
     "status": "draft",
@@ -1285,6 +1271,55 @@
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.remove_keeps": {
+    "text": "{name}'s phone keeps {parts}, and gets nothing added after.",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_gets_nothing": {
+    "text": "{name} gets nothing added after.",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_part_yours": {
+    "text": "{count} of yours",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_part_others": {
+    "text": "{count} from other members",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_part_added": {
+    "text": "the photos {name} added",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_added_leave_now": {
+    "text": " The photos {name} added leave the album on your phone now.",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
+    "screen": ""
+  },
+  "album.remove_sees_and_everyone_else": {
+    "text": " {name} sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
+    "status": "draft",
+    "where": "Album › Invite & members › Remove dialog",
+    "who": "The Admin removing someone from an album",
     "screen": ""
   },
   "album.remove": {

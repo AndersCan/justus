@@ -2,7 +2,7 @@
 import { focusOnArrival } from "./arrival-focus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
-import type { JoinRequest, SyncStatus } from "@justus/core";
+import type { JoinRequest, Photo, PhotoHolders, SyncStatus } from "@justus/core";
 import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
@@ -1382,45 +1382,47 @@ describe("album viewer rows", () => {
     ]);
   });
 
-  test("Remove on a Viewer asks with the Viewer text", async () => {
-    const viewerStatus = {
-      ...status,
-      members: [
-        { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
-        { key: "k1", name: "Nils", admin: false, connected: true, identity: "i1", viewer: true },
-      ],
-    } as unknown as SyncStatus;
-    syncActor.send(statusSeen.create({ status: viewerStatus }));
-    people.open();
-    vi.mocked(confirmAction).mockResolvedValueOnce(false);
-    const host = document.createElement("div");
-    render(albumView("f1"), host);
-    const remove = buttonNamed(memberRows(host)[1], /^Remove /);
-    remove?.click();
+  test("Remove on a Collaborator says what their phone keeps and whose photos leave", async () => {
+    const holders = (others: unknown[]) => ({
+      kind: "inAlbum",
+      here: true,
+      previewHere: false,
+      others,
+      quiet: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+    });
+    const ben = { key: "k1", name: "Kimmy", connected: true };
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      {
+        photos: [
+          { id: "a", folderId: "f1", mine: true, member: { key: "k0" }, holders: holders([ben]) },
+          { id: "b", folderId: "f1", mine: false, member: ben, holders: holders([ben]) },
+        ],
+      },
+    ] as never);
+    await gallery.load();
     await vi.waitFor(() =>
-      expect(confirmAction).toHaveBeenLastCalledWith({
-        title: "Remove Kimmy?",
-        detail: copy("album.won_t_see_photos_added", { name: "Kimmy", added: "" }),
-        confirmLabel: "Remove",
-        tone: "danger",
-      }),
+      expect(galleryViewModel(galleryActor.snapshot(), null).state).toBe("showingPhotos"),
     );
-  });
-
-  test("Remove on a Collaborator says their photos leave", async () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
     const host = document.createElement("div");
     syncActor.send(statusSeen.create({ status }));
     people.open();
     render(albumView("f1"), host);
-    const remove = buttonNamed(memberRows(host)[1], /^Remove /);
-    remove?.click();
+    buttonNamed(memberRows(host)[1], /^Remove /)?.click();
     await vi.waitFor(() =>
-      expect(confirmAction).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          detail: expect.stringContaining("and the photos Kimmy added leave the album."),
-        }),
-      ),
+      expect(confirmAction).toHaveBeenLastCalledWith({
+        title: "Remove Kimmy?",
+        detail:
+          "Kimmy's phone keeps 1 photo of yours and the photos Kimmy added, and gets nothing added after. The photos Kimmy added leave the album on your phone now. Kimmy sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
+        confirmLabel: "Remove",
+        tone: "danger",
+      }),
     );
   });
 
@@ -2084,10 +2086,74 @@ describe("removed from the album", () => {
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(memberRows(host)).toHaveLength(0);
   });
+});
 
-  test("the Remove confirm says the person sees they are out", () => {
-    expect(removeDetail("Nils", false)).toContain("sees they're no longer in the album");
-    expect(removeDetail("Nils", true)).toContain("sees they're no longer in the album");
+describe("the Remove sheet", () => {
+  const ben = { key: "k1", name: "Ben" };
+  const people = [
+    { key: "k0", name: "Ada", you: true },
+    { key: "k1", name: "Ben", you: false },
+    { key: "k2", name: "Cy", you: false },
+  ];
+  const holders = (p: Partial<PhotoHolders>) =>
+    ({
+      kind: "inAlbum",
+      here: true,
+      previewHere: false,
+      others: [],
+      quiet: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+      ...p,
+    }) as PhotoHolders;
+  const hm = (key: string) => ({ key, name: key, connected: true });
+  const photo = (mine: boolean, by: string, h: PhotoHolders) =>
+    ({ id: `${by}${Math.random()}`, mine, member: hm(by), holders: h }) as unknown as Photo;
+  const tail =
+    " Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.";
+
+  test("says what Ben keeps, that his photos leave now, and who else loses them", () => {
+    const photos = [
+      photo(true, "k0", holders({ others: [hm("k1")] })),
+      photo(true, "k0", holders({ others: [hm("k1")] })),
+      photo(false, "k1", holders({ others: [hm("k2")], previews: [] })),
+    ];
+    expect(removeDetail({ person: ben, photos, people })).toBe(
+      "Ben's phone keeps 2 photos of yours and the photos Ben added, and gets nothing added after. The photos Ben added leave the album on your phone now. Cy loses it the next time their phone connects. Ben sees they're no longer in the album." +
+        tail,
+    );
+  });
+
+  test("a Viewer's phone keeps only what it holds; none held says only that nothing is added", () => {
+    const held = [photo(true, "k0", holders({ others: [hm("k1")] }))];
+    expect(removeDetail({ person: ben, photos: held, people })).toBe(
+      "Ben's phone keeps 1 photo of yours, and gets nothing added after. Ben sees they're no longer in the album." +
+        tail,
+    );
+    const previewOnly = [photo(true, "k0", holders({ previews: [hm("k1")] }))];
+    expect(removeDetail({ person: ben, photos: previewOnly, people })).toBe(
+      "Ben gets nothing added after. Ben sees they're no longer in the album." + tail,
+    );
+  });
+
+  test("an unloaded photo list says only that nothing is added", () => {
+    expect(removeDetail({ person: ben, photos: undefined, people })).toBe(
+      "Ben gets nothing added after. Ben sees they're no longer in the album." + tail,
+    );
+  });
+
+  test("an unknown count still says his photos leave, and a person not on the list is not named", () => {
+    const photos = [
+      photo(true, "k0", holders({ unsure: [hm("k1")] })),
+      photo(false, "k1", holders({ others: [hm("zz")] })),
+    ];
+    expect(removeDetail({ person: ben, photos, people })).toBe(
+      "Ben gets nothing added after. The photos Ben added leave the album on your phone now. Ben sees they're no longer in the album." +
+        tail,
+    );
   });
 });
 

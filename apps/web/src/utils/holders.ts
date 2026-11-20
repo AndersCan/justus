@@ -268,7 +268,7 @@ export function memberPhotosLine(h: MemberHolding | undefined): string {
     .join(", ");
 }
 
-/** Who holds the photos this phone added: other people's keys with a full copy or preview (quiet ones too), and how many photos no other phone has. Unknown when any photo's list is not known yet. */
+/** Who holds a set of photos (the ones a person who goes added): other people's keys with a full copy or preview (quiet ones too), and how many photos no other phone has. Unknown when any photo's list is not known yet. */
 export type LeaverHolders =
   | { kind: "unknown" }
   | { kind: "known"; keys: ReadonlySet<string>; sole: number };
@@ -287,4 +287,24 @@ export function leaverHolders(mine: readonly Photo[]): LeaverHolders {
       sole += 1;
   }
   return { kind: "known", keys, sole };
+}
+
+/** How many of the album photos someone else added `key`'s phone has in full (others or quiet), as their phone last said: this phone's and other members'. A preview is not counted: it does not stay on a removed phone. Unknown while any photo's list is unknown, or `key` has not said for one. */
+export type MemberKeeps = { kind: "unknown" } | { kind: "known"; yours: number; others: number };
+
+export function memberKeeps(photos: readonly Photo[], key: string): MemberKeeps {
+  let yours = 0;
+  let others = 0;
+  let unknown = false;
+  for (const p of photos) {
+    const h = p.holders;
+    if (h?.kind !== "inAlbum") return { kind: "unknown" };
+    if (p.member?.key === key) continue;
+    const has = (ms: readonly PhotoMember[]) => ms.some((m) => m.key === key);
+    if (has(h.others) || has(h.quiet)) {
+      if (p.mine) yours += 1;
+      else others += 1;
+    } else if (!has(h.previews) && !has(h.waiting)) unknown = true;
+  }
+  return unknown ? { kind: "unknown" } : { kind: "known", yours, others };
 }
