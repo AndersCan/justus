@@ -110,7 +110,6 @@ class SwitcherCover {
     typeInField("Sam")
     find("Lock Justus?", 20)
     find("Enable", 5).click()
-    Thread.sleep(1000)
     // The PIN pad takes the digits as key events; the Enter key submits only once the pad has them all.
     find("Unlock Justus", 20)
     device.executeShellCommand("input text 1111")

@@ -218,7 +218,6 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (!::webView.isInitialized) return
-        applyRecentsScreenshot()
         val now = SystemClock.elapsedRealtime()
         if (locked && !isDeviceSecure(this)) {
             locked = false
@@ -233,7 +232,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (::webView.isInitialized && lockEnabled(this)) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && ::webView.isInitialized && lockEnabled(this)) {
             covered = true
             renderLock()
         }
