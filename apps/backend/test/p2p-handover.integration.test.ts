@@ -198,5 +198,17 @@ describe("after a handover", () => {
     const onEve = (await eve.store.folders()).folders[0]!;
     expect(onEve.shareKey).toBe(newKey);
     expect(onEve.role).toBe("reader");
+
+    const seenByCy = await cy.store.list({ all: true });
+    expect(seenByCy.some((p) => p.name === "dee.jpg")).toBe(false);
+
+    await dee.stop();
+    const deeAgain = await net.peer("Dee", dee.storageDir);
+    await eventually(
+      async () => (await deeAgain.store.folders()).folders.find((f) => f.id === onDee.id),
+      (f) => f?.shareKey === newKey && f.role === "member",
+      "Dee a Collaborator on the new key after a restart",
+      30_000,
+    );
   }, 180_000);
 });
