@@ -5,10 +5,11 @@ import { runInvoke } from "./actor-utils";
 
 /**
  * What this phone has looked at, kept in a file the phone owns. A photo is new
- * when its album was listed before, the photo was not in that listing or in
- * anything looked at since, and it is not the person's own. The marks shown
- * are frozen per visit: looking at a photo changes the saved record at once
- * but the mark stays until the person leaves the page.
+ * when its album was listed before, the photo was not in the album when its
+ * page was last opened or looked at on that page since, and it is not the
+ * person's own. Opening an album saves its photos as known; the marks stay
+ * until the person leaves the page. Looking at photos elsewhere, such as
+ * Photos > All, marks nothing.
  */
 
 export type SeenPort = Pick<typeof gateway.seen, "read" | "write">;
@@ -28,9 +29,9 @@ const holdingSeen = state("holdingSeen")();
 const albumsListed = event("ALBUMS_LISTED")<{
   albums: { albumId: string; photoIds: string[] }[];
 }>();
-/** The person opened an album's photo page. */
-const albumOpened = event("ALBUM_OPENED")<{ albumId: string }>();
-/** Photos stayed on screen long enough to count as looked at. */
+/** The album's photo page opened with these photos in it. */
+const albumOpened = event("ALBUM_OPENED")<{ albumId: string; photoIds: string[] }>();
+/** Photos stayed on screen long enough on an album page to count as looked at. */
 const photosLooked = event("PHOTOS_LOOKED")<{ photos: { albumId: string; photoId: string }[] }>();
 /** The person left the page; what they looked at stops being new. */
 const visitEnded = event("VISIT_ENDED")();
@@ -125,13 +126,19 @@ export const seenMachine = machine("seen", {
             return {};
           },
         });
-        /** The album opened last is remembered. */
+        /** The opened album is remembered and its photos saved as known; the marks stay until the visit ends. */
         m.onAny({
           event: albumOpened,
           handler: (e, opts) => {
             const ctx = opts.context.get();
-            if (ctx.status !== "ready" || ctx.lastAlbum === e.payload.albumId) return {};
-            const next = { ...ctx, lastAlbum: e.payload.albumId };
+            if (ctx.status !== "ready") return {};
+            const { albumId, photoIds } = e.payload;
+            const ids = ctx.known[albumId];
+            const have = new Set(ids);
+            const added = photoIds.filter((id) => !have.has(id));
+            const known =
+              ids === undefined ? ctx.known : { ...ctx.known, [albumId]: [...ids, ...added] };
+            const next = { ...ctx, known, lastAlbum: albumId };
             opts.context.set(next);
             save(next);
             return {};
@@ -199,7 +206,8 @@ export const seenActor = seenMachine.create({});
 export const seen = {
   albumsListed: (albums: { albumId: string; photoIds: string[] }[]) =>
     seenActor.send(albumsListed.create({ albums })),
-  albumOpened: (albumId: string) => seenActor.send(albumOpened.create({ albumId })),
+  albumOpened: (albumId: string, photoIds: string[]) =>
+    seenActor.send(albumOpened.create({ albumId, photoIds })),
   photosLooked: (photos: { albumId: string; photoId: string }[]) =>
     seenActor.send(photosLooked.create({ photos })),
   visitEnded: () => seenActor.send(visitEnded.create()),

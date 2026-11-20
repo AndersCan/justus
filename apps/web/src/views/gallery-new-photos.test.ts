@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { render } from "lit-html";
 
+vi.mock("./looked-at", () => ({ lookedAt: vi.fn(), flushLooked: vi.fn() }));
 vi.mock("../gateway", () => ({
   gateway: {
     list: vi.fn(),
@@ -15,7 +16,9 @@ vi.mock("../gateway", () => ({
   },
 }));
 
-const { albumGridBody, photoTile } = await import("./gallery");
+const { albumGridBody, photoTile, scopePhotos } = await import("./gallery");
+const { galleryActor } = await import("../machines/gallery-machine");
+const { lookedAt } = await import("./looked-at");
 const { seen, seenActor, seenReady } = await import("../machines/seen-machine");
 
 const photo = (id: string, mine = false) => ({
@@ -122,6 +125,26 @@ describe("new photo marks", () => {
     expect(marks()).toBe(1);
     seen.visitEnded();
     expect(marks()).toBe(0);
+  });
+});
+
+describe("looks", () => {
+  it("the album page counts looks and Photos > All does not", () => {
+    vi.spyOn(galleryActor, "snapshot").mockReturnValue({ context: { photos } } as never);
+    const drawScope = (scope: never) =>
+      draw(
+        scopePhotos(galleryActor, {
+          scope,
+          sort: "added",
+          density: "comfortable" as never,
+          empty: () => "",
+        }),
+      );
+    vi.mocked(lookedAt).mockClear();
+    drawScope({ kind: "all" } as never);
+    expect(lookedAt).not.toHaveBeenCalled();
+    drawScope({ kind: "album", id: "f1" } as never);
+    expect(lookedAt).toHaveBeenCalled();
   });
 });
 
