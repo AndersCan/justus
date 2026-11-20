@@ -13,6 +13,7 @@ import {
   closePhoto,
   copyInviteLink,
   createAlbum,
+  removeAllFriends,
   setName,
   skipIntro,
   words,
@@ -31,6 +32,8 @@ test("Ada reads her Remove sheet, removes Ben, and his photo leaves her album", 
   await skipIntro([a, b]);
   await setName(a, "Ada");
   await setName(b, "Ben");
+  // join-flow saves this phone as "Sam" on Ada's; a friend name wins over "Ben" on her Members row and sheet.
+  await removeAllFriends(a);
   await createAlbum(a, ALBUM, ADA_1, 81);
   await a.setInputFiles("input[type=file]", {
     name: ADA_2,
@@ -95,8 +98,6 @@ test("Ada reads her Remove sheet, removes Ben, and his photo leaves her album", 
     "Ben sees they're no longer in the album. " +
     "Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.";
 
-  // 60 s: Ben's name reaches Ada's member list over the hub on a loaded runner.
-  await expect(benRow, "members · Ada: Ben's row").toBeVisible({ timeout: 60_000 });
   const sheetText = a.locator("wa-dialog[open] p");
   const openSheet = async () => {
     await benRow.getByRole("button", { name: words("album.remove_name", { name: "Ben" }) }).click();

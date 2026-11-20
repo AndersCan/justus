@@ -80,6 +80,24 @@ export function pattern(id) {
   );
 }
 
+/** Ada may keep a friend from an earlier test (the old Ben saved as "Sam"); a saved friend hides the same-name line. */
+export async function removeAllFriends(page) {
+  await page.goto("/settings");
+  const remove = page.getByRole("button", {
+    name: new RegExp(`^${pattern("settings_friends.remove_label").source}$`),
+  });
+  for (let left = await remove.count(); left > 0; left--) {
+    await remove.first().click();
+    const confirm = page.getByRole("button", {
+      name: words("settings_friends.remove"),
+      exact: true,
+    });
+    await confirm.last().click();
+    await expect(remove, "a friend is removed").toHaveCount(left - 1);
+  }
+  await expect(remove, "Ada has no saved friends").toHaveCount(0);
+}
+
 const paused = new Set();
 
 /** Pauses an instance's backend so the other phones lose it; returns a function that resumes it. `resumeAll()` resumes every paused instance. */
