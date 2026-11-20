@@ -28,6 +28,14 @@ describe("prefs", () => {
     expect(prefsActor.snapshot().context.theme).toBe("dark");
   });
 
+  it("showSortForNow changes what the screens show and saves nothing", () => {
+    prefs.setSort("added");
+    localStorage.clear();
+    prefs.showSortForNow("taken");
+    expect(prefsActor.snapshot().context.sort).toBe("taken");
+    expect(localStorage.getItem("justus:photo-sort")).toBeNull();
+  });
+
   it("sets and clears the picture", () => {
     expect(prefs.setPicture("data:image/jpeg;base64,AAAA")).toBe(true);
     expect(prefsActor.snapshot().context.picture).toBe("data:image/jpeg;base64,AAAA");

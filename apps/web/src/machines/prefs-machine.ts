@@ -81,6 +81,10 @@ export const prefs = {
     writePhotoSort(sort);
     prefsActor.send(sortChosen.create({ sort }));
   },
+  /** Shows a timeline without saving it; the saved choice comes back on the next start. */
+  showSortForNow(sort: PhotoSort) {
+    prefsActor.send(sortChosen.create({ sort }));
+  },
   setDensity(density: Density) {
     writeDensity(density);
     prefsActor.send(densityChosen.create({ density }));
