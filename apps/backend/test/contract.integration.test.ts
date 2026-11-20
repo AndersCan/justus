@@ -170,6 +170,20 @@ describe("backend -> web contract, from real backend output", () => {
       folderId: folder.id,
       memberKey: viewerAsk.requests[0].requesterKey,
     });
+    // The Viewer asks the Admin to let them add photos.
+    const watcherFolders = await eventually(
+      () => w("photos.folders"),
+      (r: any) => r.folders.length === 1 && !r.folders[0].pending,
+      "the Viewer's phone has the album",
+    );
+    const watcherFolder = watcherFolders.folders[0];
+    await w("photos.setActive", { folderId: watcherFolder.id });
+    await eventually(
+      () => w("photos.status"),
+      (r: any) => r.members.some((m: any) => m.viewer === true),
+      "the Viewer's own phone lists it as a Viewer",
+    );
+    await w("photos.askToAddPhotos", { folderId: watcherFolder.id });
 
     // A stranger asks, is declined, taps OK, and the same link asks again.
     const ask = {

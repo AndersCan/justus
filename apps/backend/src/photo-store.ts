@@ -64,6 +64,7 @@ import {
 import { addRemovedPerson, readRemovedPeople } from "./albums/removed-people";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
+import { readAddAsk, writeAddAsk } from "./membership/add-ask";
 import { checkCode } from "./membership/check-code";
 import { inviteTopic } from "./membership/invite";
 import { ADMIN_COLOR, fillColors, parseColor, pickColor, takenColors } from "./membership/colors";
@@ -433,6 +434,8 @@ type FolderRecord = {
   notice?: FolderNotice;
   /** Creator: names of people who left on their own, oldest first, until the Admin dismisses the line. */
   whoLeft?: string[];
+  /** Viewer only: when this phone asked the Admin to let it add photos (ms epoch). */
+  askedToAdd?: number;
   /** Not creator: the latest `addedAt` this phone has dealt with; unset on albums from before this field, which start silently. */
   joinedUpTo?: number;
   /** Not creator: people the Admin let in after this phone, oldest first, until dismissed. */
@@ -603,6 +606,8 @@ export interface PhotoStore {
   dismissAdminChanged(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the line naming who left an album (Admin). */
   dismissWhoLeft(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** A Viewer asks the Admin to let them add photos. Saved on the Viewer's drive for the Admin's phone to read. */
+  askToAddPhotos(folderId: string): Promise<EitherResult<{ askedAt: number }>>;
   dismissWhoJoined(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
@@ -905,6 +910,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * keyed by drive key. Never part of a folder's member drives. */
   const viewerDevices = new Map<string, Promise<unknown>>();
   const viewerDeviceDrives = new Map<string, { drive: Drive; off: () => void }>();
+  /** Viewer drive key -> when that Viewer asked to add photos. Read from their drives. */
+  const viewerAddAsks = new Map<string, number>();
+  async function refreshAddAsk(keyHex: string, drive: Drive) {
+    const ask = await readAddAsk(drive);
+    if (viewerAddAsks.get(keyHex) === ask?.askedAt) return;
+    if (ask === undefined) viewerAddAsks.delete(keyHex);
+    else viewerAddAsks.set(keyHex, ask.askedAt);
+    announcePresence();
+  }
   let closed = false;
   let readyPromise: Promise<void> | null = null;
 
@@ -999,6 +1013,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function loadFolderExtras(f: { [k: string]: unknown }): Partial<FolderRecord> {
     const out: Partial<FolderRecord> = {};
+    if (typeof f.askedToAdd === "number" && Number.isFinite(f.askedToAdd))
+      out.askedToAdd = f.askedToAdd;
     const inv = f.invite;
     if (isTextJSON(inv) && typeof inv.code === "string" && isHexKey(inv.code)) {
       const links = Array.isArray(inv.links)
@@ -1452,6 +1468,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const [key, { drive, off }] of [...viewerDeviceDrives]) {
       if (wanted.has(key)) continue;
       viewerDeviceDrives.delete(key);
+      viewerAddAsks.delete(key);
       viewerDevices.delete(key);
       off();
       await deps.drives.release(drive).catch(() => {});
@@ -4232,6 +4249,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               admin: person.admin,
               ...memberPresence(presence, person.key),
               ...(person.viewer ? { viewer: true as const } : {}),
+              ...(person.viewer &&
+              rt.record.role === "creator" &&
+              !rt.record.handover?.written &&
+              viewerAddAsks.has(person.key)
+                ? { askedToAdd: viewerAddAsks.get(person.key) }
+                : {}),
               ...(person.color === undefined ? {} : { color: person.color }),
               ...(person.admin && handedBy !== undefined ? { handedBy } : {}),
             },
@@ -4369,6 +4392,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           refreshPresence();
           refreshViewerHeld(keyHex, drive);
           dropViewersWhoLeft(keyHex, drive);
+          void refreshAddAsk(keyHex, drive);
         }, 400);
       });
       viewerDeviceDrives.set(keyHex, {
@@ -4381,6 +4405,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       refreshPresence();
       refreshViewerHeld(keyHex, drive);
       dropViewersWhoLeft(keyHex, drive);
+      void refreshAddAsk(keyHex, drive);
     });
     opening.catch(() => viewerDevices.delete(keyHex));
     viewerDevices.set(keyHex, opening);
@@ -7718,6 +7743,29 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return changeLifecycle(rt, "leave");
     },
 
+    async askToAddPhotos(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No such album ${folderId}`);
+      const listed = rt.viewers[selfKeyOf(rt)] !== undefined;
+      if (rt.record.role === "creator" || (rt.record.role === "member" && !listed)) {
+        return err(PhotoError.ALREADY_ENROLLED, "You can already add photos");
+      }
+      if (rt.record.pending || rt.record.notice || (rt.record.role === "reader" && !listed)) {
+        return err(PhotoError.INVALID_ROLE, "Only a Viewer can ask to add photos");
+      }
+      if (rt.record.askedToAdd !== undefined) return ok({ askedAt: rt.record.askedToAdd });
+      const askedAt = Date.now();
+      const [failed] = await writeAddAsk(rt.selfDrive, { at: askedAt });
+      if (failed) return err(ErrorCode.HOST_ERROR, `Cannot save the ask: ${failed.reason}`);
+      for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+        if (target) target.askedToAdd = askedAt;
+      }
+      saveState();
+      log("addAsk.sent", { folderId });
+      return ok({ askedAt });
+    },
+
     async dismissWhoLeft(folderId) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -7896,6 +7944,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         await deps.drives.release(drive).catch(() => {});
       }
       viewerDeviceDrives.clear();
+      viewerAddAsks.clear();
       try {
         await network.close();
       } catch {
@@ -7953,6 +8002,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     leaveAlbum: refuse,
     dismissAdminChanged: refuse,
     dismissWhoLeft: refuse,
+    askToAddPhotos: refuse,
     dismissWhoJoined: refuse,
     dismissAlbumNotice: refuse,
     dismissDeclinedAsk: refuse,
