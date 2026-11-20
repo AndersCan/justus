@@ -7,7 +7,9 @@ import { gridMotion } from "./grid-motion";
  * container in the bottom-left (safe-area aware); toasts fade out after ~3s,
  * or ~6s when they carry an action (`toast("Added", { action })`); `onClose` runs when the time is up, even after the action was tapped; the others
  * slide into place. A toast belongs to the page it was raised on: leaving that page closes it
- * (`onClose` still runs at its time). One raised right after `open()` belongs to the new page. */
+ * (`onClose` still runs at its time). One raised right after `open()` belongs to the new page.
+ * The host is one always-present polite status line (`aria-atomic="false"`), on the page from load,
+ * so a screen reader says each toast once as it is added; a toast has no role of its own. */
 
 type ToastAction = { label: string; run: () => void };
 type Toast = { id: number; message: string; action?: ToastAction; path: string };
@@ -25,11 +27,15 @@ function ensureHost(): HTMLDivElement {
   }
   host = document.createElement("div");
   host.dataset.toastHost = "";
+  host.setAttribute("role", "status");
+  host.setAttribute("aria-atomic", "false");
   host.className =
     "pointer-events-none fixed bottom-20 left-4 z-50 md:bottom-4 px-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))]";
   parent.appendChild(host);
   return host;
 }
+
+if (typeof document !== "undefined" && document.body) ensureHost();
 
 const toastKey = (t: Toast) => String(t.id);
 
@@ -45,7 +51,7 @@ function paint() {
           toasts,
           toastKey,
           (t) => html`
-            <div data-motion-key=${toastKey(t)} class="justus-toast ui-toast" role="status">
+            <div data-motion-key=${toastKey(t)} class="justus-toast ui-toast">
               <span>${t.message}</span>
               ${
                 t.action
