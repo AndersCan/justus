@@ -2119,12 +2119,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const registry = await readRegistryIn(rt.folderDrive);
       for (const e of rt.record.earlier ?? []) {
-        if (
-          e.keptVersion !== undefined ||
-          rt.record.formerSelf?.includes(e.key) ||
-          pastAdminKeys(rt.record).includes(e.key)
-        )
-          continue;
+        if (e.keptVersion !== undefined || rt.record.formerSelf?.includes(e.key)) continue;
         const next = successorOf(rt, registry.members, e);
         const oldDrive = rt.memberDrives.get(e.key);
         const newDrive = next && rt.memberDrives.get(next.key);
