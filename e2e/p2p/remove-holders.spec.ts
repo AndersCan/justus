@@ -95,6 +95,8 @@ test("Ada reads her Remove sheet, removes Ben, and his photo leaves her album", 
     "Ben sees they're no longer in the album. " +
     "Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.";
 
+  // 60 s: Ben's name reaches Ada's member list over the hub on a loaded runner.
+  await expect(benRow, "members · Ada: Ben's row").toBeVisible({ timeout: 60_000 });
   const sheetText = a.locator("wa-dialog[open] p");
   const openSheet = async () => {
     await benRow.getByRole("button", { name: words("album.remove_name", { name: "Ben" }) }).click();
