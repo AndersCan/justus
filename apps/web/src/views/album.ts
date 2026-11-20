@@ -824,6 +824,7 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
           placeholder=${copy("album.device_name")}
           aria-label=${copy("album.device_name_2")}
           data-n
+          autocomplete="off"
         />
         <button class="ui-btn-ghost" type="submit" ?disabled=${busy || !settled}>
           ${t("album.enroll")}

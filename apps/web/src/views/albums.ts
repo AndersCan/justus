@@ -461,6 +461,7 @@ function newAlbumSection(view: FoldersViewModel) {
       >
         <input
           class="ui-input flex-1"
+          autocomplete="off"
           placeholder=${copy("albums.album_name")}
           aria-label=${copy("albums.album_name")}
           maxlength="60"

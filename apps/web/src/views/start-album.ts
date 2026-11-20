@@ -45,6 +45,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
             <p class="mt-1 text-sm text-muted">${detail}</p>
             <input
               class="ui-input mt-4 w-full"
+              autocomplete="off"
               placeholder=${copy("start_album.album_name_e_g_summer")}
               aria-label=${copy("start_album.album_name")}
               maxlength="60"
