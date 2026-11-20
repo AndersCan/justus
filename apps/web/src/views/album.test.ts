@@ -2104,6 +2104,50 @@ describe("album ••• menu while a known list reloads", () => {
   });
 });
 
+describe("album ••• menu readiness", () => {
+  test("stays enabled during a reload when the only known albums are archived", async () => {
+    vi.mocked(gateway.folders).mockResolvedValue([
+      null,
+      { folders: [], activeFolderId: null, archived: [status.folder] },
+    ] as never);
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    let resolve: (v: unknown) => void = () => {};
+    vi.mocked(gateway.folders).mockReturnValue(new Promise((r) => (resolve = r)) as never);
+    folders.refresh();
+    expect(folders.state()).toBe("loadingAlbums");
+    const items = [...host.querySelectorAll("wa-dropdown-item")];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.some((i) => i.hasAttribute("disabled"))).toBe(false);
+    resolve([null, { folders: [], activeFolderId: null, archived: [status.folder] }]);
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+  });
+
+  test("stays disabled while an album change runs, even with a known list", async () => {
+    vi.mocked(gateway.folders).mockResolvedValue([
+      null,
+      { folders: [status.folder], activeFolderId: status.folder.id },
+    ] as never);
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    let finish: (v: unknown) => void = () => {};
+    vi.mocked(gateway.archiveAlbum).mockReturnValueOnce(new Promise((r) => (finish = r)) as never);
+    folders.archive("f1", status.folder.name);
+    expect(folders.state()).toBe("archivingAlbum");
+    const items = [...host.querySelectorAll("wa-dropdown-item")];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((i) => i.hasAttribute("disabled"))).toBe(true);
+    finish([null, { ok: true }]);
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+  });
+});
+
 describe("removed from the album", () => {
   const removed = {
     ...status,
