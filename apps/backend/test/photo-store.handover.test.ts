@@ -699,6 +699,8 @@ describe("handing an album to a Viewer", () => {
     await until(async () => (await trip(s.ben)).role === "creator");
     expect((await trip(s.ben)).notice).toEqual({ kind: "madeAdmin", fromName: "Ada" });
     expect(debugOf(s.ben).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
+    const lists = JSON.parse((await s.read(s.cy, s.benKey, "/members.json"))!);
+    expect(Object.values(lists.members).map((m) => (m as { key: string }).key)).toEqual([s.cyKey]);
     await s.close();
   });
 
