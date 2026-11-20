@@ -22,6 +22,7 @@ const NOT_COPY = [
   /^unknown error$/,
   /^invoke timeout$/,
   /^friends: could not load$/,
+  /^friends: could not read words$/,
   /^seen: could not (save|read)$/,
   /^canvas unavailable$/,
   /^gridMotion/,

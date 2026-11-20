@@ -1,25 +1,33 @@
 // @vitest-environment happy-dom
-import { describe, expect, test, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 
-const hoisted = vi.hoisted(() => ({ list: vi.fn(), rename: vi.fn() }));
+const hoisted = vi.hoisted(() => ({ list: vi.fn(), rename: vi.fn(), words: vi.fn() }));
 vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("../gateway", () => ({
   gateway: {
-    friends: { list: hoisted.list, add: vi.fn(), rename: hoisted.rename, remove: vi.fn() },
+    friends: {
+      list: hoisted.list,
+      add: vi.fn(),
+      rename: hoisted.rename,
+      remove: vi.fn(),
+      words: hoisted.words,
+    },
   },
 }));
+
+beforeEach(() => hoisted.words.mockReset().mockResolvedValue([null, {}]));
 
 const BEN = "b".repeat(64);
 const CAL = "c".repeat(64);
 
-async function open(identity: string) {
+async function open(identity: string, ownName = "Someone") {
   hoisted.list.mockResolvedValue([null, { friends: [{ identity: BEN, name: "Ben B" }] }]);
   vi.resetModules();
   const { friendSheetView } = await import("./friend-sheet");
   const { friendsActor, friends } = await import("../machines/friends-machine");
   await friendsActor.settled();
-  friends.open({ identity, ownName: "Someone" });
+  friends.open({ identity, ownName });
   const host = document.createElement("div");
   render(friendSheetView(), host);
   return { host, friendsActor };
@@ -166,5 +174,56 @@ describe("friend sheet as a dialog", () => {
     await Promise.resolve();
     expect(document.activeElement).toBe(host.querySelector("[data-friend-name]"));
     document.body.replaceChildren();
+  });
+});
+
+describe("friend sheet matching words", () => {
+  const WORDS = "early steel produce clap";
+  const wordsOf = (host: HTMLElement) =>
+    host.querySelector("[data-friend-words]")?.textContent?.trim();
+
+  test("a saved friend shows Check it's Ben B, the words and the sentence", async () => {
+    hoisted.words.mockResolvedValue([null, { words: WORDS }]);
+    const { host } = await open(BEN);
+    await vi.waitFor(() => expect(wordsOf(host)).toBe(WORDS));
+    expect(host.textContent).toContain("Check it's Ben B");
+    expect(host.textContent).toContain("On Ben B's phone, tapping you shows the same words.");
+  });
+
+  test("a person with no name gets the unnamed lines", async () => {
+    hoisted.words.mockResolvedValue([null, { words: WORDS }]);
+    for (const ownName of ["", "Unknown device"]) {
+      const { host } = await open(CAL, ownName);
+      await vi.waitFor(() => expect(wordsOf(host)).toBe(WORDS));
+      expect(host.textContent).toContain("Check who this is");
+      expect(host.textContent).toContain("On their phone, tapping you shows the same words.");
+      expect(host.textContent).not.toContain("Check it's");
+    }
+  });
+
+  test("when the words fail there is no block and the buttons stay", async () => {
+    hoisted.words.mockResolvedValue([new Error("old backend"), null]);
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { host, friendsActor } = await open(CAL);
+    await friendsActor.settled();
+    quiet.mockRestore();
+    expect(host.querySelector("[data-friend-words]")).toBeNull();
+    expect(host.textContent).not.toContain("Check");
+    expect(host.querySelector("[data-friend-primary]")?.textContent?.trim()).toBe("Add to friends");
+  });
+
+  test("while naming, the words sit above the Name field and focus is on the field", async () => {
+    hoisted.words.mockResolvedValue([null, { words: WORDS }]);
+    const { host, friendsActor } = await open(CAL, "Cal");
+    document.body.append(host);
+    await friendsActor.settled();
+    (host.querySelector("[data-friend-primary]") as HTMLButtonElement).click();
+    await friendsActor.settled();
+    await Promise.resolve();
+    const words = host.querySelector("[data-friend-words]")!;
+    const input = host.querySelector<HTMLInputElement>("[data-friend-name]")!;
+    expect(words.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.activeElement).toBe(input);
+    host.remove();
   });
 });

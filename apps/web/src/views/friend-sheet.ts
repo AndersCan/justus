@@ -37,6 +37,25 @@ function focusName(el?: Element) {
   });
 }
 
+/** Four words that match on both phones; absent when they could not be worked out. */
+function wordsBlock(name: string, words: string | undefined) {
+  if (!words) return null;
+  const unnamed = name.trim() === "" || name === copy("people.unknown_device");
+  return html`<div class="mt-3">
+    <p class="text-sm font-medium text-fg">
+      ${unnamed ? t("friend_sheet.check_who_this_is") : t("friend_sheet.check_its_name", { name })}
+    </p>
+    <p class="mt-1 break-words text-lg font-semibold text-fg" data-friend-words>${words}</p>
+    <p class="mt-1 text-xs text-muted">
+      ${
+        unnamed
+          ? t("friend_sheet.same_words_on_their_phone")
+          : t("friend_sheet.same_words_on_name", { name })
+      }
+    </p>
+  </div>`;
+}
+
 export function friendSheetView() {
   return watch(friendsActor, (snapshot) => {
     const sheet = friendSheetOf(snapshot);
@@ -56,6 +75,7 @@ export function friendSheetView() {
     let body;
     if (sheet.state === "showingMember") {
       body = html` ${known !== undefined ? html`<p class="mt-1 text-sm text-muted">${t("friend_sheet.saved_as_a_friend_2")}</p>` : null}
+        ${wordsBlock(title, target.words)}
         <div class="mt-4 flex justify-end gap-2">
           <button class="ui-btn-ghost" data-dismiss @click=${closeSheet}>
             ${t("friend_sheet.close")}
@@ -81,7 +101,8 @@ export function friendSheetView() {
           }
         </div>`;
     } else {
-      body = html` <label class="mt-3 block text-sm font-medium text-fg" for="friend-name"
+      body = html` ${wordsBlock(title, target.words)}
+        <label class="mt-3 block text-sm font-medium text-fg" for="friend-name"
           >${t("friend_sheet.name")}</label
         >
         <input

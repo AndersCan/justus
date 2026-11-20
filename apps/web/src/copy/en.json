@@ -2197,6 +2197,34 @@
     "who": "People saving someone as a friend",
     "screen": ""
   },
+  "friend_sheet.check_its_name": {
+    "text": "Check it's {name}",
+    "status": "draft",
+    "where": "Friends › sheet › text",
+    "who": "People checking a friend is really them",
+    "screen": ""
+  },
+  "friend_sheet.same_words_on_name": {
+    "text": "On {name}'s phone, tapping you shows the same words. Different? Then it isn't {name}.",
+    "status": "draft",
+    "where": "Friends › sheet › text",
+    "who": "People checking a friend is really them",
+    "screen": ""
+  },
+  "friend_sheet.check_who_this_is": {
+    "text": "Check who this is",
+    "status": "draft",
+    "where": "Friends › sheet › text",
+    "who": "People checking a friend is really them",
+    "screen": ""
+  },
+  "friend_sheet.same_words_on_their_phone": {
+    "text": "On their phone, tapping you shows the same words. Different? Then it isn't who you think.",
+    "status": "draft",
+    "where": "Friends › sheet › text",
+    "who": "People checking a friend is really them",
+    "screen": ""
+  },
   "friend_sheet.cancel": {
     "text": "Cancel",
     "status": "draft",
