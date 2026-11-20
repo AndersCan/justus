@@ -1,5 +1,6 @@
 import { html } from "lit-html";
 import { watch } from "@mantaq/lit";
+import { repeat } from "lit-html/directives/repeat.js";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { pathFor } from "../machines/router-machine";
@@ -12,6 +13,7 @@ import { appLockSection, refreshAppLock } from "./app-lock";
 import { densitySetting, themeSetting } from "./theme-toggle";
 import { friends, friendsActor, savedFriends } from "../machines/friends-machine";
 import { confirmAction } from "./confirm";
+import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
@@ -121,6 +123,7 @@ async function removeFriend(identity: string, name: string, remove: (identity: s
 export function friendsSection(
   actor: typeof friendsActor = friendsActor,
   remove: (identity: string) => void = friends.remove,
+  open: typeof friends.open = friends.open,
 ) {
   return watch(actor, (snapshot) => {
     if (snapshot.path[0] === "loadingFriends") return null;
@@ -132,9 +135,22 @@ export function friendsSection(
         rows.length === 0
           ? html`<p class="text-sm text-muted">${t("settings_friends.empty")}</p>`
           : html`<ul class="divide-y divide-line">
-              ${rows.map(
+              ${repeat(
+                rows,
+                (f) => f.identity,
                 (f) => html`<li class="flex items-center justify-between gap-3 py-2">
-                  <span class="min-w-0 break-words text-sm text-fg">${f.name}</span>
+                  <button
+                    class="ui-btn-ghost min-w-0 flex-1 justify-start text-left [overflow-wrap:anywhere]"
+                    type="button"
+                    data-friend-open
+                    ?disabled=${removing}
+                    @click=${(e: Event) => {
+                      rememberFocus(e.currentTarget as HTMLElement);
+                      open({ identity: f.identity, ownName: f.name });
+                    }}
+                  >
+                    ${f.name}
+                  </button>
                   <button
                     class="ui-btn-ghost"
                     type="button"
@@ -180,6 +196,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
       ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${friendsSection()}
       ${helpSection()} ${advancedSection()}
     </div>
+    ${friendSheetView()}
   `;
 }
 

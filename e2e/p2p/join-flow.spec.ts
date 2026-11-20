@@ -563,6 +563,9 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await expect(tap).toBeVisible({ timeout: 60_000 });
   const ownName = (((await tap.locator("p").first().innerText()) ?? "").split("·")[0] ?? "").trim();
   await tap.click();
+  const aWords = a.locator("[data-friend-words]");
+  await expect(aWords).toHaveText(/^[a-z]+( [a-z]+){3}$/, { timeout: 30_000 });
+  const sameWords = (await aWords.innerText()).trim();
   await a.getByRole("button", { name: "Add to friends", exact: true }).click();
   await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
   await a.getByRole("button", { name: "Save", exact: true }).click();
@@ -570,6 +573,18 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await expect(row.getByText("Sam", { exact: false }).first()).toBeVisible();
   await expect(row.getByText(words("album.friend"), { exact: true })).toBeVisible();
   await expect(row.getByText(ownName, { exact: true })).toBeVisible();
+
+  await b.getByRole("link", { name: /^Invite & members/ }).click();
+  const bMembers = b.locator("section", { has: b.getByRole("heading", { name: "Members" }) });
+  const bTap = bMembers
+    .locator("li", { has: b.locator(connectedDot()) })
+    .filter({ hasNot: b.getByText("(you)") })
+    .getByRole("button")
+    .first();
+  await expect(bTap).toBeVisible({ timeout: 60_000 });
+  await bTap.click();
+  await expect(b.getByText("Check it's", { exact: false })).toBeVisible();
+  await expect(b.locator("[data-friend-words]")).toHaveText(sameWords);
 
   await a.reload();
   await a.goto("/sharing");
