@@ -116,10 +116,10 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
       );
       return;
     }
-    if (kind === "handOver" && changeCode === HANDOVER_PHONE_UNPROVEN_CODE) {
+    if (kind === "handOver" && change.memberName && changeCode === HANDOVER_PHONE_UNPROVEN_CODE) {
       toast(
         copy("albums.hand_over_phone_off", {
-          who: change.memberName || copy("albums.the_new_admin"),
+          who: change.memberName,
           name,
         }),
       );

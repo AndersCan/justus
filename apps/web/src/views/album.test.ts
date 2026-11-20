@@ -1561,13 +1561,16 @@ describe("album viewer rows", () => {
     render(albumView("f1"), host);
     const letButton = () => buttonNamed(host, /^Let .+ add photos$/);
     const removeButton = () => buttonNamed(host, /^Remove /);
+    const handButton = () => buttonNamed(host, /^Hand Trip to /);
     expect(letButton()?.disabled).toBe(false);
     expect(removeButton()?.disabled).toBe(false);
+    expect(handButton()?.disabled).toBe(false);
     letButton()?.click();
     await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalled());
     render(albumView("f1"), host);
     expect(letButton()?.disabled).toBe(true);
     expect(removeButton()?.disabled).toBe(true);
+    expect(handButton()?.disabled).toBe(true);
   });
 
   test("non-Viewers have no Let add photos button", () => {
