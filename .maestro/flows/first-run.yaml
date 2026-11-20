@@ -147,8 +147,9 @@ appId: no.cankode.justus
             # Tap above the sheet (its top edge is about 300 pt of 874).
             - tapOn:
                 point: "50%,15%"
-- extendedWaitUntil:
-    visible: "Send invite link"
+# The tap above made a link, so the panel now lists "Links you sent" above the button: it sits below the fold.
+- scrollUntilVisible:
+    element: "Send invite link"
     timeout: 15000
 # The lock section, Android only: the iOS walk declines App lock above.
 - runFlow:
