@@ -126,6 +126,42 @@ describe("folders machine", () => {
     await vi.waitFor(() => expect(ctx().userName).toBe("Renamed"));
   });
 
+  test("Save while the album list reloads (a sync push) still saves the name", async () => {
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    let finish: (v: unknown) => void = () => {};
+    mock.folders.mockReturnValueOnce(new Promise((r) => (finish = r)));
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("loadingAlbums"));
+
+    const loadsBefore = mock.folders.mock.calls.length;
+    folders.rename("Renamed");
+    finish([null, { folders: [], activeFolderId: null }]);
+    await vi.waitFor(() => expect(ctx().userName).toBe("Renamed"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    expect(mock.setName).toHaveBeenCalledWith("Renamed");
+    expect(mock.folders.mock.calls.length).toBeGreaterThan(loadsBefore);
+  });
+
+  test("a Save that fails while the album list reloads still loads the list", async () => {
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    let finish: (v: unknown) => void = () => {};
+    mock.folders.mockReturnValueOnce(new Promise((r) => (finish = r)));
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("loadingAlbums"));
+
+    mock.folders.mockResolvedValue([
+      null,
+      { folders: [folder("f9", "New album")], activeFolderId: null },
+    ]);
+    mock.setName.mockResolvedValueOnce([new Error("offline"), null]);
+    folders.rename("Renamed");
+    finish([null, { folders: [folder("f9", "New album")], activeFolderId: null }]);
+    await vi.waitFor(() => expect(ctx().error).toBeTruthy());
+    await vi.waitFor(() => expect(ctx().folders.map((f: { id: string }) => f.id)).toEqual(["f9"]));
+  });
+
   test("a retry after a failed refresh clears the error", async () => {
     mock.folders.mockResolvedValueOnce([new Error("offline"), null]);
     folders.refresh();
