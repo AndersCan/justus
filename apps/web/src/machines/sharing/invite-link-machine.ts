@@ -47,6 +47,8 @@ type InviteLinkContext = {
   replacedFolderId: string;
   /** The latest person removed, for that line. */
   removedName: string;
+  /** The latest end time given to a link; a new link with the same end gets a second more. */
+  lastExpiresAt: number;
 };
 
 /** Turning links off, as the gateway answers it. */
@@ -54,11 +56,14 @@ export type InviteLinkPort = {
   turnOff(folderId: string): Promise<[unknown, unknown]>;
   /** Saves the link's end time on this phone. */
   saveLinkTime(folderId: string, expiresAt: number): Promise<[unknown, unknown]>;
+  /** Ends the album's link that ends at `endsAt`; its other links keep working. */
+  endLink(folderId: string, endsAt: number): Promise<[unknown, unknown]>;
 };
 
 const noPort: InviteLinkPort = {
   turnOff: async () => [undefined, {}],
   saveLinkTime: async () => [undefined, {}],
+  endLink: async () => [undefined, {}],
 };
 
 /** No link has been made yet; the panel shows the time picker. */
@@ -81,6 +86,13 @@ const turningOff = state("turningOff")<{
   before?: { expiresAt: number; code: string };
 }>();
 
+/** The owner confirmed ending one link; `before` is the link shown until then, if any. */
+const endingLink = state("endingLink")<{
+  folderId: string;
+  endsAt: number;
+  before?: { expiresAt: number; code: string };
+}>();
+
 /** The owner picks how long the link works. */
 export const chooseLinkTime = event("chooseLinkTime")<{
   /** How long the link works. */
@@ -92,6 +104,20 @@ export const createLink = event("createLink")<{
   folderId: string;
   /** The album's current invite code. */
   code: string;
+}>();
+/** The owner taps "Make a new link" for an album, even while another of its links works. */
+export const makeNewLink = event("makeNewLink")<{
+  /** The album to make the link for. */
+  folderId: string;
+  /** The album's current invite code. */
+  code: string;
+}>();
+/** The owner confirmed ending the album's link that ends at `endsAt`. */
+export const endLink = event("endLink")<{
+  /** The album the link belongs to. */
+  folderId: string;
+  /** When the link ends; names the link. */
+  endsAt: number;
 }>();
 /** A person was removed, so the album's invite code `code` no longer works; `name` is who. */
 export const linkReplaced = event("linkReplaced")<{
@@ -118,6 +144,10 @@ const linkOff = event("linkOff")<{ folderId: string; code: string }>();
 const linkTimeSaved = event("linkTimeSaved")();
 /** Saving the link's time on this phone failed. */
 const linkTimeNotSaved = event("linkTimeNotSaved")();
+/** One link was ended. */
+const oneLinkEnded = event("oneLinkEnded")();
+/** Ending one link failed. */
+const couldNotEndLink = event("couldNotEndLink")();
 /** Turning the links off failed. */
 const linkOffFailed = event("linkOffFailed")<{ folderId: string }>();
 
@@ -125,6 +155,10 @@ const linkOffFailed = event("linkOffFailed")<{ folderId: string }>();
 const linkTurnedOff = event("linkTurnedOff")<{ folderId: string }>();
 /** Tells the owner the link could not be made. */
 const linkNotSaved = event("linkNotSaved")();
+/** Tells the owner the link was ended. */
+const linkEnded = event("linkEnded")<{ folderId: string; endsAt: number }>();
+/** Tells the owner the link could not be ended. */
+const endLinkFailed = event("endLinkFailed")<{ folderId: string }>();
 /** Tells the owner the links could not be turned off. */
 const turnOffFailed = event("turnOffFailed")<{ folderId: string }>();
 
@@ -134,15 +168,29 @@ function msUntil(expiresAt: number, now: number): number {
   return Number.isFinite(left) ? Math.max(0, left) : 0;
 }
 
+/** The end of a link made now: a whole second, and not the end the previous link got, so two links made together stay two. */
+function endFor(now: number, validFor: ValidFor, lastExpiresAt: number): number {
+  const end = Math.floor((now + VALID_FOR_MS[validFor]) / 1000) * 1000;
+  return end <= lastExpiresAt && lastExpiresAt - end < 60_000 ? lastExpiresAt + 1000 : end;
+}
+
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
 export const inviteLinkMachine = machine("inviteLink", {
   create: (options: { clock: Clock; port?: InviteLinkPort }) => {
     const { clock, port = noPort } = options;
     return Actor({
-      inputs: [chooseLinkTime, createLink, turnOffLink, linkReplaced],
-      internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
-      outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
-      states: [noLinkYet, savingLinkTime, linkMade, turningOff],
+      inputs: [chooseLinkTime, createLink, makeNewLink, endLink, turnOffLink, linkReplaced],
+      internal: [
+        timeRanOut,
+        linkOff,
+        linkOffFailed,
+        linkTimeSaved,
+        linkTimeNotSaved,
+        oneLinkEnded,
+        couldNotEndLink,
+      ],
+      outputs: [linkTurnedOff, turnOffFailed, linkNotSaved, linkEnded, endLinkFailed],
+      states: [noLinkYet, savingLinkTime, linkMade, turningOff, endingLink],
       initial: noLinkYet,
       clock,
       context: {
@@ -152,6 +200,7 @@ export const inviteLinkMachine = machine("inviteLink", {
         offFolderId: "",
         replacedFolderId: "",
         removedName: "",
+        lastExpiresAt: 0,
       } as InviteLinkContext,
       setup: (m) => {
         /** The owner picks a time in any state, the save included; a value that is not one of the choices is ignored. */
@@ -163,31 +212,38 @@ export const inviteLinkMachine = machine("inviteLink", {
             return {};
           },
         });
+        /** Starts saving a new link's end time for `payload`'s album, with the time picked. */
+        const startSaving = (
+          payload: { folderId: string; code: string },
+          context: { get(): InviteLinkContext; set(c: InviteLinkContext): void },
+        ) => {
+          const current = context.get();
+          const expiresAt = endFor(clock.now(), current.validFor, current.lastExpiresAt);
+          context.set({
+            ...current,
+            folderId: payload.folderId,
+            lastExpiresAt: expiresAt,
+            offFolderId: current.offFolderId === payload.folderId ? "" : current.offFolderId,
+            ...(current.replacedFolderId === payload.folderId
+              ? { replacedFolderId: "", removedName: "" }
+              : {}),
+          });
+          return {
+            state: savingLinkTime.create({
+              expiresAt,
+              code: payload.code,
+              validFor: current.validFor,
+            }),
+          };
+        };
         /** The owner makes a link that works for the chosen time. */
         m.on(noLinkYet, {
           event: createLink,
           to: [savingLinkTime],
           handler: (e, { context }) => {
-            const current = context.get();
             // The code was just turned off; wait for the album's new one.
-            if (e.payload.folderId === "" || e.payload.code === current.offCode) return {};
-            context.set({
-              ...current,
-              folderId: e.payload.folderId,
-              offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
-              ...(current.replacedFolderId === e.payload.folderId
-                ? { replacedFolderId: "", removedName: "" }
-                : {}),
-            });
-            const expiresAt =
-              Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-            return {
-              state: savingLinkTime.create({
-                expiresAt,
-                code: e.payload.code,
-                validFor: current.validFor,
-              }),
-            };
+            if (e.payload.folderId === "" || e.payload.code === context.get().offCode) return {};
+            return startSaving(e.payload, context);
           },
         });
         /** A link for another album, or for this album's new code, replaces the one made; the same link is kept. */
@@ -195,29 +251,96 @@ export const inviteLinkMachine = machine("inviteLink", {
           event: createLink,
           to: [savingLinkTime],
           handler: (e, { context, state }) => {
-            const current = context.get();
             if (
               e.payload.folderId === "" ||
-              e.payload.code === current.offCode ||
-              (e.payload.folderId === current.folderId && e.payload.code === state.payload.code)
+              e.payload.code === context.get().offCode ||
+              (e.payload.folderId === context.get().folderId &&
+                e.payload.code === state.payload.code)
             )
               return {};
-            context.set({
-              ...current,
-              folderId: e.payload.folderId,
-              offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
-              ...(current.replacedFolderId === e.payload.folderId
-                ? { replacedFolderId: "", removedName: "" }
-                : {}),
-            });
-            const expiresAt =
-              Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
+            return startSaving(e.payload, context);
+          },
+        });
+        /** The owner makes one more link; the others keep working. */
+        m.on(noLinkYet, {
+          event: makeNewLink,
+          to: [savingLinkTime],
+          handler: (e, { context }) => {
+            if (e.payload.folderId === "" || e.payload.code === context.get().offCode) return {};
+            return startSaving(e.payload, context);
+          },
+        });
+        /** The owner makes another link while one is shown. */
+        m.on(linkMade, {
+          event: makeNewLink,
+          to: [savingLinkTime],
+          handler: (e, { context }) => {
+            if (e.payload.folderId === "" || e.payload.code === context.get().offCode) return {};
+            return startSaving(e.payload, context);
+          },
+        });
+        /** The owner ends one link. */
+        m.on(noLinkYet, {
+          event: endLink,
+          to: [endingLink],
+          handler: (e) => {
+            if (e.payload.folderId === "") return {};
+            return { state: endingLink.create(e.payload) };
+          },
+        });
+        /** The owner ends a link while one is shown. */
+        m.on(linkMade, {
+          event: endLink,
+          to: [endingLink],
+          handler: (e, { state }) => {
+            if (e.payload.folderId === "") return {};
+            const { expiresAt, code } = state.payload as { expiresAt: number; code: string };
+            return { state: endingLink.create({ ...e.payload, before: { expiresAt, code } }) };
+          },
+        });
+        /** The link is ended on this phone. */
+        m.effect(endingLink, {
+          name: "endLink",
+          sends: [oneLinkEnded, couldNotEndLink],
+          fn: ({ signal, emit, state }) => {
+            const { folderId, endsAt } = state.payload;
+            return runInvoke(
+              signal,
+              () => port.endLink(folderId, endsAt),
+              () => emit(oneLinkEnded.create()),
+              () => emit(couldNotEndLink.create()),
+            );
+          },
+        });
+        /** Ended: the shown link stays unless it was the one ended. */
+        m.on(endingLink, {
+          event: oneLinkEnded,
+          to: [noLinkYet, linkMade],
+          handler: (_e, { state }) => {
+            const { folderId, endsAt, before } = state.payload as {
+              folderId: string;
+              endsAt: number;
+              before?: { expiresAt: number; code: string };
+            };
+            const keep = before !== undefined && before.expiresAt !== endsAt;
             return {
-              state: savingLinkTime.create({
-                expiresAt,
-                code: e.payload.code,
-                validFor: current.validFor,
-              }),
+              state: keep ? linkMade.create(before) : noLinkYet,
+              emit: [linkEnded.create({ folderId, endsAt })],
+            };
+          },
+        });
+        /** Failed: the panel goes back to what it showed. */
+        m.on(endingLink, {
+          event: couldNotEndLink,
+          to: [noLinkYet, linkMade],
+          handler: (_e, { state }) => {
+            const { folderId, before } = state.payload as {
+              folderId: string;
+              before?: { expiresAt: number; code: string };
+            };
+            return {
+              state: before ? linkMade.create(before) : noLinkYet,
+              emit: [endLinkFailed.create({ folderId })],
             };
           },
         });
@@ -253,7 +376,8 @@ export const inviteLinkMachine = machine("inviteLink", {
             const saving = state.payload;
             const { validFor } = context.get();
             if (validFor !== saving.validFor) {
-              const expiresAt = Math.floor((clock.now() + VALID_FOR_MS[validFor]) / 1000) * 1000;
+              const expiresAt = endFor(clock.now(), validFor, context.get().lastExpiresAt);
+              context.set({ ...context.get(), lastExpiresAt: expiresAt });
               return { state: savingLinkTime.create({ expiresAt, code: saving.code, validFor }) };
             }
             return { state: linkMade.create({ expiresAt: saving.expiresAt, code: saving.code }) };
