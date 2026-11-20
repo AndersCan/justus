@@ -142,6 +142,11 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       benRow.locator("[data-member-presence]"),
       "Ben off · Ada's Members: Ben's row",
     ).toHaveText(phoneOff(words("time.just_now")), { timeout: 120_000 });
+    // The row speaks "Phone off" once: the dot's own label is hidden from a screen reader.
+    expect(
+      (await benRow.ariaSnapshot()).split(phoneOff(words("time.just_now"))).length - 1,
+      "Ben off · Ada's Members: Ben's row says Phone off once",
+    ).toBe(1);
     // 60 s: the line appears 30-45 s after Ada's phone lost Ben and reads 1 min at 60-75 s; this proves the clock moves without a push.
     await expect(
       benRow.locator("[data-member-presence]"),

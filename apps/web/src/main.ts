@@ -37,6 +37,7 @@ import { listenForSharedPhotos } from "./views/shared-in";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
 import { statusRegion } from "./views/announce";
+import { startPresenceAnnouncements } from "./views/presence-changes";
 import { inviteLinkFromAddress } from "./utils/invite-link";
 import { join } from "./machines/sharing/join-request";
 import { landOnLastAlbum } from "./views/landing";
@@ -210,6 +211,8 @@ const bottomTabs = (page: AppPage | undefined) => html`<nav
 >
   ${navLinks(page, "tab")}
 </nav>`;
+
+startPresenceAnnouncements();
 
 render(
   html`

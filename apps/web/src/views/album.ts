@@ -461,7 +461,7 @@ function memberRow(
     <div class="min-w-0 flex-1">
       <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg">
         <span class="truncate">${p.name}${p.you ? copy("album.you") : ""}</span>
-        ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
+        ${p.you ? null : p.showPresence ? html`<span aria-hidden="true">${presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}</span>` : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
       ${memberLine(p, vm.folder?.name ?? "")}${photosLine === "" ? null : html`<p class="text-xs text-muted" data-member-photos>${photosLine}</p>`}${p.showPresence ? html`<p class="text-xs text-muted" data-member-presence>${p.presence}</p>` : null}
