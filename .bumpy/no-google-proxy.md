@@ -2,4 +2,4 @@
 "@justus/android": minor
 ---
 
-[user]: Justus no longer lets the built-in browser contact Google when it opens.
+[user]: Justus no longer contacts Google while you use it.
