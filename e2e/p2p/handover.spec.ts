@@ -11,6 +11,9 @@
  * A third story has all three phones read every photo's holders line and every Members row before and
  * after the handover: Ada's photos stop naming her phone once the album has left it.
  *
+ * A fourth story has Ada make two links, end one, and hand the album to Ben: Cy's ask through the
+ * ended link reads that it was ended, and his ask through the live one reaches Ben.
+ *
  *   pnpm test:e2e-p2p e2e/p2p/handover.spec.ts
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
@@ -512,6 +515,111 @@ test("after Ada hands the album to Ben, every holders line and Members row on al
     ]) {
       await expectMembers(page, album, "after, Ada off", phone, 2, 3);
     }
+  } finally {
+    resumeAll();
+    await leaveAlbum(c, album, instances[2]);
+    for (const [i, page] of instancePages.entries()) {
+      if (beforeNames[i]) await setName(page, beforeNames[i]);
+    }
+  }
+});
+
+test("Ada's links sent before she hands the album on: an old link after a handover reaches Ben, an ended one stays ended", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(360_000);
+  const [a, b, c] = instancePages;
+  const album = `Old link ${Date.now().toString(36)}`;
+  const beforeNames = [];
+  try {
+    await skipIntro([a, b, c]);
+    for (const [i, page] of instancePages.entries()) beforeNames[i] = await setName(page, NAMES[i]);
+
+    await createAlbum(a, album, "old-link-ada.png", 94);
+    const linkLive = await copyInviteLink(a);
+    await a.getByRole("combobox", { name: "Link works for" }).selectOption("7d");
+    await a.evaluate(() => navigator.clipboard.writeText(""));
+    await a.getByRole("button", { name: words("invite.make_a_new_link"), exact: true }).click();
+    await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).toMatch(/#i=/);
+    const linkEnded = await a.evaluate(() => navigator.clipboard.readText());
+    expect(linkEnded).not.toBe(linkLive);
+    const rows = a.locator("[data-link-row]");
+    await expect(rows).toHaveCount(2, { timeout: 20_000 });
+    // The newest link is listed first.
+    await rows
+      .first()
+      .getByRole("button", { name: /^End the link that works until/ })
+      .click();
+    await a
+      .locator("wa-dialog[open]")
+      .getByRole("button", { name: words("invite.end_link"), exact: true })
+      .click();
+    await expect(rows).toHaveCount(1, { timeout: 20_000 });
+
+    // Ben joins as a Collaborator.
+    await askToJoin(b, linkLive, album);
+    await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+      timeout: 60_000,
+    });
+    await a
+      .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
+      .click();
+    await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+    // Ada hands the album to Ben and her phone goes off.
+    await a.goto("/sharing");
+    await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+    await expect(
+      a
+        .locator("li[data-member-key]")
+        .filter({ hasText: "Ben" })
+        .getByText(words("member.role_collaborator")),
+    ).toBeVisible({ timeout: 60_000 });
+    const id = new URL(a.url()).pathname.split("/").pop();
+    await a.getByRole("button", { name: "More options" }).click();
+    await a.getByRole("menuitem", { name: words("album.leave_album") }).click();
+    await a.getByRole("button", { name: words("album.hand_over_confirm"), exact: true }).click();
+    await expect
+      .poll(
+        async () => {
+          const res = await a.context().request.get(new URL("/__state", instances[0].url).href);
+          return (await res.json()).folders.some((f) => f.id === id);
+        },
+        { message: "the album leaves Ada's phone", timeout: 90_000, intervals: [200] },
+      )
+      .toBe(false);
+    await pausePhone(instances[0]);
+
+    // Cy opens the ended link: it stays ended, and Ben sees no request.
+    await c.goto("/join");
+    await c.getByLabel("Invite link").fill(linkEnded);
+    await c.getByRole("button", { name: "Ask to join", exact: true }).click();
+    // 60 s: Cy's phone re-points the ask to Ben, whose phone opens it and refuses it.
+    const ended = c.getByRole("dialog", { name: pattern("join_request.owner_ended_this_link") });
+    await expect(ended).toBeVisible({ timeout: 60_000 });
+    await b.goto("/sharing");
+    await b.getByRole("link", { name: `Invite & members of ${album}` }).click();
+    const card = b.locator(".ui-request-card").filter({ hasText: "Cy" });
+    await expect(card).toHaveCount(0);
+    await ended.getByRole("button", { name: words("invite.close") }).click();
+
+    // Cy opens the live link: Ben sees the request with the same three words.
+    await askToJoin(c, linkLive, album);
+    const cyDialog = c.getByRole("dialog", { name: pattern("invite.waiting_for_to_let_you_in") });
+    await expect(cyDialog.locator(".text-lg")).toBeVisible({ timeout: 20_000 });
+    const cyWords = await cyDialog.innerText();
+    // 60 s: Cy's request travels to Ben's phone.
+    await expect(card.getByText(words("album.check_code"))).toBeVisible({ timeout: 60_000 });
+    const code = (await card.locator(".text-lg").innerText()).trim();
+    expect(cyWords, "Cy's screen shows the words on Ben's card").toContain(code);
+    await card
+      .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
+      .click();
+
+    // Cy gets in and reads Ada's photo while her phone is off.
+    await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    await expectLoaded(c, "old-link-ada.png");
   } finally {
     resumeAll();
     await leaveAlbum(c, album, instances[2]);
