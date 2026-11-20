@@ -48,6 +48,7 @@ export const JOIN_STATES = [
   "declinedByAdmin",
   "linkExpired",
   "linkTurnedOffByAdmin",
+  "linkEndedByAdmin",
   "linkReplacedByAdmin",
   "albumDeletedByAdmin",
   "linkStoppedForUnknownReason",

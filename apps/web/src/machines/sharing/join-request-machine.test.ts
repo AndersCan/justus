@@ -1032,6 +1032,10 @@ describe("askWithPastedLink", () => {
       "The person who invited you turned off this link. Ask the person who invited you for a new link if you still want to join.",
     ],
     [
+      "ended",
+      "The person who invited you ended this link. Ask the person who invited you for a new link if you still want to join.",
+    ],
+    [
       "replaced",
       "The person who invited you replaced this link. Ask the person who invited you for the new link.",
     ],
@@ -1298,6 +1302,7 @@ describe("stopped links", () => {
   const SCREENS = [
     ["expired", "linkExpired"],
     ["turnedOff", "linkTurnedOffByAdmin"],
+    ["ended", "linkEndedByAdmin"],
     ["replaced", "linkReplacedByAdmin"],
     ["albumDeleted", "albumDeletedByAdmin"],
     [undefined, "linkStoppedForUnknownReason"],
@@ -1448,6 +1453,7 @@ describe("joiner design", () => {
     { code: INVITE.code, answer: "linkOff" },
     { code: INVITE.code, answer: "linkOff", why: "expired" },
     { code: INVITE.code, answer: "linkOff", why: "turnedOff" },
+    { code: INVITE.code, answer: "linkOff", why: "ended" },
     { code: INVITE.code, answer: "linkOff", why: "replaced" },
     { code: INVITE.code, answer: "linkOff", why: "albumDeleted" },
   ];
@@ -1602,6 +1608,15 @@ test("Maya closes the waiting screen, and Nils turns off his links", async () =>
     await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "turnedOff" });
   });
   expect(actor.state.name).toBe("linkTurnedOffByAdmin");
+});
+
+test("Ben's link was ended while he waited", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "ended" });
+  });
+  expect(actor.state.name).toBe("linkEndedByAdmin");
 });
 
 test("Maya waits, and Nils's phone says an older link was replaced", async () => {

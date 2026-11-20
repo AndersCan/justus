@@ -59,6 +59,8 @@ export function stoppedLine(why: LinkOffWhy | undefined, ownerName: string): str
   switch (why) {
     case "turnedOff":
       return `${copy("join_request.owner_turned_off_this_link", { owner: Owner })} ${copy("join_request.ask_owner_for_a_new_link", { owner })}`;
+    case "ended":
+      return `${copy("join_request.owner_ended_this_link", { owner: Owner })} ${copy("join_request.ask_owner_for_a_new_link", { owner })}`;
     case "replaced":
       return `${copy("join_request.owner_replaced_this_link", { owner: Owner })} ${copy("join_request.ask_owner_for_the_new_link", { owner })}`;
     case "albumDeleted":
@@ -100,6 +102,8 @@ const declinedByAdmin = state("declinedByAdmin")<JoinScreen>();
 const linkExpired = state("linkExpired")<JoinScreen>();
 /** "<owner> turned off this link." The request was not answered; "Ask <owner> for a new link if you still want to join." */
 const linkTurnedOffByAdmin = state("linkTurnedOffByAdmin")<JoinScreen>();
+/** "<owner> ended this link." The request was not answered; "Ask <owner> for a new link if you still want to join." */
+const linkEndedByAdmin = state("linkEndedByAdmin")<JoinScreen>();
 /** "<owner> replaced this link." The request was not answered; "Ask <owner> for the new link." */
 const linkReplacedByAdmin = state("linkReplacedByAdmin")<JoinScreen>();
 /** "<owner> deleted this album." "There is nothing to join any more." */
@@ -108,6 +112,7 @@ const albumDeletedByAdmin = state("albumDeletedByAdmin")<JoinScreen>();
 const linkStoppedForUnknownReason = state("linkStoppedForUnknownReason")<JoinScreen>();
 const stoppedStates = [
   linkTurnedOffByAdmin,
+  linkEndedByAdmin,
   linkReplacedByAdmin,
   albumDeletedByAdmin,
   linkStoppedForUnknownReason,
@@ -186,6 +191,8 @@ function stoppedScreen(why: LinkOffWhy | undefined, invite: JoinScreen) {
       return linkExpired.create(invite);
     case "turnedOff":
       return linkTurnedOffByAdmin.create(invite);
+    case "ended":
+      return linkEndedByAdmin.create(invite);
     case "replaced":
       return linkReplacedByAdmin.create(invite);
     case "albumDeleted":
@@ -898,6 +905,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
       return linkExpired.create(invite);
     case "linkTurnedOffByAdmin":
       return linkTurnedOffByAdmin.create(invite);
+    case "linkEndedByAdmin":
+      return linkEndedByAdmin.create(invite);
     case "linkReplacedByAdmin":
       return linkReplacedByAdmin.create(invite);
     case "albumDeletedByAdmin":

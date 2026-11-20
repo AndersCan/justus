@@ -153,6 +153,13 @@
     "who": "People joining by a link",
     "screen": ""
   },
+  "join_request.owner_ended_this_link": {
+    "text": "{owner} ended this link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "join_request.owner_replaced_this_link": {
     "text": "{owner} replaced this link.",
     "status": "draft",

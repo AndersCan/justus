@@ -46,6 +46,7 @@ const labels: [JoinView["state"], string][] = [
   ["sendingRequestAgain", copy("invite.didn_t_accept_your_request", { owner })],
   ["linkExpired", EXPIRED_LINK],
   ["linkTurnedOffByAdmin", copy("join_request.owner_turned_off_this_link", { owner })],
+  ["linkEndedByAdmin", copy("join_request.owner_ended_this_link", { owner })],
   ["linkReplacedByAdmin", copy("join_request.owner_replaced_this_link", { owner })],
   ["albumDeletedByAdmin", copy("join_request.owner_deleted_this_album", { owner })],
   ["linkStoppedForUnknownReason", copy("join_request.this_invite_link_no_longer")],
@@ -240,6 +241,7 @@ describe("renderJoinSheet", () => {
       return div.textContent;
     };
     expect(at("linkTurnedOffByAdmin")).toContain("ASKED");
+    expect(at("linkEndedByAdmin")).toContain("ASKED");
     expect(at("linkReplacedByAdmin")).toContain("ASKED");
     expect(at("albumDeletedByAdmin")).not.toContain("ASKED");
     expect(at("linkStoppedForUnknownReason")).not.toContain("ASKED");
@@ -305,6 +307,7 @@ describe("renderJoinSheet picks the start or mid form for every owner line", () 
 
   test.each([
     ["linkTurnedOffByAdmin", `${C} turned off this link.`, `Ask ${P} for a new link`],
+    ["linkEndedByAdmin", `${C} ended this link.`, `Ask ${P} for a new link`],
     ["linkReplacedByAdmin", `${C} replaced this link`, `Ask ${P} for the new link.`],
     ["albumDeletedByAdmin", `${C} deleted this album`, ""],
     ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],

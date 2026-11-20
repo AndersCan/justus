@@ -129,7 +129,7 @@ describe("join singleton", () => {
       buildInviteLink({ ...INVITE, album: "", ownerName: "", expiresAt });
     join.openLink(link(ended));
     await settle();
-    expect(view().state, "the same link").toBe("linkStoppedForUnknownReason");
+    expect(view().state, "the same link").toBe("linkEndedByAdmin");
     mocks.cancelAsk.mockResolvedValue([null, {}]);
     join.closeStoppedLink();
     await settle();

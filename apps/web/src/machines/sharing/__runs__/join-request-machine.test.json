@@ -136,6 +136,45 @@
       ]
     },
     {
+      "name": "Ben's link was ended while he waited",
+      "end": "linkEndedByAdmin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "https://anderscan.github.io/justus/join/#i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Holiday&a=Mallory"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "linkOff",
+            "why": "ended"
+          }
+        }
+      ]
+    },
+    {
       "name": "Cy asks, Ada turns off the links, and Cy closes the dead request",
       "end": "noInviteOpen",
       "steps": [
