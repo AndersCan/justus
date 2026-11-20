@@ -27,7 +27,7 @@ vi.mock("../gateway", () => ({
 type Reply = () => Promise<[unknown, unknown]>;
 
 const open = (identity = "k1", ownName = "Kim") =>
-  ({ type: "OPEN", payload: { target: { identity, ownName } } }) as never;
+  ({ type: "OPEN_FRIEND", payload: { target: { identity, ownName } } }) as never;
 const add = () => ({ type: "ADD" }) as never;
 const type = (text: string) => ({ type: "TYPE", payload: { text } }) as never;
 const save = () => ({ type: "SAVE" }) as never;
@@ -77,7 +77,7 @@ describe("friends machine", () => {
     spy.mockRestore();
   });
 
-  test("OPEN without a friend target after a failed load keeps the sheet closed", async () => {
+  test("the lightbox's OPEN after a failed load keeps the sheet closed", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { actor, port } = await setup({ list: async () => [new Error("disk"), null] });
     actor.send({ type: "OPEN", payload: { photo: { id: "p1" }, within: [] } } as never);

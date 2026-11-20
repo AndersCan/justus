@@ -48,7 +48,7 @@
         },
         {
           "kind": "event",
-          "event": "OPEN",
+          "event": "OPEN_FRIEND",
           "payload": {
             "target": {
               "identity": "ben",
@@ -98,7 +98,7 @@
         },
         {
           "kind": "event",
-          "event": "OPEN",
+          "event": "OPEN_FRIEND",
           "payload": {
             "target": {
               "identity": "nils",

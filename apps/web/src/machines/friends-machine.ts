@@ -34,7 +34,7 @@ const namingFriend = state("namingFriend")<FriendTarget & { draft: string; renam
 const savingFriend = state("savingFriend")<FriendTarget & { name: string; renaming?: boolean }>();
 
 /** The person taps a member to see them in the friend sheet. */
-const open = event("OPEN")<{ target: FriendTarget }>();
+const open = event("OPEN_FRIEND")<{ target: FriendTarget }>();
 /** The person taps Add to friends. */
 const add = event("ADD")();
 /** The person taps Rename on a saved friend. */
@@ -144,10 +144,8 @@ export const friendsMachine = machine("friends", {
         /** The person taps a member and the friend sheet opens for them. */
         m.on(friendSheetClosed, {
           event: open,
-          to: [showingMember, friendSheetClosed],
+          to: [showingMember],
           handler: (e, opts) => {
-            // An OPEN meant for another machine carries no friend to show.
-            if (e.payload?.target === undefined) return { state: friendSheetClosed };
             opts.context.set({ ...opts.context.get(), error: null });
             return { state: showingMember.create(e.payload.target) };
           },
