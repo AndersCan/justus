@@ -48,4 +48,58 @@ it("logs the DHT state at join, each lookup's peers and each dial", async () => 
   expect(all).toContain("connect.attempt");
   expect(bLog.some((e) => e.event === "lookup.peer")).toBe(true);
   expect(bLog.some((e) => e.event === "lookup.done" && Number(e.fields.peers) > 0)).toBe(true);
+  // The rediscover loop looks again at 500 ms: the second lookup counts its own peers.
+  await new Promise((r) => setTimeout(r, 1500));
+  const lookups = bLog.filter((e) => e.event === "lookup.done" && e.fields.kind === "lookup");
+  expect(lookups.length).toBeGreaterThan(1);
+  expect(Number(lookups[1].fields.peers)).toBeGreaterThan(0);
+}, 20_000);
+
+it("a served topic only announces, so no lookup.done says kind=lookup", async () => {
+  const net = await createTestnet(5);
+  cleanups.push(() => net.destroy());
+  const events: P2pEvent[] = [];
+  const network = createHyperPeerNetwork({
+    bootstrap: net.bootstrap,
+    replicate: () => {},
+    log: ((event, fields = {}) => void events.push({ event, fields })) as P2pLog,
+  });
+  network.start("a".repeat(64), () => {}, 1);
+  cleanups.push(() => network.close());
+  const topic = "b".repeat(64);
+  network.join(topic, { server: true });
+  // No peer: the rediscover loop refreshes the topic at 500 ms, a second (non-first) announce.
+  network.findPeers(topic, () => false);
+  await new Promise((r) => setTimeout(r, 2500));
+  const done = events.filter((e) => e.event === "lookup.done").map((e) => e.fields.kind);
+  expect(done.filter((k) => k === "lookup")).toEqual([]);
+}, 20_000);
+
+it("a dial that opened and later dropped is not logged as a failed dial", async () => {
+  const net = await createTestnet(5);
+  cleanups.push(() => net.destroy());
+  const logs: P2pEvent[][] = [[], []];
+  const phones = logs.map((events) => {
+    const network = createHyperPeerNetwork({
+      bootstrap: net.bootstrap,
+      replicate: () => {},
+      log: ((event, fields = {}) => void events.push({ event, fields })) as P2pLog,
+    });
+    const connected = new Promise<void>((resolve) =>
+      network.start("a".repeat(64), (e: PeerEvent) => e.type === "connected" && resolve(), 1),
+    );
+    cleanups.push(() => network.close());
+    return { network, connected };
+  });
+  const topic = "b".repeat(64);
+  phones[0].network.join(topic, { server: true });
+  phones[1].network.join(topic, { server: false });
+  phones[1].network.findPeers(topic, () => false);
+  await Promise.all(phones.map((p) => p.connected));
+  await phones[0].network.close();
+  await new Promise((r) => setTimeout(r, 1000));
+  const dialer = logs[1].map((e) => e.event);
+  expect(dialer).toContain("conn.open");
+  // p2p-log.ts: "connect.error peer ms err   a dial failed". This dial did not fail.
+  expect(dialer).not.toContain("connect.error");
 }, 20_000);
