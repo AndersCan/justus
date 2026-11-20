@@ -32,6 +32,17 @@ describe("apkAddressReport", () => {
       "Ben's APK opened a TCP connection to 93.184.216.34:443",
     ]);
   });
+  it("passes a UDP connect nothing is sent on, and judges a later send by the connected address", () => {
+    const udp = (host, port) =>
+      `123 1.7 connect(11<UDP:[1]>, {sa_family=AF_INET, sin_port=htons(${port}), sin_addr=inet_addr("${host}")}, 16) = 0`;
+    const bare = (fd) => `123 1.8 sendto(${fd}<UDP:[1]>, "\\xff\\x01\\x00", 3, 0, NULL, 0) = 3`;
+    expect(apkAddressReport({ trace: `${sample}\n${udp("203.0.113.7", 9)}`, ada }).outside).toEqual(
+      [],
+    );
+    expect(
+      apkAddressReport({ trace: `${sample}\n${udp("203.0.113.7", 9)}\n${bare(11)}`, ada }).outside,
+    ).toEqual(["Ben's APK sent stream packets to 203.0.113.7:9, which is not Ada's phone"]);
+  });
   it("fails an empty record", () => {
     expect(apkAddressReport({ trace: "", ada }).outside).toEqual(["The record is empty"]);
   });
