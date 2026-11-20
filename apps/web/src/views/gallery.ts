@@ -932,7 +932,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
   `;
 }
 
-/** One line for Ben: how many photos are new in this album and, when one named person added them, who. */
+/** One line for Ben: how many photos are new in this album and who added them, most first. */
 function newPhotosLine(photos: Photo[], albumId: string) {
   return watch(seenActor, (s) => {
     const fresh = photosInScope(photos, { kind: "album", id: albumId }).filter((p) =>
@@ -940,11 +940,16 @@ function newPhotosLine(photos: Photo[], albumId: string) {
     );
     const from = newPhotosFrom(fresh);
     if (from === null) return null;
+    const [first, ...next] = from.named;
     return html`<p class="text-sm text-fg break-words" data-new-photos-line>
       ${
-        from.adder === undefined
+        first === undefined
           ? t("gallery.new_photos_count", { count: from.count })
-          : t("gallery.new_photos_from_one", { count: from.count, name: from.adder })
+          : from.more === undefined && next.length === 0
+            ? t("gallery.new_photos_from_one", { count: first.count, name: first.name })
+            : html`${t("gallery.new_from_first", { count: first.count, name: first.name })}${next.map(
+                (n) => t("gallery.new_from_next", { count: n.count, name: n.name }),
+              )}${from.more === undefined ? null : t("gallery.new_from_more", { count: from.more })}`
       }
     </p>`;
   });
