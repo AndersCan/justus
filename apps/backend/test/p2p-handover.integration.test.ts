@@ -201,6 +201,9 @@ describe("after a handover", () => {
 
     const seenByCy = await cy.store.list({ all: true });
     expect(seenByCy.some((p) => p.name === "dee.jpg")).toBe(false);
+    const onCy = (await cy.store.folders()).folders[0]!;
+    expect(onCy.shareKey).not.toBe(newKey);
+    expect(onCy.notice?.kind).toBe("removed");
 
     await dee.stop();
     const deeAgain = await net.peer("Dee", dee.storageDir);
