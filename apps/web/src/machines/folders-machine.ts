@@ -540,19 +540,22 @@ export const foldersMachine = machine("folders", {
         /** The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine. */
         m.on(loadingAlbums, {
           event: loaded,
-          to: [showingAlbums],
+          to: [showingAlbums, couldNotSaveName],
           handler: (e, opts) => {
+            const before = opts.context.get();
+            const nameFailed = before.reloadAfterName && before.error !== null;
             opts.context.set({
-              ...opts.context.get(),
+              ...before,
               folders: e.payload.folders,
               asks: e.payload.asks,
               offers: e.payload.offers,
               archived: e.payload.archived ?? [],
               deleted: e.payload.deleted ?? [],
               activeId: e.payload.activeId,
-              error: null,
+              reloadAfterName: false,
+              error: nameFailed ? before.error : null,
             });
-            return { state: showingAlbums };
+            return { state: nameFailed ? couldNotSaveName : showingAlbums };
           },
         });
         /** Loading failed: an error is shown with a way to try again. */
@@ -766,13 +769,19 @@ export const foldersMachine = machine("folders", {
             };
           },
         });
-        /** Saving the name failed: the old name stays and the person sees why. */
+        /** Saving the name failed: the old name stays and the person sees why; a list load the Save interrupted runs again first. */
         m.on(savingName, {
           event: renameFailed,
-          to: [couldNotSaveName],
+          to: [couldNotSaveName, loadingAlbums],
           handler: (e, opts) => {
-            opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-            return { state: couldNotSaveName };
+            const reload = opts.context.get().reloadAfterName;
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              reloadAfterName: reload,
+              error: e.payload.message,
+            });
+            return { state: reload ? loadingAlbums : couldNotSaveName };
           },
         });
 
