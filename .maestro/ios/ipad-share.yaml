@@ -53,9 +53,10 @@ appId: no.cankode.justus
       id: "ActivityListView"
     timeout: 15000
 - takeScreenshot: ipad-share-sheet
-# A tap outside the centred popover closes it; the page must still be there afterwards.
+# A tap outside the centred popover closes it; the page must still be there afterwards. The tap on
+# Send invite link made a link, so the panel now offers "Make a new link" instead.
 - tapOn:
     point: "50%,5%"
-- extendedWaitUntil:
-    visible: "Send invite link"
+- scrollUntilVisible:
+    element: "Make a new link"
     timeout: 15000
