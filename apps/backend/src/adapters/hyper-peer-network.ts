@@ -27,19 +27,36 @@ function watchSwarm(swarm: any, log: P2pLog) {
     const startedAt = Date.now();
     let err: unknown;
     log("connect.attempt", { peer });
-    conn.on("error", (e: unknown) => {
+    const onError = (e: unknown) => {
       err = e;
       log("connect.error", { peer, ms: Date.now() - startedAt, err: errText(e) });
-    });
-    conn.on("close", () => {
+    };
+    const onClose = () => {
       if (!err) log("connect.close", { peer, ms: Date.now() - startedAt });
+    };
+    conn.on("error", onError);
+    conn.on("close", onClose);
+    // Once open the dial is over: a later drop is `conn.close`, not a failed dial.
+    conn.once("open", () => {
+      log("connect.open", { peer, ms: Date.now() - startedAt });
+      conn.off("error", onError);
+      conn.off("close", onClose);
     });
     return conn;
   };
+  /** `dht.announce` runs `dht.lookup` inside it: that inner call is the announce, not a lookup. */
+  let announcing = false;
   const query = (name: "lookup" | "announce") => {
     const original = dht[name].bind(dht);
     dht[name] = (topic: Uint8Array, ...rest: unknown[]) => {
-      const q = original(topic, ...rest);
+      if (name === "lookup" && announcing) return original(topic, ...rest);
+      if (name === "announce") announcing = true;
+      let q: any;
+      try {
+        q = original(topic, ...rest);
+      } finally {
+        if (name === "announce") announcing = false;
+      }
       const hex = Buffer.from(topic).toString("hex");
       const startedAt = Date.now();
       peersSeen.set(hex, 0);
