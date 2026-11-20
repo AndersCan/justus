@@ -77,6 +77,16 @@ describe("friends machine", () => {
     spy.mockRestore();
   });
 
+  test("OPEN without a friend target after a failed load keeps the sheet closed", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { actor, port } = await setup({ list: async () => [new Error("disk"), null] });
+    actor.send({ type: "OPEN", payload: { photo: { id: "p1" }, within: [] } } as never);
+    await actor.settled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(port.words).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   test("OPEN is ignored while loading", () => {
     const port = { list: vi.fn(() => new Promise(() => {})), add: vi.fn() };
     const actor = friendsMachine.create({ port: port as unknown as FriendsPort });

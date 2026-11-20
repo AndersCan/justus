@@ -144,8 +144,10 @@ export const friendsMachine = machine("friends", {
         /** The person taps a member and the friend sheet opens for them. */
         m.on(friendSheetClosed, {
           event: open,
-          to: [showingMember],
+          to: [showingMember, friendSheetClosed],
           handler: (e, opts) => {
+            // An OPEN meant for another machine carries no friend to show.
+            if (e.payload?.target === undefined) return { state: friendSheetClosed };
             opts.context.set({ ...opts.context.get(), error: null });
             return { state: showingMember.create(e.payload.target) };
           },
