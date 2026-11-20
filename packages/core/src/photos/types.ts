@@ -183,7 +183,7 @@ export type DeletedAlbum = {
 };
 
 /** Why an invite link stopped working for an ask, as the Admin's phone said. Missing: an older Admin's phone, or a code retired before reasons were kept. */
-export type LinkOffWhy = "expired" | "turnedOff" | "replaced" | "albumDeleted";
+export type LinkOffWhy = "expired" | "turnedOff" | "replaced" | "albumDeleted" | "ended";
 
 /** A request to join an album, made through an invite code and not yet
  * answered with the key (waiting) or answered no (declined). */

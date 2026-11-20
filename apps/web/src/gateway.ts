@@ -99,6 +99,8 @@ export const gateway = {
   respond: (folderId: string, requesterKey: string, approve: boolean, role?: "reader" | "member") =>
     invoke(photoEvents.photos.respond(folderId, requesterKey, approve, role)),
   turnOffInvite: (folderId: string) => invoke(photoEvents.photos.turnOffInvite(folderId)),
+  endInviteLink: (folderId: string, endsAt: number) =>
+    invoke(photoEvents.photos.endInviteLink(folderId, endsAt)),
   saveInviteLink: (folderId: string, expiresAt: number) =>
     invoke(photoEvents.photos.saveInviteLink(folderId, expiresAt)),
   /** Admin only: takes back the invite sent to one saved friend. */

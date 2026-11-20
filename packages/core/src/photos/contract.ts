@@ -207,7 +207,7 @@ export const askSummarySchema = s.object({
   ownerName: s.string,
   askedAt: s.number,
   status: s.oneOf("waiting", "declined", "linkOff"),
-  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted")),
+  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted", "ended")),
   closed: s.optional(s.boolean),
   checkCode: s.optional(s.string),
   whoMustUpdate: s.optional(s.oneOf("you")),
@@ -272,7 +272,7 @@ export const photoChangedSchema = s.object({
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
   answer: s.optional(s.oneOf("accepted", "declined", "linkOff")),
-  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted")),
+  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted", "ended")),
   role: s.optional(
     s.object({
       from: s.oneOf("member", "reader", "creator"),
@@ -341,6 +341,7 @@ export const photoResultSchemas = {
   "photos.linkTurnedOff": s.object({ turnedOff: s.boolean }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
   "photos.saveInviteLink": s.object({ ok: s.boolean }),
+  "photos.endInviteLink": s.object({ ok: s.boolean }),
 } as const;
 
 /** Validates an invoke result; returns a message naming the field, or null. */

@@ -395,15 +395,36 @@ export type LinkTime = {
   to: number;
   /** The name of the Admin who made the link; set only on links a new Admin inherited. */
   by?: string;
+  /** When the Admin ended this link (ms). An ended link turns away every ask made with it. */
+  ended?: number;
 };
 
 /** How far apart two phones' clocks may be. */
 export const CLOCK_SLACK_MS = 10 * 60_000;
 
-/** True when no link times are known (albums from before this), or `at` falls in one, with slack. */
-export function inLinkTime(links: readonly LinkTime[] | undefined, at: number): boolean {
-  if (!links || links.length === 0) return true;
-  return links.some((l) => l.from - CLOCK_SLACK_MS <= at && at <= l.to + CLOCK_SLACK_MS);
+/** Whether an ask may reach the Admin, by the link it came through. */
+export type AskLinkState = "works" | "ended" | "expired";
+
+function inWindow(l: LinkTime, at: number): boolean {
+  return l.from - CLOCK_SLACK_MS <= at && at <= l.to + CLOCK_SLACK_MS;
+}
+
+/** Whether an ask made at `at` through the link ending at `linkEnd` may reach the Admin.
+ * No link times (albums from before them) let everything through. An ask that names a link
+ * judges by that link alone; one that names none (older builds) by any window it falls in. */
+export function askLinkState(
+  links: readonly LinkTime[] | undefined,
+  ask: { at: number; linkEnd?: number },
+): AskLinkState {
+  if (!links || links.length === 0) return "works";
+  if (ask.linkEnd !== undefined) {
+    const w = links.find((l) => l.to === ask.linkEnd);
+    if (!w) return "expired";
+    if (w.ended !== undefined) return "ended";
+    return inWindow(w, ask.at) ? "works" : "expired";
+  }
+  if (links.some((l) => l.ended === undefined && inWindow(l, ask.at))) return "works";
+  return links.some((l) => inWindow(l, ask.at)) ? "ended" : "expired";
 }
 
 export function invitesAsked(text: string): Array<{ code: string; requestedAt: number }> {
@@ -441,7 +462,11 @@ export type Answer =
 /** True for the four reasons a link can stop working. */
 export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
   return (
-    value === "expired" || value === "turnedOff" || value === "replaced" || value === "albumDeleted"
+    value === "expired" ||
+    value === "turnedOff" ||
+    value === "replaced" ||
+    value === "albumDeleted" ||
+    value === "ended"
   );
 }
 
@@ -750,11 +775,12 @@ function parseLinkTimes(value: unknown): LinkTime[] | undefined {
     if (!isTextJSON(raw)) return undefined;
     if (typeof raw.from !== "number" || !Number.isFinite(raw.from)) return undefined;
     if (typeof raw.to !== "number" || !Number.isFinite(raw.to)) return undefined;
-    out.push(
-      typeof raw.by === "string"
-        ? { from: raw.from, to: raw.to, by: peerName(raw.by, DEFAULT_ASK_OWNER) }
-        : { from: raw.from, to: raw.to },
-    );
+    out.push({
+      from: raw.from,
+      to: raw.to,
+      ...(typeof raw.by === "string" ? { by: peerName(raw.by, DEFAULT_ASK_OWNER) } : {}),
+      ...(typeof raw.ended === "number" && Number.isFinite(raw.ended) ? { ended: raw.ended } : {}),
+    });
   }
   return out;
 }

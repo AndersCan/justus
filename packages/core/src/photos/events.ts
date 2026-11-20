@@ -175,6 +175,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; expiresAt: number },
     result: {} as { ok: boolean },
   },
+  endInviteLink: {
+    pluginId: "justus.photos",
+    name: "photos.endInviteLink",
+    args: {} as { folderId: string; endsAt: number },
+    result: {} as { ok: boolean },
+  },
   offerAlbum: {
     pluginId: "justus.photos",
     name: "photos.offerAlbum",
@@ -438,6 +444,21 @@ export const photoEvents = {
       { invite: { code: string; owner: string } }
     > {
       return invokeEvent(photoSpecs.turnOffInvite, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    endInviteLink(
+      folderId: string,
+      endsAt: number,
+    ): InvokeEnvelope<
+      "photos.endInviteLink",
+      { folderId: string; endsAt: number },
+      { ok: boolean }
+    > {
+      return invokeEvent(
+        photoSpecs.endInviteLink,
+        { folderId, endsAt },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
     saveInviteLink(
       folderId: string,

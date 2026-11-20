@@ -17,7 +17,7 @@ import {
   parseRemoved,
   parseRequestsFile,
   invitesAsked,
-  inLinkTime,
+  askLinkState,
   CLOCK_SLACK_MS,
   parseViewers,
   peerName,
@@ -558,20 +558,15 @@ describe("linkOff answers", () => {
     }
   });
 
-  test("inLinkTime: no windows count as on time; slack edges and gaps", () => {
-    const links = [
-      { from: 1_000_000, to: 2_000_000 },
-      { from: 9_000_000, to: 9_500_000 },
-    ];
-    expect(inLinkTime(undefined, 5)).toBe(true);
-    expect(inLinkTime([], 5)).toBe(true);
-    expect(inLinkTime(links, 1_500_000)).toBe(true);
-    expect(inLinkTime(links, 2_000_000 + CLOCK_SLACK_MS)).toBe(true);
-    expect(inLinkTime(links, 2_000_000 + CLOCK_SLACK_MS + 1)).toBe(false);
-    expect(inLinkTime(links, 1_000_000 - CLOCK_SLACK_MS)).toBe(true);
-    expect(inLinkTime(links, 1_000_000 - CLOCK_SLACK_MS - 1)).toBe(false);
-    expect(inLinkTime(links, 5_000_000)).toBe(false);
-    expect(inLinkTime(links, 9_200_000)).toBe(true);
+  test("askLinkState: the named link decides; ended wins over another live link", () => {
+    const w = { from: 1_000_000, to: 2_000_000 };
+    const ended = { ...w, ended: 1_600_000 };
+    const other = { from: 1_000_000, to: 5_000_000 };
+    expect(askLinkState(undefined, { at: 5, linkEnd: 9 })).toBe("works");
+    expect(askLinkState([ended, other], { at: 1_500_000, linkEnd: 2_000_000 })).toBe("ended");
+    expect(askLinkState([w], { at: 1_500_000, linkEnd: 3_000_000 })).toBe("expired");
+    // No link end on the ask: the time rule, and ending every link does not open the album.
+    expect(askLinkState([ended, other], { at: 1_500_000 })).toBe("works");
   });
 
   test("invitesAsked lists invite entries and skips the rest", () => {
@@ -832,6 +827,23 @@ describe("handover messages", () => {
         chains: { [KEY_A]: [proof], [ID]: [proof] },
       },
     });
+  });
+  test("handover keeps when a link was ended, and drops an ended that is not a number", () => {
+    const parsed = parseHandoverPackage(
+      pkg({
+        invite: {
+          code: KEY_A,
+          links: [
+            { from: 1, to: 2, ended: 5 },
+            { from: 3, to: 4, ended: "x" },
+          ],
+        },
+      }),
+    );
+    expect(parsed?.invite.links).toEqual([
+      { from: 1, to: 2, ended: 5 },
+      { from: 3, to: 4 },
+    ]);
   });
   test("a package may be just a code and its chain", () => {
     expect(parseHandoverPackage({ invite: { code: KEY_A }, chains: { [KEY_A]: [proof] } })).toEqual(

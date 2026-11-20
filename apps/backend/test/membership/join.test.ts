@@ -910,14 +910,23 @@ describe("pendingJoinRequests names the link", () => {
     for (const rows of [
       list({}),
       list({}, [A]),
-      list({ linkEnd: B.to + 1000 }),
-      list({ linkEnd: B.to, requestedAt: A.from + 1000 }),
-      list({ linkEnd: B.to, requestedAt: B.to + 20 * 60_000 }),
       list({ linkEnd: B.to, held: true }),
       list({ linkEnd: B.to, viaInvite: false }),
     ]) {
       expect(rows).toHaveLength(1);
       expect(rows[0]).not.toHaveProperty("link");
     }
+  });
+
+  it("does not list an ask whose link end matches no window, or that falls outside its window", () => {
+    expect(list({ linkEnd: B.to + 1000 })).toHaveLength(0);
+    expect(list({ linkEnd: B.to, requestedAt: A.from + 1000 })).toHaveLength(0);
+    expect(list({ linkEnd: B.to, requestedAt: B.to + 20 * 60_000 })).toHaveLength(0);
+  });
+
+  it("does not list an ask made with an ended link, even one made before the end", () => {
+    const ended = [A, { ...B, ended: B.to - 1 }];
+    expect(list({ linkEnd: B.to }, ended)).toHaveLength(0);
+    expect(list({ linkEnd: A.to }, ended)).toHaveLength(1);
   });
 });
