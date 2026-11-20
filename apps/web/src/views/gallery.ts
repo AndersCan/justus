@@ -1,5 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit-html";
 import { arrivalFocus } from "./arrival-focus";
+import { takenMonthLine } from "./taken-month";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import type { FolderSummary, JoinRequest, Photo, SyncMember, SyncStatus } from "@justus/core";
@@ -431,11 +432,14 @@ function photoTimeline(
       <div class="mt-6 first:mt-0">
         <h2
           data-motion-key=${"group:" + group.label}
-          class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg"
+          data-photo-group=${group.label}
+          tabindex="-1"
+          class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg outline-none"
         >
           <span>${group.label}</span>
           <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
+        ${sort === "added" ? takenMonthLine(group) : nothing}
         <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
           ${repeat(group.photos, photoKey, (p) =>
             photoTile(p, ordered, members === undefined ? undefined : tileAdder(p, members), scope),

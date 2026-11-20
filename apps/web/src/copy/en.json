@@ -2302,6 +2302,13 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.taken_in_month": {
+    "text": "{count} taken in {month}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
   "gallery.date_taken": {
     "text": "Date taken",
     "status": "draft",
