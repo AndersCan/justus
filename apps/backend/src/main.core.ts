@@ -138,7 +138,9 @@ runtime.pluginRegistry.register(
 // Local only, so a file in `storageDir` (not localStorage: the web origin's
 // port can change, the desktop host falls back to a random one when its fixed
 // port is taken).
-runtime.pluginRegistry.register(createFriendsPlugin({ store: friendsStore }));
+runtime.pluginRegistry.register(
+  createFriendsPlugin({ store: friendsStore, ownIdentity: () => store.identity(), crypto }),
+);
 
 // Per-device seen file: which album was used last and which photos this phone
 // knows. Local only, in `storageDir` for the same reason as the friends file.
