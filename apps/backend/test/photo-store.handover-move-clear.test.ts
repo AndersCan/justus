@@ -106,4 +106,45 @@ describe("a handed Admin who removes someone", () => {
     expect(a.holders!.others.map((m: { key: string }) => m.key)).not.toContain(s.adaKey);
     for (const p of [s.ada, s.cy, s.ben]) await p.store.close();
   }, 60_000);
+  it("keeps Ada's photos on her drive when her copy is incomplete", async () => {
+    const logs: Ev[] = [];
+    const s = await handedThenRemove(logs);
+    const [, adaDrive] = await s.ben.deps.drives.open(s.adaKey, { timeoutMs: 2_000 });
+    const real = adaDrive!.download.bind(adaDrive);
+    adaDrive!.download = async () => "timedOut";
+    expect((await s.ben.store.removeMember(s.benFolder, s.cyKey))[0]).toBeNull();
+    await sleep(1500);
+    adaDrive!.download = real;
+    expect(logs.find((e) => e.event === "move.start")?.fields.kept).toBe(1);
+    const got: string[] = [];
+    for await (const e of adaDrive!.list("/photos", { wait: false })) {
+      got.push(await adaDrive!.download(e.path, { timeoutMs: 500 }));
+    }
+    expect(got, "Ada's drive is still the album's source, so its bytes stay").toEqual(["here"]);
+    for (const p of [s.ada, s.cy, s.ben]) await p.store.close();
+  }, 60_000);
+
+  it("clears Ada's old drive at the next start when the Remove's clear was cut short", async () => {
+    const s = await handedThenRemove([]);
+    const [, adaDrive] = await s.ben.deps.drives.open(s.adaKey, { timeoutMs: 2_000 });
+    // The Remove's clear of Ada's drive fails, as if the phone stopped first.
+    adaDrive!.clear = async () => {
+      throw new Error("stopped");
+    };
+    expect((await s.ben.store.removeMember(s.benFolder, s.cyKey))[0]).toBeNull();
+    await sleep(500);
+    for (const p of [s.ada, s.cy, s.ben]) await p.store.close();
+    const rdeps = restarted(s.ben.deps);
+    const back = createPhotoStore(rdeps);
+    await back.ready();
+    await sleep(1500);
+    const [, old] = await rdeps.drives.open(s.adaKey, { timeoutMs: 2_000 });
+    const got: string[] = [];
+    for await (const e of old!.list("/photos", { wait: false })) {
+      got.push(await old!.download(e.path, { timeoutMs: 500 }));
+    }
+    expect(got.length).toBeGreaterThan(0);
+    expect(got).not.toContain("here");
+    await back.close();
+  }, 60_000);
 });

@@ -40,6 +40,8 @@ describe("a handed Admin who removes someone", () => {
       return m.length === 3 && m.every((x: { identity?: string }) => x.identity !== undefined);
     });
     const benFolder = (await trip(ben)).id;
+    const [adaAdd] = await ada.store.addBytes("a.jpg", new Uint8Array([9, 9, 9]), folderId);
+    expect(adaAdd).toBeNull();
     const [addErr] = await ben.store.addBytes("b.jpg", new Uint8Array([1, 2, 3, 4]), benFolder);
     expect(addErr).toBeNull();
     expect((await ada.store.handOver(folderId, benKey))[0]).toBeNull();
@@ -50,13 +52,28 @@ describe("a handed Admin who removes someone", () => {
     setFakeNodeConnected({ hub, node: cy.node, connected: false });
     expect((await ben.store.removeMember(benFolder, cyKey))[0]).toBeNull();
     await sleep(1500);
+    const [, adaNow] = await ben.deps.drives.open(shareKey, { timeoutMs: 2_000 });
+    for await (const e of adaNow!.list("/photos", { wait: false })) {
+      expect(await adaNow!.download(e.path, { timeoutMs: 300 }), "cleared at the Remove").not.toBe(
+        "here",
+      );
+    }
     for (const p of [ada, cy]) await p.store.close();
     await ben.store.close();
 
     const rdeps = restarted(ben.deps);
     const back = createPhotoStore(rdeps);
     await back.ready();
-    expect((await back.list({ all: true })).map((p) => p.name)).toEqual(["b.jpg"]);
+    const listed = await back.list({ all: true });
+    expect(listed.map((p) => p.name).sort()).toEqual(["a.jpg", "b.jpg"]);
+    expect(listed.find((p) => p.name === "a.jpg")?.member.name).toBe("Ada");
+    // Ada's photos moved to a drive of their own: her old drive no longer holds the bytes here.
+    const [, adaOld] = await rdeps.drives.open(shareKey, { timeoutMs: 2_000 });
+    for await (const e of adaOld!.list("/photos", { wait: false })) {
+      expect(await adaOld!.download(e.path, { timeoutMs: 300 }), "Ada's old drive").not.toBe(
+        "here",
+      );
+    }
     const fdKey = (back.debugState() as { folders: Array<{ folderDrive: { key: string } }> })
       .folders[0]!.folderDrive.key;
     expect(fdKey).toBe((await back.folders()).folders[0]!.shareKey);

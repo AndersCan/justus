@@ -30,7 +30,12 @@ export type MovedAlbum = {
   invite: { code: string };
   earlier: EarlierEntry[];
   moves: number;
+  /** The drives of the Admins before this phone, after the move: each a copy on a drive of its own, or the original when the copy was incomplete. */
+  earlierAdmins: string[];
 };
+
+/** How long a missing earlier-Admin photo is waited for before the original stays a source. */
+const EARLIER_ADMIN_COPY_MS = 5_000;
 
 export async function moveAlbum(
   ports: Pick<AlbumPorts, "log"> & { drives: DriveStore },
@@ -43,10 +48,13 @@ export async function moveAlbum(
     removedKey: string;
     device: (driveKey: string) => Promise<Uint8Array>;
     inviteCode: string;
+    /** Drives of the Admins before this phone, whose photos move to a drive of their own. */
+    earlierAdmins?: { drive: Drive }[];
   },
 ): Promise<AlbumResult<MovedAlbum>> {
   const { drives, log } = ports;
   const { record, oldDrive, remaining, removedKey, device, inviteCode } = options;
+  const pastAdmins = options.earlierAdmins ?? [];
   const moves = (record.moves ?? 0) + 1;
   let fresh: Drive | null = null;
   try {
@@ -56,8 +64,35 @@ export async function moveAlbum(
     await copyHeld(oldDrive, target);
     await copyFormer(oldDrive, target);
 
+    const removedAll = parseRemoved(await readRecord(oldDrive, { path: "/removed.json", log }));
+    const adminKeys: string[] = [];
+    const copies = new Map<string, string>();
+    for (const [i, past] of pastAdmins.entries()) {
+      const prefix = `${past.drive.key}:`;
+      const removedIds = new Set(
+        Object.keys(removedAll)
+          .filter((k) => k.startsWith(prefix))
+          .map((k) => k.slice(prefix.length)),
+      );
+      const copy = await drives.openOwn(`folder/${record.id}/m${moves}/a${i}`);
+      try {
+        const [copyErr] = await copyEarlierAdmin(past.drive, copy, removedIds);
+        if (copyErr) {
+          adminKeys.push(past.drive.key);
+          continue;
+        }
+        adminKeys.push(copy.key);
+        copies.set(past.drive.key, copy.key);
+      } finally {
+        await drives.release(copy).catch(() => {});
+      }
+    }
+
     const sources = new Map<string, EarlierEntry>();
-    for (const e of record.earlier ?? []) sources.set(e.key, { key: e.key, name: e.name });
+    for (const e of record.earlier ?? []) {
+      const key = copies.get(e.key) ?? e.key;
+      sources.set(key, { key, name: e.name });
+    }
     for (const m of Object.values(remaining.members)) {
       sources.set(m.key, { key: m.key, name: m.name });
     }
@@ -70,9 +105,7 @@ export async function moveAlbum(
 
     const keys = new Set(earlier.map((e) => e.key));
     const removed = Object.fromEntries(
-      Object.entries(
-        parseRemoved(await readRecord(oldDrive, { path: "/removed.json", log })),
-      ).filter(([id]) => keys.has(id.split(":")[0])),
+      Object.entries(removedAll).filter(([id]) => keys.has(id.split(":")[0])),
     );
     const earlierFile: EarlierFile = { version: 1, earlier };
     await target.put("/device.json", await device(target.key));
@@ -93,6 +126,7 @@ export async function moveAlbum(
         invite: { code: inviteCode },
         earlier,
         moves,
+        earlierAdmins: adminKeys,
       },
     ];
   } catch (thrown: unknown) {
@@ -103,6 +137,33 @@ export async function moveAlbum(
     } catch {
       // already closed
     }
+  }
+}
+
+/**
+ * Copies an earlier Admin's photos and thumbnails, except the album's removed ones, onto `to`.
+ * Each file is downloaded first, since a read of a missing block waits forever. The first file
+ * that is not here makes the copy incomplete.
+ */
+export async function copyEarlierAdmin(
+  from: Drive,
+  to: Drive,
+  removedIds: ReadonlySet<string>,
+): Promise<AlbumResult<true>> {
+  try {
+    for (const dir of ["/photos", "/thumbs"]) {
+      for await (const entry of from.list(dir)) {
+        if (removedIds.has(idOfPath(entry.path))) continue;
+        const found = await from.download(entry.path, { timeoutMs: EARLIER_ADMIN_COPY_MS });
+        if (found !== "here") return [{ kind: "copy-incomplete", message: entry.path }, null];
+        const bytes = await from.readBytes(entry.path);
+        if (!bytes) return [{ kind: "copy-incomplete", message: entry.path }, null];
+        await to.put(entry.path, bytes, { metadata: entry.metadata });
+      }
+    }
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "copy-incomplete", message: errText(thrown) }, null];
   }
 }
 
