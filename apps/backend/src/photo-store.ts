@@ -5082,7 +5082,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         openPeerOutbox(owner).then(async (outbox) => {
           // The file may not have replicated yet: wait for it, but only until the timeout.
           while (!closed && Date.now() < deadline) {
-            await outbox.update();
+            // A phone that holds this drive but hangs must not keep the local copy from being read.
+            await withTimeout(
+              outbox.update().catch(() => undefined),
+              1_000,
+            );
             const device = await readText(outbox, DRIVE_PATH_DEVICE);
             if (device !== null) return device;
             await sleep(100);

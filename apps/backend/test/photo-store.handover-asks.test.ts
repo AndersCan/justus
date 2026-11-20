@@ -209,6 +209,23 @@ describe("a request made with the old Admin's link", () => {
     await s.close();
   }, 40_000);
 
+  it("re-points to Ben while another phone holding his drive hangs", async () => {
+    const s = await scene();
+    const [openErr, benDrive] = await s.cy.deps.drives.open(identityOf(s.ben), {
+      timeoutMs: 2_000,
+    });
+    expect(openErr).toBeNull();
+    await until(async () => (await benDrive!.readSmall("/device.json", 1 << 20)) !== null);
+    const update = benDrive!.update.bind(benDrive!);
+    benDrive!.update = (() => new Promise(() => undefined)) as typeof benDrive.update;
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await s.handOver();
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    expect((await s.cy.store.folders()).asks[0]!.owner).toBe(identityOf(s.ben));
+    benDrive!.update = update;
+    await s.close();
+  }, 40_000);
+
   it("is not re-pointed by a handover whose chain a phone signed itself", async () => {
     const s = await scene();
     const dan = phone(s.hub, "Dan");
