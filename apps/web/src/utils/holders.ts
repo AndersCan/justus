@@ -268,7 +268,7 @@ export function memberPhotosLine(h: MemberHolding | undefined): string {
     .join(", ");
 }
 
-/** Who holds a set of photos (the ones a person who goes added): other people's keys with a full copy or preview (quiet ones too), and how many photos no other phone has. Unknown when any photo's list is not known yet. */
+/** Who holds the photos this phone added: other people's keys with a full copy or preview (quiet ones too), and how many photos no other phone has. Unknown when any photo's list is not known yet. */
 export type LeaverHolders =
   | { kind: "unknown" }
   | { kind: "known"; keys: ReadonlySet<string>; sole: number };

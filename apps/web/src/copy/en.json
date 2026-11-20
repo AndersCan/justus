@@ -1288,7 +1288,7 @@
     "screen": ""
   },
   "album.remove_part_yours": {
-    "text": "{count} of yours",
+    "text": "{n} of your photos",
     "status": "draft",
     "where": "Album › Invite & members › Remove dialog",
     "who": "The Admin removing someone from an album",
@@ -1302,7 +1302,7 @@
     "screen": ""
   },
   "album.remove_part_added": {
-    "text": "the photos {name} added",
+    "text": "the {count} {name} added",
     "status": "draft",
     "where": "Album › Invite & members › Remove dialog",
     "who": "The Admin removing someone from an album",

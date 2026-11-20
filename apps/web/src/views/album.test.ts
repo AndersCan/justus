@@ -1402,6 +1402,7 @@ describe("album viewer rows", () => {
         photos: [
           { id: "a", folderId: "f1", mine: true, member: { key: "k0" }, holders: holders([ben]) },
           { id: "b", folderId: "f1", mine: false, member: ben, holders: holders([ben]) },
+          { id: "c", folderId: "f2", mine: false, member: ben, holders: holders([ben]) },
         ],
       },
     ] as never);
@@ -1419,7 +1420,7 @@ describe("album viewer rows", () => {
       expect(confirmAction).toHaveBeenLastCalledWith({
         title: "Remove Kimmy?",
         detail:
-          "Kimmy's phone keeps 1 photo of yours and the photos Kimmy added, and gets nothing added after. The photos Kimmy added leave the album on your phone now. Kimmy sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
+          "Kimmy's phone keeps 1 of your photos and the 1 photo Kimmy added, and gets nothing added after. The photos Kimmy added leave the album on your phone now. Kimmy sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
         confirmLabel: "Remove",
         tone: "danger",
       }),
@@ -2122,7 +2123,7 @@ describe("the Remove sheet", () => {
       photo(false, "k1", holders({ others: [hm("k2")], previews: [] })),
     ];
     expect(removeDetail({ person: ben, photos, people })).toBe(
-      "Ben's phone keeps 2 photos of yours and the photos Ben added, and gets nothing added after. The photos Ben added leave the album on your phone now. Cy loses it the next time their phone connects. Ben sees they're no longer in the album." +
+      "Ben's phone keeps 2 of your photos and the 1 photo Ben added, and gets nothing added after. The photos Ben added leave the album on your phone now. Cy loses them the next time their phone connects. Ben sees they're no longer in the album." +
         tail,
     );
   });
@@ -2130,7 +2131,7 @@ describe("the Remove sheet", () => {
   test("a Viewer's phone keeps only what it holds; none held says only that nothing is added", () => {
     const held = [photo(true, "k0", holders({ others: [hm("k1")] }))];
     expect(removeDetail({ person: ben, photos: held, people })).toBe(
-      "Ben's phone keeps 1 photo of yours, and gets nothing added after. Ben sees they're no longer in the album." +
+      "Ben's phone keeps 1 of your photos, and gets nothing added after. Ben sees they're no longer in the album." +
         tail,
     );
     const previewOnly = [photo(true, "k0", holders({ previews: [hm("k1")] }))];

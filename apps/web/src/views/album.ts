@@ -461,13 +461,13 @@ export function removeDetail(input: {
     keeps?.kind !== "known"
       ? []
       : [
-          keeps.yours > 0
-            ? copy("album.remove_part_yours", { count: photoCount(keeps.yours) })
-            : "",
+          keeps.yours > 0 ? copy("album.remove_part_yours", { n: keeps.yours }) : "",
           keeps.others > 0
             ? copy("album.remove_part_others", { count: photoCount(keeps.others) })
             : "",
-          own.length > 0 ? copy("album.remove_part_added", { name }) : "",
+          own.length > 0
+            ? copy("album.remove_part_added", { count: photoCount(own.length), name })
+            : "",
         ].filter((x) => x !== "");
   const kept =
     parts.length === 0
@@ -476,7 +476,7 @@ export function removeDetail(input: {
   const leave = own.length === 0 ? "" : copy("album.remove_added_leave_now", { name });
   const holders = leaverHolders(own);
   const named =
-    own.length === 0 || holders.kind !== "known"
+    holders.kind !== "known"
       ? []
       : people.filter((p) => !p.you && p.key !== person.key && holders.keys.has(p.key));
   const later =
@@ -485,7 +485,7 @@ export function removeDetail(input: {
       : copy("album.leave_lose_them_when_they_connect", {
           list: nameList(named.map((p) => p.name)),
           n: named.length,
-          k: own.length,
+          k: 0, // "them": the sentence before names "The photos"
         });
   return kept + leave + later + copy("album.remove_sees_and_everyone_else", { name });
 }
