@@ -130,7 +130,6 @@ describe("Settings › Friends open the sheet", () => {
     document.body.append(host);
     render(html`${friendsSection()}${friendSheetView()}`, host);
     const sam = host.querySelector<HTMLButtonElement>("[data-friend-open]")!;
-    sam.focus();
     sam.click();
     await vi.waitFor(() =>
       expect(host.querySelector("[data-friend-words]")?.textContent).toBe(
@@ -142,6 +141,50 @@ describe("Settings › Friends open the sheet", () => {
     await vi.waitFor(() =>
       expect(document.activeElement).toBe(host.querySelector("[data-friend-open]")),
     );
+  });
+
+  test("renaming re-sorts the list and focus returns to the renamed friend", async () => {
+    hoisted.gateway.list.mockResolvedValue([
+      null,
+      {
+        friends: [
+          { identity: BEN, name: "Ben" },
+          { identity: SAM, name: "Sam" },
+        ],
+      },
+    ]);
+    hoisted.gateway.words.mockResolvedValue([null, { words: "early steel produce clap" }]);
+    (hoisted.gateway as Record<string, unknown>).rename = vi.fn(async () => [
+      null,
+      { friend: { identity: SAM, name: "Abe" } },
+    ]);
+    vi.resetModules();
+    const { friendsSection } = await import("./settings");
+    const { friendSheetView } = await import("./friend-sheet");
+    const { friendsActor } = await import("../machines/friends-machine");
+    await friendsActor.settled();
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(html`${friendsSection()}${friendSheetView()}`, host);
+    const sam = () =>
+      [...host.querySelectorAll<HTMLButtonElement>("[data-friend-open]")].find(
+        (b) => b.textContent!.trim() === "Sam" || b.textContent!.trim() === "Abe",
+      )!;
+    sam().click();
+    await vi.waitFor(() => expect(host.querySelector("[data-friend-primary]")).not.toBeNull());
+    host.querySelector<HTMLButtonElement>("[data-friend-primary]")!.click();
+    const input = await vi.waitFor(() =>
+      host.querySelector<HTMLInputElement>("[data-friend-name]")!,
+    );
+    input.value = "Abe";
+    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await vi.waitFor(() =>
+      expect(
+        [...host.querySelectorAll("[data-friend-open]")].map((b) => b.textContent!.trim()),
+      ).toEqual(["Abe", "Ben"]),
+    );
+    await vi.waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe("Abe"));
   });
 
   test("name buttons are disabled while removing", async () => {
