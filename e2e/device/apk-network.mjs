@@ -22,6 +22,7 @@ export function recordApkNetwork({ adb, serial, app }) {
   // strace ends when the app process dies (Android may restart it mid-walk). Attach again to the next pid, one
   // trace file per process, so an early death is not a failed recording. TERM (not INT): background jobs ignore INT.
   const script = [
+    `trap '' HUP`,
     `rm -f ${TRACE} ${TRACE}.*`,
     `n=0; first=1; st=; stopped=`,
     `trap 'stopped=1; [ -n "$st" ] && kill -TERM $st' INT`,
@@ -37,9 +38,11 @@ export function recordApkNetwork({ adb, serial, app }) {
   let stdout = "";
   let stderr = [];
   let closed = false;
+  let exitCode = null;
   const closing = new Promise((resolve) => {
-    child.on("close", () => {
+    child.on("close", (code) => {
       closed = true;
+      exitCode = code;
       resolve();
     });
     child.on("error", (error) => {
@@ -55,7 +58,9 @@ export function recordApkNetwork({ adb, serial, app }) {
 
   async function finish() {
     const found = /recorder (\d+) (\d+)/.exec(stdout);
-    if (closed) {
+    // adb losing the emulator for a moment closes the shell with another code; the script ignores HUP and keeps
+    // recording on the device, so only a missing strace (127) or a shell that never reported a pid is an early stop.
+    if (closed && (exitCode === 127 || !found)) {
       return {
         trace: "",
         pid: 0,
@@ -74,6 +79,16 @@ export function recordApkNetwork({ adb, serial, app }) {
     }, 10_000);
     await closing;
     clearTimeout(timer);
+    for (let i = 0; i < 50; i++) {
+      const up = await adbText({
+        adb,
+        serial,
+        args: ["shell", `kill -0 ${tracer} 2>/dev/null && echo up`],
+      });
+      if (up !== "up") break;
+      if (i === 49) await adbText({ adb, serial, args: ["shell", `kill -KILL ${tracer}`] });
+      else await new Promise((resolve) => setTimeout(resolve, 200));
+    }
     const trace = await adbText({
       adb,
       serial,

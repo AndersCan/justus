@@ -35,12 +35,14 @@ FAKE=${fake}
 shift 2
 case "$*" in
   "shell kill "*) $2 ;;
-  "exec-out sh -c cat "*) if ls "$FAKE"/justus-net.trace.* >/dev/null 2>&1; then cat "$FAKE"/justus-net.trace.*; else printf 'bind(7<UDP:[0.0.0.0:0]>)\\n'; fi ;;
+  "exec-out sh -c cat "*) if ls "$FAKE"/justus-net.trace.* >/dev/null 2>&1; then sh -c "\${4//\\/data\\/local\\/tmp/$FAKE}"; else printf 'bind(7<UDP:[0.0.0.0:0]>)\\n'; fi ;;
   *)
     case ${mode} in
       missing) echo "recorder $$ 200"; echo "/system/bin/sh: strace: inaccessible or not found" >&2; exit 127 ;;
       never) exec sleep 30 ;;
       restarts) FAKE=${fake} PATH="${fake}/bin:$PATH" bash -c "\${2//\\/data\\/local\\/tmp/${fake}}" ;;
+      nostrace) rm "$FAKE"/bin/strace; PATH="$FAKE/bin:/usr/bin:/bin" sh -c "\${2//\\/data\\/local\\/tmp/$FAKE}" ;;
+      offline) echo "recorder $$ 200"; sleep 0.3; echo "error: device offline" >&2; exit 1 ;;
       records) echo "recorder $$ 200"; trap 'exit 0' INT; while :; do sleep 0.05; done ;;
     esac ;;
 esac
@@ -76,6 +78,17 @@ describe("recordApkNetwork", () => {
     expect(seen.error).toBe("");
     expect(seen.trace).toContain("bind(100)");
     expect(seen.trace).toContain("bind(101)");
+  });
+  it("returns an error when the recorder script cannot find strace", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("nostrace"), serial: "s", app: "a" });
+    await settle();
+    const seen = await recorder.stop();
+    expect(seen.error).toMatch(/^the recorder stopped early: .*strace.*not found/);
+  });
+  it("still records when the adb connection drops for a moment (run 44670220846: device offline before step 11)", async () => {
+    const recorder = recordApkNetwork({ adb: stubAdb("offline"), serial: "s", app: "a" });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect((await recorder.stop()).error).toBe("");
   });
   it("returns the same record when stopped twice", async () => {
     const recorder = recordApkNetwork({ adb: stubAdb("records"), serial: "s", app: "a" });
