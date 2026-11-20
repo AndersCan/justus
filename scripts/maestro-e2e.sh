@@ -206,6 +206,7 @@ if ! "$ADB" -s "$SERIAL" install "$REPO_ROOT/$APK"; then
   exit 1
 fi
 echo "✓ APK installed."
+"$ADB" -s "$SERIAL" shell settings put secure autofill_service null
 # Keep the screen awake so it never sleeps into a keyguard.
 "$ADB" -s "$SERIAL" shell svc power stayon true || true
 
