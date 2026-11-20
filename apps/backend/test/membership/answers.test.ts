@@ -192,6 +192,16 @@ describe("answers: what is owed", () => {
     ]);
   });
 
+  it("owed: adminDrive rides only on a chain that starts at the album's key", () => {
+    const b = hex("b");
+    expect(answersOwed([album({ adminChain: [SHARE, hex("1")] })], b)).toEqual([
+      { code: CODE, answer: "accepted", shareKey: SHARE, adminDrive: hex("1") },
+    ]);
+    expect(answersOwed([album({ adminChain: [hex("a"), hex("1")] })], b)).toEqual([
+      { code: CODE, answer: "accepted", shareKey: SHARE },
+    ]);
+  });
+
   it("owed: movedFrom rides on every accepted answer, never on a declined one", () => {
     const b = hex("b");
     const movedFrom = [hex("d"), hex("e")];

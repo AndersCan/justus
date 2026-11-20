@@ -85,7 +85,7 @@ export type OwingAlbum = {
   role?: string;
   name: string;
   shareKey: string;
-  /** Drives that held the lists, first Admin's first; longer than one once the album was handed on. */
+  /** Drives that held the lists, first Admin's first; longer than one once the album was handed on. Only a chain that starts at `shareKey` names a drive in an answer. */
   adminChain?: readonly string[];
   invite?: { code: string; links?: readonly LinkTime[] };
   /** Identities with an open friend invite: never turned away by link times. */
@@ -166,7 +166,9 @@ export function answersOwed(
             answer,
             shareKey: album.shareKey,
             ...(album.movedFrom?.length ? { movedFrom: [...album.movedFrom] } : {}),
-            ...(album.adminChain && album.adminChain.length > 1
+            ...(album.adminChain &&
+            album.adminChain.length > 1 &&
+            album.adminChain[0] === album.shareKey
               ? { adminDrive: album.adminChain[album.adminChain.length - 1] }
               : {}),
           });
