@@ -89,7 +89,6 @@ const turningOff = state("turningOff")<{
 /** The owner confirmed ending one link; `before` is the link shown until then, if any. */
 const endingLink = state("endingLink")<{
   folderId: string;
-  madeAt: number;
   endsAt: number;
   before?: { expiresAt: number; code: string };
 }>();
@@ -117,8 +116,6 @@ export const makeNewLink = event("makeNewLink")<{
 export const endLink = event("endLink")<{
   /** The album the link belongs to. */
   folderId: string;
-  /** When the link was made, for its name. */
-  madeAt: number;
   /** When the link ends; names the link. */
   endsAt: number;
 }>();
@@ -159,7 +156,7 @@ const linkTurnedOff = event("linkTurnedOff")<{ folderId: string }>();
 /** Tells the owner the link could not be made. */
 const linkNotSaved = event("linkNotSaved")();
 /** Tells the owner the link was ended. */
-const linkEnded = event("linkEnded")<{ folderId: string; madeAt: number; endsAt: number }>();
+const linkEnded = event("linkEnded")<{ folderId: string; endsAt: number }>();
 /** Tells the owner the link could not be ended. */
 const endLinkFailed = event("endLinkFailed")<{ folderId: string }>();
 /** Tells the owner the links could not be turned off. */
@@ -174,7 +171,7 @@ function msUntil(expiresAt: number, now: number): number {
 /** The end of a link made now: a whole second, and not the end the previous link got, so two links made together stay two. */
 function endFor(now: number, validFor: ValidFor, lastExpiresAt: number): number {
   const end = Math.floor((now + VALID_FOR_MS[validFor]) / 1000) * 1000;
-  return end === lastExpiresAt ? end + 1000 : end;
+  return end <= lastExpiresAt && lastExpiresAt - end < 60_000 ? lastExpiresAt + 1000 : end;
 }
 
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
@@ -273,6 +270,7 @@ export const inviteLinkMachine = machine("inviteLink", {
             return startSaving(e.payload, context);
           },
         });
+        /** The owner makes another link while one is shown. */
         m.on(linkMade, {
           event: makeNewLink,
           to: [savingLinkTime],
@@ -290,6 +288,7 @@ export const inviteLinkMachine = machine("inviteLink", {
             return { state: endingLink.create(e.payload) };
           },
         });
+        /** The owner ends a link while one is shown. */
         m.on(linkMade, {
           event: endLink,
           to: [endingLink],
@@ -318,16 +317,15 @@ export const inviteLinkMachine = machine("inviteLink", {
           event: oneLinkEnded,
           to: [noLinkYet, linkMade],
           handler: (_e, { state }) => {
-            const { folderId, madeAt, endsAt, before } = state.payload as {
+            const { folderId, endsAt, before } = state.payload as {
               folderId: string;
-              madeAt: number;
               endsAt: number;
               before?: { expiresAt: number; code: string };
             };
             const keep = before !== undefined && before.expiresAt !== endsAt;
             return {
               state: keep ? linkMade.create(before) : noLinkYet,
-              emit: [linkEnded.create({ folderId, madeAt, endsAt })],
+              emit: [linkEnded.create({ folderId, endsAt })],
             };
           },
         });

@@ -835,7 +835,7 @@ test("Ada ends one of her links", async () => {
   const actor = make.create({ clock: VirtualClock() });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();
-  actor.send({ type: "endLink", payload: { folderId: FOLDER, madeAt: 0, endsAt: 5000 } });
+  actor.send({ type: "endLink", payload: { folderId: FOLDER, endsAt: 5000 } });
   await actor.settled();
   expect(actor.state.name).toBe("linkMade");
 });
@@ -844,7 +844,7 @@ test("Ending a link fails and it stays", async () => {
   const actor = make.create({ clock: VirtualClock(), port: endingPort([], true) });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();
-  actor.send({ type: "endLink", payload: { folderId: FOLDER, madeAt: 0, endsAt: 5000 } });
+  actor.send({ type: "endLink", payload: { folderId: FOLDER, endsAt: 5000 } });
   await actor.settled();
   expect(actor.state.name).toBe("linkMade");
 });
@@ -853,7 +853,7 @@ const designPayloads = {
   chooseLinkTime: [{ validFor: "10m" }, { validFor: "1h" }, { validFor: "1d" }, { validFor: "7d" }],
   createLink: [{ folderId: FOLDER, code: CODE }],
   makeNewLink: [{ folderId: FOLDER, code: CODE }],
-  endLink: [{ folderId: FOLDER, madeAt: 0, endsAt: 1000 }],
+  endLink: [{ folderId: FOLDER, endsAt: 1000 }],
   turnOffLink: [{ folderId: FOLDER, code: CODE }],
   linkOff: [{ folderId: FOLDER, code: CODE }],
   linkOffFailed: [{ folderId: FOLDER }],
@@ -884,5 +884,63 @@ describe("linkKindOf", () => {
     expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 + 30 * 60_000 })).toBeUndefined();
     expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 })).toBeUndefined();
     expect(linkKindOf({ madeAt: 5_000, endsAt: 1_000 })).toBeUndefined();
+  });
+});
+
+describe("more than one link, at the edges", () => {
+  test("three links of the same time made in one second get three ends", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    for (let i = 0; i < 3; i++) {
+      actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+      await actor.settled();
+    }
+    expect(new Set(saved.map(([, at]) => at)).size).toBe(3);
+  });
+
+  test("a time picked while saving, then another link in that second, gets its own end", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    await actor.settled();
+    actor.send({ type: "makeNewLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved.map(([, at]) => at)).toEqual([
+      VALID_FOR_MS["1d"],
+      VALID_FOR_MS["7d"],
+      VALID_FOR_MS["7d"] + 1000,
+    ]);
+  });
+
+  test("while a link is shown, makeNewLink with no album or a turned-off code, and endLink with no album, do nothing", async () => {
+    const OTHER = "e".repeat(64);
+    const saved: [string, number][] = [];
+    const ended: [string, number][] = [];
+    const { actor } = setup({
+      saveLinkTime: async (folderId, at) => {
+        saved.push([folderId, at]);
+        return [null, { ok: true }];
+      },
+      turnOff: async () => [null, { invite: { code: NEW_CODE } }],
+      endLink: async (folderId, endsAt) => {
+        ended.push([folderId, endsAt]);
+        return [null, { ok: true }];
+      },
+    });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    turnOff(actor, OTHER, NEW_CODE);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    actor.send({ type: "makeNewLink", payload: { folderId: OTHER, code: NEW_CODE } });
+    await actor.settled();
+    actor.send({ type: "makeNewLink", payload: { folderId: "", code: CODE } });
+    await actor.settled();
+    actor.send({ type: "endLink", payload: { folderId: "", endsAt: 5000 } });
+    await actor.settled();
+    expect(saved).toHaveLength(1);
+    expect(ended).toEqual([]);
+    expect(actor.state.name).toBe("linkMade");
   });
 });

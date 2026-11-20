@@ -22,7 +22,6 @@
           "event": "endLink",
           "payload": {
             "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            "madeAt": 0,
             "endsAt": 5000
           }
         },
@@ -94,7 +93,6 @@
           "event": "endLink",
           "payload": {
             "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            "madeAt": 0,
             "endsAt": 5000
           }
         },

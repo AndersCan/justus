@@ -102,7 +102,7 @@ export const inviteLink = {
     inviteLinkActor.send(linkReplaced.create({ folderId, code, name })),
   makeNewLink: (folderId: string, code: string) =>
     inviteLinkActor.send(makeNewLink.create({ folderId, code })),
-  endLink: (folderId: string, link: { madeAt: number; endsAt: number }) =>
+  endLink: (folderId: string, link: { endsAt: number }) =>
     inviteLinkActor.send(endLink.create({ folderId, ...link })),
   turnOffLink: (folderId: string, code: string) =>
     inviteLinkActor.send(turnOffLink.create({ folderId, code })),
