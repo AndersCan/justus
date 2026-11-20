@@ -3,9 +3,13 @@ appId: no.cankode.justus
 # Step 10 of the release walk: Ada's phone was frozen just before this flow. Ben closes her photo, opens
 # the album's Members list, and Ada's row says Phone off, last seen just now or 1 min ago (the connection
 # drops in ~33 s, the rule waits 30 s, the clock ticks every 15 s). Words come in with -e from the catalogue.
+# Ben's photo is still open from step 8: the page behind it is out of reach, so the Photos tab is not there.
+- assertNotVisible: ${PHOTOS_TAB}
 - tapOn:
     text: ${CLOSE}
     waitToSettleTimeoutMs: 500
+# Closed: the tab is back, so the check above was not vacuous.
+- assertVisible: ${PHOTOS_TAB}
 - tapOn:
     text: ${MEMBERS}
     waitToSettleTimeoutMs: 500
@@ -17,5 +21,5 @@ appId: no.cankode.justus
     centerElement: true
     timeout: 20000
 - extendedWaitUntil:
-    visible: ${PHONE_OFF}
+    visible: ${ROW_ONCE}
     timeout: 150000
