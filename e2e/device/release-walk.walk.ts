@@ -15,7 +15,14 @@ import { expect, test } from "@playwright/test";
 import { recordApkNetwork, traceFacts } from "./apk-network.mjs";
 import { networkInterfaces } from "node:os";
 import { apkAddressReport } from "../hub/apk-trace.mjs";
-import { copyInviteLink, createAlbum, pausePhone, resumeAll, skipIntro } from "../p2p/steps";
+import {
+  copyInviteLink,
+  createAlbum,
+  pausePhone,
+  resumeAll,
+  setName,
+  skipIntro,
+} from "../p2p/steps";
 
 const catalogue = JSON.parse(
   readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
@@ -27,14 +34,16 @@ const exact = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // The text of an id up to its first placeholder, then anything.
 const startsWith = (id) => exact(catalogue[id].text.split("{")[0]) + ".*";
 
+const ADA = "Ada";
 const phoneOff = (when) =>
   words("people.phone_off_last_seen", { when: words("people.last_seen", { when }) });
 // Off for 30-60 s reads "just now", then "1 min ago": the two cover the first 2 minutes.
 const OFF_WORDS = [phoneOff(words("time.just_now")), phoneOff(words("time.min_ago", { min: 1 }))];
 // Maestro reads the whole Members row as one text, so match the words inside it, exactly once. Never a
-// prefix such as "Phone off.*": it would match the footer's "Phone off means ...".
+// prefix such as "Phone off.*": it would match the footer's "Phone off means ...". Starting at Ada's name,
+// not followed by a comma, keeps the status line "<name>, Phone off, ..." from matching.
 const OFF_ANY = OFF_WORDS.map(exact).join("|");
-const ROW_ONCE = `(?!.*(?:${OFF_ANY}).*(?:${OFF_ANY})).*(?:${OFF_ANY}).*`;
+const ROW_ONCE = `${exact(ADA)}(?!, )(?!.*(?:${OFF_ANY}).*(?:${OFF_ANY})).*(?:${OFF_ANY}).*`;
 const CONNECTED_NOW = words("gallery.connected_now", { connected: 1 });
 
 const ALBUM = "Walk";
@@ -149,6 +158,7 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
   try {
     await step(1, async () => {
       await skipIntro([a]);
+      await setName(a, ADA);
       await createAlbum(a, ALBUM, PHOTO, 7);
     });
     await step(2, async () => {
