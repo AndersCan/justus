@@ -121,6 +121,26 @@ describe("join singleton", () => {
     expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, endsAt);
   });
 
+  test("an ask turned away by its ended link does not stop another link of the album", async () => {
+    const ended = Math.floor((Date.now() + 3_600_000) / 1000) * 1000;
+    const live = ended + 86_400_000;
+    foldersContext.asks = [{ code: INVITE.code, status: "linkOff", why: "ended", linkEnd: ended }];
+    const link = (expiresAt: number) =>
+      buildInviteLink({ ...INVITE, album: "", ownerName: "", expiresAt });
+    join.openLink(link(ended));
+    await settle();
+    expect(view().state, "the same link").toBe("linkStoppedForUnknownReason");
+    mocks.cancelAsk.mockResolvedValue([null, {}]);
+    join.closeStoppedLink();
+    await settle();
+    foldersContext.asks = [{ code: INVITE.code, status: "linkOff", why: "ended", linkEnd: ended }];
+    join.openLink(link(live));
+    await settle();
+    expect(view().state, "another link").toBe("decidingToAsk");
+    join.notNow();
+    await settle();
+  });
+
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {
     mocks.ask.mockResolvedValue([new Error("offline"), null]);
     join.openLink(LINK);
