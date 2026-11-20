@@ -48,3 +48,23 @@ test("a danger confirm is red, the default tone is the accent", () => {
     ["Make Viewer", false, true],
   ]);
 });
+
+test("Keep is described by the sheet's text and the confirm button by nothing", () => {
+  void confirmAction({
+    title: "Delete it?",
+    detail: "It will be gone.",
+    confirmLabel: "Delete",
+    tone: "danger",
+  });
+  const [keep, confirm] = [...document.querySelectorAll("[slot=footer] button")];
+  const id = keep?.getAttribute("aria-describedby") ?? "";
+  expect(document.getElementById(id)?.textContent).toBe("It will be gone.");
+  expect(confirm?.hasAttribute("aria-describedby")).toBe(false);
+});
+
+test("no detail, no description", () => {
+  void confirmAction({ title: "Leave?", confirmLabel: "Leave" });
+  expect(document.querySelector("[slot=footer] button")?.hasAttribute("aria-describedby")).toBe(
+    false,
+  );
+});

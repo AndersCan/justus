@@ -7,6 +7,8 @@ import { copy } from "../copy/copy";
  * pressed, false on Keep / Escape / backdrop tap / close. Renders into its own
  * host so the calling view keeps its DOM untouched. */
 
+let detailIds = 0;
+
 type ConfirmOptions = {
   title: string;
   detail?: string;
@@ -19,6 +21,7 @@ type ConfirmOptions = {
 export function confirmAction(options: ConfirmOptions): Promise<boolean> {
   return new Promise((resolve) => {
     const host = document.createElement("div");
+    const detailId = `confirm-detail-${++detailIds}`;
     document.body.appendChild(host);
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -49,7 +52,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
           @wa-after-hide=${onAfterHide}
         >
           <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
-          ${options.detail ? html`<p class="text-sm text-muted">${options.detail}</p>` : null}
+          ${options.detail ? html`<p id=${detailId} class="text-sm text-muted">${options.detail}</p>` : null}
           <div slot="footer" class="flex flex-wrap justify-end gap-2">
             ${button({
               label: options.cancelLabel ?? copy("confirm.keep"),
@@ -68,6 +71,10 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
       `,
       host,
     );
+    // A screen reader says the sheet's text with Keep, where focus lands.
+    if (options.detail) {
+      host.querySelector("[slot=footer] > button")?.setAttribute("aria-describedby", detailId);
+    }
     // The dialog's own autofocus can run before it is upgraded.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => host.querySelector<HTMLElement>("[slot=footer]>button")?.focus());
