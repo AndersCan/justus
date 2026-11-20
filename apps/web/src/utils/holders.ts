@@ -267,3 +267,24 @@ export function memberPhotosLine(h: MemberHolding | undefined): string {
     .filter((p) => p !== "")
     .join(", ");
 }
+
+/** Who holds the photos this phone added: other people's keys with a full copy or preview (quiet ones too), and how many photos no other phone has. Unknown when any photo's list is not known yet. */
+export type LeaverHolders =
+  | { kind: "unknown" }
+  | { kind: "known"; keys: ReadonlySet<string>; sole: number };
+
+export function leaverHolders(mine: readonly Photo[]): LeaverHolders {
+  const keys = new Set<string>();
+  let sole = 0;
+  for (const p of mine) {
+    const h = p.holders;
+    if (h?.kind !== "inAlbum") return { kind: "unknown" };
+    for (const m of [...h.others, ...h.quiet, ...h.previews]) keys.add(m.key);
+    if (
+      h.others.length + h.quiet.length + h.previews.length + h.former.length + h.unsure.length ===
+      0
+    )
+      sole += 1;
+  }
+  return { kind: "known", keys, sole };
+}

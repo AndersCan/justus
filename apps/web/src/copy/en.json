@@ -888,6 +888,55 @@
     "who": "Admins inviting a friend",
     "screen": ""
   },
+  "album.leave_takes_your_photos": {
+    "text": "It disappears from this phone, along with the {count} you added to it, and you drop off the people list.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_no_photos_added": {
+    "text": "It disappears from this phone, and you drop off the people list.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_photos_removed_everywhere": {
+    "text": " Your {count} will be removed from the album on every member's phone.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_lose_them_now": {
+    "text": " {list} {n?loses:lose} {k?it:them} now.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_lose_them_when_they_connect": {
+    "text": " {list} {n?loses:lose} {k?it:them} the next time {n?their phone connects:their phones connect}.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_only_on_your_phone": {
+    "text": " {count} {n?is:are} on no other phone yet, so no one else can get {n?it:them} after you leave.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
+  "album.leave_come_back": {
+    "text": " To come back you need a new invite from {adminName}.",
+    "status": "draft",
+    "where": "Album › Leave dialog",
+    "who": "Collaborators leaving an album",
+    "screen": ""
+  },
   "album.it_disappears_from_this_phone": {
     "text": "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from {adminName}.",
     "status": "draft",

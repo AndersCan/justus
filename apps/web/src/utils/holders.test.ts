@@ -7,6 +7,7 @@ import {
   hasFullPhoto,
   holdersLine as holdersLineAt,
   holdersSheetRows,
+  leaverHolders,
   lacksFullPhoto,
   memberHoldings,
   memberPhotosLine,
@@ -571,5 +572,37 @@ describe("memberPhotosLine", () => {
     expect(line(3, 0, 1)).toBe("3 in full, 1 waiting");
     expect(line(0, 2, 1)).toBe("2 previews, 1 waiting");
     expect(line(0, 1, 0)).toBe("1 preview");
+  });
+});
+
+describe("leaverHolders", () => {
+  const ph = (p?: Partial<PhotoHolders> | "removed") =>
+    ({
+      id: "x",
+      holders:
+        p === undefined ? undefined : p === "removed" ? { kind: "removed", here: true } : h(p),
+    }) as never;
+
+  it("knows an empty list, with nothing only on this phone", () => {
+    expect(leaverHolders([])).toEqual({ kind: "known", keys: new Set(), sole: 0 });
+  });
+  it("is unknown when any photo's list is unset or from a removed phone", () => {
+    expect(leaverHolders([ph({}), ph()])).toEqual({ kind: "unknown" });
+    expect(leaverHolders([ph("removed")])).toEqual({ kind: "unknown" });
+  });
+  it("collects keys from full copies, quiet holders and previews across photos", () => {
+    const quiet = { ...m("Q"), lastSeenAt: 1 };
+    const got = leaverHolders([
+      ph({ others: [m("A")] }),
+      ph({ quiet: [quiet], previews: [m("P")] }),
+    ]);
+    expect(got).toEqual({ kind: "known", keys: new Set(["A", "Q", "P"]), sole: 0 });
+  });
+  it("counts a photo only waiting on others as sole", () => {
+    expect(leaverHolders([ph({ waiting: [m("A")] })])).toMatchObject({ sole: 1 });
+  });
+  it("does not count a photo someone is unsure about, or a removed person kept, as sole", () => {
+    expect(leaverHolders([ph({ unsure: [m("A")] })])).toMatchObject({ sole: 0 });
+    expect(leaverHolders([ph({ former: ["Z"] })])).toMatchObject({ sole: 0 });
   });
 });

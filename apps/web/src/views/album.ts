@@ -1,4 +1,4 @@
-import type { FolderSummary } from "@justus/core";
+import type { FolderSummary, Photo } from "@justus/core";
 import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "#design/justus/album/album-full.ts";
 import { presenceDot } from "#design/components/presence-dot.ts";
@@ -29,7 +29,12 @@ import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
-import { memberHoldings, memberPhotosLine, type MemberHolding } from "../utils/holders";
+import {
+  leaverHolders,
+  memberHoldings,
+  memberPhotosLine,
+  type MemberHolding,
+} from "../utils/holders";
 import { photosInScope } from "../utils/photo-scope";
 import { formatRelative, linkMadeText } from "../utils/time";
 import { linkKindOf, type ValidFor } from "../machines/sharing/invite-link-machine";
@@ -49,11 +54,49 @@ import { planAdd } from "../utils/add-photos";
 import { gridMotion } from "./grid-motion";
 
 import { copy, t } from "../copy/copy";
-/** Why a Member or Viewer needs the Admin again after leaving. */
-export function leaveDetail(role: "member" | "reader", adminName: string): string {
-  return role === "member"
-    ? copy("album.it_disappears_from_this_phone", { adminName })
-    : copy("album.it_disappears_from_this_phone_2", { adminName });
+/** What the Leave sheet says: for a Collaborator, how many photos they added, who loses them now or when their phone connects, and which no other phone has. */
+export function leaveDetail(input: {
+  role: "member" | "reader";
+  adminName: string;
+  /** This phone's own photos in the album; undefined while the photo list is not loaded. */
+  mine: readonly Photo[] | undefined;
+  people: readonly Pick<Person, "key" | "name" | "you" | "admin" | "connected">[];
+}): string {
+  const { adminName, mine, people } = input;
+  if (input.role === "reader") return copy("album.it_disappears_from_this_phone_2", { adminName });
+  const comeBack = copy("album.leave_come_back", { adminName });
+  if (mine === undefined) return copy("album.it_disappears_from_this_phone", { adminName });
+  if (mine.length === 0) return copy("album.leave_no_photos_added") + comeBack;
+  const k = mine.length;
+  const count = photoCount(k);
+  const base =
+    copy("album.leave_takes_your_photos", { count }) +
+    copy("album.leave_photos_removed_everywhere", { count });
+  const holders = leaverHolders(mine);
+  if (holders.kind === "unknown") return base + comeBack;
+  const named = people.filter((p) => !p.you && holders.keys.has(p.key));
+  const now = named.filter((p) => p.admin && p.connected).map((p) => p.name);
+  const later = named.filter((p) => !(p.admin && p.connected)).map((p) => p.name);
+  const nowSays =
+    now.length === 0
+      ? ""
+      : copy("album.leave_lose_them_now", { list: nameList(now), n: now.length, k });
+  const laterSays =
+    later.length === 0
+      ? ""
+      : copy("album.leave_lose_them_when_they_connect", {
+          list: nameList(later),
+          n: later.length,
+          k,
+        });
+  const only =
+    holders.sole === 0
+      ? ""
+      : copy("album.leave_only_on_your_phone", {
+          count: photoCount(holders.sole),
+          n: holders.sole,
+        });
+  return base + nowSays + laterSays + only + comeBack;
 }
 
 const photoCount = (n: number) => (n === 1 ? copy("album.1_photo") : copy("album.photos", { n }));
@@ -198,9 +241,18 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
     return;
   }
   if (value === "leave") {
+    const g = galleryViewModel(galleryActor.snapshot(), null);
+    const mine = g.settled
+      ? photosInScope(g.photos, { kind: "album", id }).filter((p) => p.mine)
+      : undefined;
     const ok = await confirmAction({
       title: copy("album.leave", { name }),
-      detail: leaveDetail(role === "member" ? "member" : "reader", adminName(status)),
+      detail: leaveDetail({
+        role: role === "member" ? "member" : "reader",
+        adminName: adminName(status),
+        mine,
+        people,
+      }),
       confirmLabel: copy("album.leave_2"),
       tone: "danger",
     });
