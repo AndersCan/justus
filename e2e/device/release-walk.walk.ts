@@ -251,7 +251,10 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         trace: seen.trace,
         ada: { hosts: new Set(hosts), ports: new Set(ports) },
       });
-      if (report.outside.length > 0) throw new Error(report.outside.join("; "));
+      if (report.outside.length > 0) {
+        writeFileSync(join(out, "apk-trace.txt"), seen.trace);
+        throw new Error(report.outside.join("; "));
+      }
       STEPS[11].name = `Ben's APK sent only to Ada's phone at ${report.adaAddresses.join(", ")} (${report.adaStream} stream packets) and ${report.dhtNodes} DHT nodes. Outside: none`;
     });
   } finally {
