@@ -77,4 +77,13 @@ describe("the taken-month line", () => {
     expect(document.activeElement).toBe(host.querySelector('h2[data-photo-group="July 2026"]'));
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: "start" });
   });
+  test("in a group with other photos, tapping focuses the July heading, not the newest one", async () => {
+    const host = await show([1, 2, 3, 4].map((d) => rec(`p${d}`, july(d))).concat(rec("x")));
+    (lineOf(host)[0] as HTMLElement).click();
+    await vi.waitFor(() => expect(lineOf(host)).toHaveLength(0));
+    const july2026 = host.querySelector<HTMLElement>('h2[data-photo-group="July 2026"]');
+    expect(host.querySelectorAll("h2[data-photo-group]")).toHaveLength(2);
+    expect(document.activeElement).toBe(july2026);
+    expect(july2026?.getAttribute("tabindex")).toBe("-1");
+  });
 });
