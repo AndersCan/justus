@@ -55,6 +55,7 @@ vi.mock("../gateway", () => ({
     },
     folders: vi.fn(),
     restoreAlbum: vi.fn().mockResolvedValue([null, { ok: true }]),
+    archiveAlbum: vi.fn().mockResolvedValue([null, { ok: true }]),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
     saveInviteLink: vi.fn().mockResolvedValue([null, { ok: true }]),
@@ -2055,6 +2056,12 @@ describe("album ••• menu while the albums load", () => {
   const items = (host: HTMLElement) => [...host.querySelectorAll("wa-dropdown-item")];
 
   test("is disabled until the albums are listed, then enabled", async () => {
+    vi.mocked(gateway.folders).mockResolvedValue([
+      null,
+      { folders: [], activeFolderId: null },
+    ] as never);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     let resolve: (v: unknown) => void = () => {};
     vi.mocked(gateway.folders).mockReturnValue(new Promise((r) => (resolve = r)) as never);
     syncActor.send(statusSeen.create({ status }));
@@ -2066,6 +2073,34 @@ describe("album ••• menu while the albums load", () => {
     resolve([null, { folders: [], activeFolderId: null }]);
     await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     expect(items(host).some((i) => i.hasAttribute("disabled"))).toBe(false);
+  });
+});
+
+describe("album ••• menu while a known list reloads", () => {
+  const items = (host: HTMLElement) => [...host.querySelectorAll("wa-dropdown-item")];
+
+  test("a reload that lands after the menu opened does not swallow the tap", async () => {
+    vi.mocked(gateway.folders).mockResolvedValue([
+      null,
+      { folders: [status.folder], activeFolderId: status.folder.id },
+    ] as never);
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    let resolve: (v: unknown) => void = () => {};
+    vi.mocked(gateway.folders).mockReturnValue(new Promise((r) => (resolve = r)) as never);
+    folders.refresh();
+    expect(folders.state()).toBe("loadingAlbums");
+    expect(items(host).some((i) => i.hasAttribute("disabled"))).toBe(false);
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "archive" } } }));
+    expect(folders.state()).toBe("archivingAlbum");
+    await vi.waitFor(() => expect(gateway.archiveAlbum).toHaveBeenCalledWith("f1"));
+    resolve([null, { folders: [], activeFolderId: null }]);
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
   });
 });
 

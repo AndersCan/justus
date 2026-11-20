@@ -266,6 +266,9 @@ const settledStates = [
   couldNotChangeAlbum,
 ] as const;
 
+/** A reload in flight does not stop the person acting on an album already listed. */
+const actableStates = [...settledStates, loadingAlbums] as const;
+
 const noPending = {
   changeCode: undefined,
   pendingCreate: null,
@@ -793,7 +796,7 @@ export const foldersMachine = machine("folders", {
           },
         });
 
-        for (const at of settledStates) {
+        for (const at of actableStates) {
           /** The person archives an album; the screen shows it is busy. */
           m.on(at, {
             event: archiveAlbum,
@@ -807,7 +810,7 @@ export const foldersMachine = machine("folders", {
           sends: [loaded, albumChangeFailed],
           fn: (args) => runChange(port, args),
         });
-        for (const at of settledStates) {
+        for (const at of actableStates) {
           /** The person restores an archived album; the screen shows it is busy. */
           m.on(at, {
             event: restoreAlbum,
@@ -821,7 +824,7 @@ export const foldersMachine = machine("folders", {
           sends: [loaded, albumChangeFailed],
           fn: (args) => runChange(port, args),
         });
-        for (const at of settledStates) {
+        for (const at of actableStates) {
           /** The person leaves an album; the screen shows it is busy. */
           m.on(at, {
             event: leaveAlbum,
@@ -835,7 +838,7 @@ export const foldersMachine = machine("folders", {
           sends: [loaded, albumChangeFailed],
           fn: (args) => runChange(port, args),
         });
-        for (const at of settledStates) {
+        for (const at of actableStates) {
           /** The Admin hands the album to a Collaborator; the screen shows it is busy. */
           m.on(at, {
             event: handOverAlbum,
@@ -861,7 +864,7 @@ export const foldersMachine = machine("folders", {
           sends: [loaded, albumChangeFailed],
           fn: (args) => runChange(port, args),
         });
-        for (const at of settledStates) {
+        for (const at of actableStates) {
           /** The Admin deletes an album; the screen shows it is busy. */
           m.on(at, {
             event: deleteAlbum,

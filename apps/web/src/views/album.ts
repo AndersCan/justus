@@ -280,6 +280,12 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
   }
 }
 
+/** Settled, or reloading a list that is already known: a reload must not swallow a tap on the menu. */
+function menuReady(vm: ReturnType<typeof foldersViewModel>) {
+  const known = vm.folders.length > 0 || vm.archived.length > 0;
+  return vm.settled || (vm.state === "loadingAlbums" && known);
+}
+
 function albumMenu(status: Status, people: readonly Person[], busy: boolean, archived: boolean) {
   const items = albumMenuItems(
     status.folder.role,
@@ -1098,7 +1104,7 @@ function albumBody(
         albumMenu(
           status,
           vm.people,
-          !foldersViewModel(fs).settled,
+          !menuReady(foldersViewModel(fs)),
           foldersViewModel(fs).archived.some((f) => f.id === id),
         ),
       )}`,
