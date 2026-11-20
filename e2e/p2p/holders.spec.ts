@@ -143,15 +143,29 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       "Ben off · Ada's Members: Ben's row",
     ).toHaveText(phoneOff(words("time.just_now")), { timeout: 120_000 });
     // The row speaks "Phone off" once: the dot's own label is hidden from a screen reader.
+    // The row's button line is what a screen reader says; its paragraphs below repeat its name.
+    const rowName = (await benRow.ariaSnapshot())
+      .split("\n")
+      .find((l) => l.includes('button "Ben'));
     expect(
-      (await benRow.ariaSnapshot()).split(phoneOff(words("time.just_now"))).length - 1,
+      (rowName ?? "").split(phoneOff(words("time.just_now"))).length - 1,
       "Ben off · Ada's Members: Ben's row says Phone off once",
     ).toBe(1);
+    // Ada hears it: the app's status line says Ben's phone went off, in the row's words.
+    const saidOff = words("people.presence_changed", {
+      name: "Ben",
+      presence: phoneOff(words("time.just_now")),
+    });
+    await expect(a.locator("[data-announce]"), "Ben off · Ada's status line").toHaveText(saidOff);
     // 60 s: the line appears 30-45 s after Ada's phone lost Ben and reads 1 min at 60-75 s; this proves the clock moves without a push.
     await expect(
       benRow.locator("[data-member-presence]"),
       "Ben off 1 min · Ada's Members: Ben's row",
     ).toHaveText(phoneOff(words("time.min_ago", { min: 1 })), { timeout: 60_000 });
+    // Said once: the minute tick does not say it again.
+    await expect(a.locator("[data-announce]"), "Ben off 1 min · Ada's status line").toHaveText(
+      saidOff,
+    );
 
     await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
     await expect(

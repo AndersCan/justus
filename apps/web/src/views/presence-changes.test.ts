@@ -21,7 +21,12 @@ describe("presenceChanges", () => {
   it("says Ben's phone went off once, with the words the row shows", () => {
     const out = presenceChanges(seen(on), seen(off));
     expect(out).toEqual([
-      copy("people.presence_changed", { name: "Ben", presence: seen(off).people[0].words }),
+      copy("people.presence_changed", {
+        name: "Ben",
+        presence: copy("people.phone_off_last_seen", {
+          when: copy("people.last_seen", { when: copy("time.min_ago", { min: 1 }) }),
+        }),
+      }),
     ]);
     expect(out[0]).toContain("Ben, ");
   });

@@ -50,10 +50,11 @@ export function startPresenceAnnouncements(): () => void {
       friendsActor.snapshot().context.friends,
       presenceClockActor.snapshot().context,
     );
-    for (const line of presenceChanges(last, seen)) announce(line);
+    const lines = presenceChanges(last, seen);
+    if (lines.length > 0) announce(lines.join(". "));
     last = seen;
   };
   const stops = [syncActor, presenceClockActor].map((a) => a.on("change", { fn: check }));
   check();
-  return () => stops.forEach((stop) => (typeof stop === "function" ? stop() : undefined));
+  return () => stops.forEach((stop) => stop());
 }
