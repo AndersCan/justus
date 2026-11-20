@@ -1901,6 +1901,50 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
         await other.s.close();
       });
 
+      it("lets an asker turned away by an ended link ask again with the other live link", async () => {
+        const { s, ends } = await twoLinks();
+        await s.admin.store.endInviteLink(s.folderId, ends.second);
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: ends.second });
+        await connect(s);
+        expect((await joinerSays(s)).why).toBe("ended");
+        const again = await s.joiner.store.ask({
+          code: s.invite.code,
+          owner: s.owner,
+          linkEnd: ends.first,
+        });
+        expect(again[1]?.ask.status).toBe("waiting");
+        await connect(s);
+        await until(async () => (await s.admin.store.requests()).requests.length === 1, 6_000);
+        expect((await s.admin.store.requests()).requests[0]!.link?.endsAt).toBe(ends.first);
+        await s.close();
+      });
+
+      it("lets an asker turned away by a run-out link ask again with a live link", async () => {
+        const { s, ends } = await twoLinks();
+        const never = ends.first + 1000;
+        await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: never });
+        await connect(s);
+        const off = await joinerSays(s);
+        expect(off.why).toBe("expired");
+        expect(off.linkEnd, "the summary names the link it was made with").toBe(never);
+        const same = await s.joiner.store.ask({
+          code: s.invite.code,
+          owner: s.owner,
+          linkEnd: never,
+        });
+        expect(same[1]?.ask.status, "the same link stays turned away").toBe("linkOff");
+        const again = await s.joiner.store.ask({
+          code: s.invite.code,
+          owner: s.owner,
+          linkEnd: ends.first,
+        });
+        expect(again[1]?.ask.status).toBe("waiting");
+        await connect(s);
+        await until(async () => (await s.admin.store.requests()).requests.length === 1, 6_000);
+        expect((await s.admin.store.requests()).requests[0]!.link?.endsAt).toBe(ends.first);
+        await s.close();
+      });
+
       it("takes a waiting ask through the link off the list and tells the asker", async () => {
         const { s, ends } = await twoLinks();
         await s.joiner.store.ask({ code: s.invite.code, owner: s.owner, linkEnd: ends.second });

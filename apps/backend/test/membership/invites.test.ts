@@ -188,6 +188,22 @@ describe("invites: asking through a link", () => {
     expect(known.kind, "check: asked before").toBe("known");
     expect(known.kind === "known" && known.ask, "check: the same object").toBe(waiting);
   });
+
+  it("an ask turned away by its ended or run-out link can ask again with another link", () => {
+    const off = (why: string) => ({ code: hex("d"), status: "linkOff", why, linkEnd: 1000 });
+    const check = (why: string, linkEnd?: number) =>
+      checkAsk({ code: hex("d"), owner: hex("a"), linkEnd }, { folders: [], asks: [off(why)] })
+        .kind;
+    for (const why of ["ended", "expired"]) {
+      expect(check(why, 2000), `${why}: another link`).toBe("new");
+      expect(check(why, 1000), `${why}: same link`).toBe("known");
+      expect(check(why), `${why}: no link named`).toBe("known");
+      expect(check(why, 1.5), `${why}: malformed link`).toBe("known");
+    }
+    for (const why of ["turnedOff", "replaced", "albumDeleted"]) {
+      expect(check(why, 2000), `${why}: another link`).toBe("known");
+    }
+  });
 });
 
 describe("invites: the Admin's reply", () => {

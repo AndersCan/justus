@@ -209,6 +209,8 @@ export type AskSummary = {
   status: "waiting" | "declined" | "linkOff";
   /** Set only with status "linkOff": which way the link stopped. */
   why?: LinkOffWhy;
+  /** The end time of the link this ask was made with, when it named one. */
+  linkEnd?: number;
   /** True once the person closed a dead request: the row is hidden and the record stays so the link is known to be off. */
   closed?: boolean;
   /** This phone's check code, shown while it waits. */
