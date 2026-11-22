@@ -12,6 +12,10 @@ export const HELP_QA: { q: string; a: string[] }[] = [
     ],
   },
   {
+    q: copy("help.are_the_photos_in"),
+    a: [copy("help.no_when_you_add_a"), copy("help.your_original_stays_on")],
+  },
+  {
     q: copy("help.why_don_t_i_see"),
     a: [copy("help.photos_only_travel_while_both"), copy("help.to_check_open_the_album")],
   },
