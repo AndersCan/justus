@@ -1,10 +1,10 @@
-import { render } from "lit-html";
-import type { JoinView } from "./join-request";
-import { renderJoinSheet } from "../../views/join-sheet";
 import "../../design/justus/design.css";
 import "../../tokens.css";
 import "../../reset.css";
 import "uno.css";
+import type { JoinView } from "./join-request";
+import { render } from "lit-html";
+import { renderJoinSheet } from "../../views/join-sheet";
 
 const nothing = () => {};
 const actions = {
