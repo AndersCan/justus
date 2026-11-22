@@ -34,13 +34,22 @@ const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
 /** offerAlbum waits up to 30 s for the friend's phone to answer. */
 export const PHOTOS_OFFER_TIMEOUT_MS = 45_000;
 
+/** Where a `photos.list` page starts. */
+export type ListOptions = { from?: number };
+
+/** `all`: every album's photos instead of the active album's. `from`: where the page starts. */
+export type ListArgs = ListOptions & { all?: boolean };
+
+/** One page of photos; `next` is where the next page starts, unset on the last page. */
+export type ListResult = { photos: Photo[]; next?: number };
+
 export const photoSpecs = {
   list: {
     pluginId: "justus.photos",
     name: "photos.list",
-    // `all`: every album's photos, newest first, instead of the active album's.
-    args: {} as { all?: boolean },
-    result: {} as { photos: Photo[] },
+    // Newest first; a phone with many photos answers in pages so each fits the 64 KB invoke header.
+    args: {} as ListArgs,
+    result: {} as ListResult,
   },
   add: {
     pluginId: "justus.photos",
@@ -281,8 +290,14 @@ export const photoSpecs = {
 
 export const photoEvents = {
   photos: {
-    list(all?: boolean): InvokeEnvelope<"photos.list", { all?: boolean }, { photos: Photo[] }> {
-      return invokeEvent(photoSpecs.list, all ? { all } : {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    list(
+      all?: boolean,
+      options: ListOptions = {},
+    ): InvokeEnvelope<"photos.list", ListArgs, ListResult> {
+      const args: ListArgs = {};
+      if (all) args.all = all;
+      if (options.from) args.from = options.from;
+      return invokeEvent(photoSpecs.list, args, null, PHOTOS_LIST_TIMEOUT_MS);
     },
     add(
       path: string,

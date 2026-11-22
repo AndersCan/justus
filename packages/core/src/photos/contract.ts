@@ -309,7 +309,7 @@ export const photoChangedSchema = s.object({
 
 /** Result schema of every `photos.*` invoke the web reads, by event name. */
 export const photoResultSchemas = {
-  "photos.list": s.object({ photos: s.array(photoSchema) }),
+  "photos.list": s.object({ photos: s.array(photoSchema), next: s.optional(s.number) }),
   "photos.add": photoSchema,
   "photos.remove": s.object({ id: s.string }),
   "photos.join": syncStatusSchema,
