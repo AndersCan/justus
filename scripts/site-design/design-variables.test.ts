@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { readFileSync } from "node:fs";
 import { designVariables } from "./design-variables.ts";
+import { readFileSync } from "node:fs";
 
 const designCss = readFileSync(
   new URL("../../apps/web/src/design/justus/design.css", import.meta.url),

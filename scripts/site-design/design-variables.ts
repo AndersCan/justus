@@ -10,8 +10,8 @@ function topLevelBlocks(css: string): string[] {
   const blocks: string[] = [];
   let depth = 0;
   let start = 0;
-  for (const [index, character] of [...text].entries()) {
-    switch (character) {
+  for (let index = 0; index < text.length; index++) {
+    switch (text.charAt(index)) {
       case "{":
         depth++;
         break;
