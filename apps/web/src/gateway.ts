@@ -18,6 +18,7 @@ import {
   type LogLevel,
 } from "@justus/core";
 import { guardResult } from "./contract-guard";
+import { listAllPhotos } from "./photo-list/list-all-photos";
 import { getTransport } from "./transport";
 import { workletBase } from "./utils/peer";
 import { encodePhoto } from "./utils/encode-photo";
@@ -45,7 +46,7 @@ async function invoke<R>(envelope: InvokeEnvelope<string, Record<string, unknown
  * framework's `Either` tuple `[error, result]`. */
 export const gateway = {
   /** Every album's photos, newest first. */
-  list: () => invoke(photoEvents.photos.list(true)),
+  list: () => listAllPhotos((from) => invoke(photoEvents.photos.list(true, { from }))),
   add: (path: string, name?: string, folderId?: string, extras?: AddExtras) =>
     invoke(photoEvents.photos.add(path, name, folderId, extras)),
   /** Encodes a browser-picked file into the copies an album shares and posts

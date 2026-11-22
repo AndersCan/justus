@@ -1,6 +1,7 @@
 import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
 import { checkPhotoResult, photoSpecs } from "@justus/core";
 import type { PhotoStore } from "./photo-store";
+import { listPage } from "./photos/list-page";
 
 // Mirror the upload route's cap (upload-route.ts MAX_UPLOAD_BYTES): the in-band
 // add path writes the payload to a temp file and then reads it fully into
@@ -48,7 +49,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
       list: async (args) => {
         try {
           const photos = await deps.store.list({ all: args?.all === true });
-          return [null, { photos }];
+          return [null, listPage(photos, { from: args?.from ?? 0 })];
         } catch (e) {
           return errResult(e);
         }
