@@ -42,3 +42,8 @@ test("design's own stylesheet gives the site its theme blocks and nothing else",
     "@media (prefers-reduced-motion: reduce) {",
   ]);
 });
+
+test("a value with a character outside the BMP keeps the next block whole", () => {
+  const css = ':root { --mark: "😀"; }\n:root { --canvas: 1 2 3; }';
+  expect(designVariables(css)).toBe(':root { --mark: "😀"; }\n:root { --canvas: 1 2 3; }\n');
+});
