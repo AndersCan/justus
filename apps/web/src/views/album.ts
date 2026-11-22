@@ -1,6 +1,6 @@
 import type { FolderSummary, Photo } from "@justus/core";
 import { arrivalFocusWithin } from "./arrival-focus";
-import { renderAlbumFull } from "#design/justus/album/album-full.ts";
+import { renderAlbumFull } from "./album-full.ts";
 import { presenceDot } from "#design/components/presence-dot.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";

@@ -1,7 +1,6 @@
 {
   "app": "justus",
   "out": "apps/web/src/design",
-  "screens": ["album/album-full"],
   "components": [
     "button",
     "input",
