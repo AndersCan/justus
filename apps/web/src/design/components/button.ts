@@ -5,7 +5,7 @@ import type { Example } from "../example.ts"
 import { html, type TemplateResult } from "lit-html"
 
 export type ButtonVariant = "primary" | "default" | "invisible" | "danger" | "link" | "inactive"
-export type ButtonSize = "small" | "medium" | "large"
+export type ButtonSize = "sm" | "md" | "lg"
 
 export type ButtonProps = {
   label: string
@@ -30,18 +30,18 @@ const fills: Record<ButtonVariant, string> = {
   inactive: "bg-surface text-muted border border-solid border-line opacity-60 cursor-not-allowed",
 }
 
-// min-h, not h: apps put these classes on buttons with two-line labels.
+// Primer sizes small, medium, large. min-h, not h: apps put these classes on buttons with two-line labels.
 const sizes: Record<ButtonSize, string> = {
-  small: "min-h-tab px-2 text-xs",
-  medium: "min-h-touch px-4 py-2.5 text-sm",
-  large: "min-h-touch px-4 py-2.5 text-base",
+  sm: "min-h-tab px-2 text-xs",
+  md: "min-h-touch px-4 py-2.5 text-sm",
+  lg: "min-h-touch px-4 py-2.5 text-base",
 }
 
 export type ButtonLook = { variant: ButtonVariant; size?: ButtonSize; block?: boolean }
 
 /** The classes button() puts on its <button>; apps put them on their own <a>, <label> or form <button>. */
 export function buttonClass(look: ButtonLook): string {
-  const classes = [base, fills[look.variant], sizes[look.size ?? "medium"]]
+  const classes = [base, fills[look.variant], sizes[look.size ?? "md"]]
   if (look.block === true) classes.push("w-full")
   return classes.join(" ")
 }

@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "commit": "815c949e173d4ba04df30ed6fd4e9f07e0e4a198",
+  "date": "2026-11-22T05:48:05+01:00",
+  "ref": "main",
+  "files": {
+    "components/avatar.ts": "95d13ecba72a1fafcc18d88b2148fc5a6488a473183bb60170a275e9313a7c8c",
+    "components/badge.ts": "db1a40475cd1a404b8b3673323e4af949d630a7480b73853a4c400ab2171cc0f",
+    "components/button.ts": "56c3a5dd814ad517055e66431d23911dbc071b402ef337f96f2903a358f4e8a8",
+    "components/error-banner.ts": "5ab04c2159ce959e6440942f6e33e6771e086ba828ffc2590b5952f8d2634624",
+    "components/icon-button.ts": "7f15f54dd243c67d4e764abd509695a50aec95554370b3b5ec524cbc5e472113",
+    "components/input.ts": "2c6e9d54fec8dd83ae5660d9247bf69e6452b610f501a6a962ff9648f456623f",
+    "components/link.ts": "dea6b25b29404216e26d9f61b9bd2e4a8cc798bc5147916988ba5475a00438ce",
+    "components/photo-viewer.ts": "dafaecd58d06838ec39eb291deb514e7e3b70f193214af0bb2192d513b23540c",
+    "components/presence-dot.ts": "a27ec694b9034aa0b5f63df8155c00eee5a7598d9a6224fceac3b85591956af8",
+    "components/presence-dots.ts": "ed2b5d3fa4a49e9047e1b76c18c574a22935af25834c50f1251cc55361f5f725",
+    "components/radio-cards.ts": "d09f53794ab375d6a310ef4763ff1bfb66a857f5de995bd5764484542967e1bb",
+    "components/request-card.ts": "7852719317facda533586ba5a6576d231f8591500a3e22f42efc5593a51fccc2",
+    "components/sheet.ts": "87a3d4365b70cec23822be0252bf568509401027c6304ca7caa793da5fc6759b",
+    "components/tab-badge.ts": "b9a8e14eab3715d52df8ec7aeb033cc5cceebce84485c99370edda9160dc34a7",
+    "components/tab.ts": "f1d7f0883a138c3ad570d5b1db4712d544a61a2233c4d3e1b02b37727c389e14",
+    "components/tabs.ts": "d5272f30d4ce48edae85198603f4c179b723103686c5bd60b10f880c167628dc",
+    "components/toast.ts": "c9a29526a1b5a8bf5b03cd6675b5b5515c12fd8a4c94b62cdb4e8ee9c18e0b36",
+    "example.ts": "4d38e0461ca2130d460188ea68cb1a7da1ba6f255dda186ff3f7a05f4a96e068",
+    "justus/design.css": "4541de42eaad00dbdbd0f9c6c9293a8985a608547f68902838ffe1e8022d7da8",
+    "justus/tokens/uno.theme.ts": "8c9cea4038756012f9962128881c6ea26e8c776881d9b233627e7032254885fb",
+    "references.md": "624b0c978e7096839c399f14bdd7196a3fafeb3b95225eedc1468d9618253d15"
+  }
+}

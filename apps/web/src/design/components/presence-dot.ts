@@ -2,17 +2,18 @@
 // Reference: daisyUI status (https://github.com/saadeghi/daisyui/blob/master/packages/daisyui/src/components/status.css), MIT. Notice: docs/references.md.
 import { html, type TemplateResult } from "lit-html"
 
-export type PresenceTone = "green" | "amber" | "red" | "neutral"
+export type PresenceTone = "success" | "warning" | "danger" | "neutral"
 export type PresenceSize = "xs" | "sm" | "md" | "lg" | "xl"
 
 export type PresenceDotProps = { tone: PresenceTone; label: string; size?: PresenceSize; class?: string }
 
 const base = "inline-block rounded-full"
 
+// daisyUI status success, warning, error, neutral; the trust colours stand in.
 const tones: Record<PresenceTone, string> = {
-  green: "bg-trust-green",
-  amber: "bg-trust-amber",
-  red: "bg-trust-red",
+  success: "bg-trust-green",
+  warning: "bg-trust-amber",
+  danger: "bg-trust-red",
   neutral: "border border-muted bg-surface",
 }
 

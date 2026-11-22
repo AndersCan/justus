@@ -1,4 +1,4 @@
-import { defineConfig, presetUno } from "unocss";
+import { defineConfig, presetWind3 } from "unocss";
 import { avatarClass, avatarSizeClass } from "#design/components/avatar.ts";
 import { presenceDotsClass, presenceDotsItemClass } from "#design/components/presence-dots.ts";
 import { requestCardClass } from "#design/components/request-card.ts";
@@ -16,16 +16,13 @@ import { tabsClass } from "#design/components/tabs.ts";
 import { toastActionClass, toastClass } from "#design/components/toast.ts";
 import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
-// Semantic tokens only. Raw values live in src/design/justus/tokens/theme.css (generated) as CSS variables (space
-// separated RGB) so light/dark switch with `prefers-color-scheme`. Views use
-// bg-canvas / bg-surface / text-fg / text-muted / accent / danger — never a
-// literal color. Green/amber/red `trust-*` is reserved for connection state.
-// Status colors come in pairs: `danger` / `ok` / `warn` for fills and dots,
-// `*-fg` for text (the fills are too light for text on white). Text on a solid
-// accent or danger fill is `on-fill`. `brand` (coral) is the wordmark dot only. The one add/create action per screen
-// is a `<wa-button variant="brand">` using the `--action` / `--on-action` tokens.
+/**
+ * Views use semantic colours only (`canvas`, `surface`, `fg`, `muted`, `accent`, `danger`), drawn from the
+ * RGB variables in src/design/justus/design.css. `trust-*` is for connection state, `*-fg` for status text,
+ * `on-fill` for text on solid fills, `brand` for the wordmark dot.
+ */
 export default defineConfig({
-  presets: [presetUno()],
+  presets: [presetWind3()],
   content: {
     pipeline: {
       // lit-html templates live in plain .ts files — UnoCSS's default
@@ -68,17 +65,22 @@ export default defineConfig({
     // justus animates its own tabs; motion is app code.
     "ui-tab": `${tabClass("unselected")} transition`,
     "ui-tab-selected": `${tabClass("selected")} transition`,
-    "ui-tab-badge": tabBadgeClass("primary"),
-    "ui-icon-btn": iconButtonClass({ variant: "ghost", color: "gray", size: "3", radius: "full" }),
+    "ui-tab-badge": tabBadgeClass("accent"),
+    "ui-icon-btn": iconButtonClass({
+      variant: "ghost",
+      tone: "neutral",
+      size: "md",
+      radius: "full",
+    }),
     // justus animates its own choice cards; motion is app code.
-    "ui-radio-card": `${radioCardsItemClass({ checked: false, size: "1" })} transition`,
-    "ui-radio-card-checked": `${radioCardsItemClass({ checked: true, size: "1" })} transition`,
+    "ui-radio-card": `${radioCardsItemClass({ checked: false, size: "sm" })} transition`,
+    "ui-radio-card-checked": `${radioCardsItemClass({ checked: true, size: "sm" })} transition`,
     // Filter chips: Radix's soft badge, grey off and indigo on.
-    "ui-chip": badgeClass({ variant: "soft", color: "gray", size: "2", radius: "full" }),
-    "ui-new": badgeClass({ variant: "solid", color: "accent", size: "1", radius: "full" }),
-    "ui-chip-on": badgeClass({ variant: "soft", color: "accent", size: "2", radius: "full" }),
+    "ui-chip": badgeClass({ variant: "soft", tone: "neutral", size: "md", radius: "full" }),
+    "ui-new": badgeClass({ variant: "solid", tone: "accent", size: "sm", radius: "full" }),
+    "ui-chip-on": badgeClass({ variant: "soft", tone: "accent", size: "md", radius: "full" }),
     // A link standing alone gets the 44px tap height; that is app layout.
-    "ui-link": `${linkClass({ size: "2", weight: "bold", underline: "always" })} inline-flex min-h-11 items-center`,
+    "ui-link": `${linkClass({ size: "md", weight: "bold", underline: "always" })} inline-flex min-h-11 items-center`,
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
   },
 });

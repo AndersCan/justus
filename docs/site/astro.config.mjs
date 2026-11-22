@@ -41,7 +41,7 @@ export default defineConfig({
         replacesTitle: true,
       },
       customCss: [
-        "./apps/web/src/design/justus/tokens/theme.css",
+        "./docs/site/src/styles/justus-design.css",
         "./apps/web/src/tokens.css",
         "./docs/site/src/styles/brand.css",
       ],

@@ -23,14 +23,26 @@ export const designTheme: Record<string, Record<string, string | [string, string
     "danger-soft": "rgb(var(--danger-soft) / <alpha-value>)",
     "brand": "rgb(var(--brand) / <alpha-value>)",
     "action": "rgb(var(--action) / <alpha-value>)",
-    "on-action": "rgb(var(--on-action) / <alpha-value>)"
+    "on-action": "rgb(var(--on-action) / <alpha-value>)",
+    "card": "rgb(var(--card) / <alpha-value>)",
+    "link-hover": "rgb(var(--link-hover) / <alpha-value>)",
+    "black": "rgb(0 0 0 / <alpha-value>)",
+    "white": "rgb(255 255 255 / <alpha-value>)"
   },
-  "borderRadius": {
-    "control": "12px",
-    "surface": "16px"
+  "duration": {
+    "fast": "var(--duration-fast)",
+    "normal": "var(--duration-normal)",
+    "DEFAULT": "var(--duration-fast)"
+  },
+  "easing": {
+    "standard": "var(--easing-standard)",
+    "enter": "var(--easing-enter)",
+    "DEFAULT": "var(--easing-standard)"
   },
   "width": {
     "touch": "44px",
+    "sheet": "384px",
+    "tab": "36px",
     "avatar.sm": "24px",
     "avatar.md": "36px",
     "avatar.lg": "64px",
@@ -38,6 +50,7 @@ export const designTheme: Record<string, Record<string, string | [string, string
   },
   "height": {
     "touch": "44px",
+    "sheet": "384px",
     "tab": "36px",
     "avatar.sm": "24px",
     "avatar.md": "36px",
@@ -46,15 +59,55 @@ export const designTheme: Record<string, Record<string, string | [string, string
   },
   "minHeight": {
     "touch": "44px",
-    "tab": "36px"
+    "sheet": "384px",
+    "tab": "36px",
+    "avatar.sm": "24px",
+    "avatar.md": "36px",
+    "avatar.lg": "64px",
+    "dot": "12px"
+  },
+  "borderRadius": {
+    "control": "12px",
+    "surface": "16px",
+    "sm": "2px",
+    "md": "6px",
+    "lg": "8px",
+    "xl": "12px",
+    "2xl": "16px",
+    "3xl": "24px",
+    "full": "9999px",
+    "none": "0px"
   },
   "fontSize": {
     "2xs": [
       "11px",
       "1rem"
+    ],
+    "xs": [
+      "12px",
+      "1rem"
+    ],
+    "sm": [
+      "14px",
+      "1.25rem"
+    ],
+    "base": [
+      "16px",
+      "1.5rem"
+    ],
+    "xl": [
+      "20px",
+      "1.75rem"
+    ],
+    "2xl": [
+      "24px",
+      "2rem"
     ]
   },
-  "duration": {
-    "fast": "var(--duration-fast)"
+  "fontWeight": {
+    "normal": "400",
+    "medium": "500",
+    "semibold": "600",
+    "badge": "600"
   }
 }

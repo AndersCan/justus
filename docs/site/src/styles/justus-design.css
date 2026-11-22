@@ -1,0 +1,3 @@
+/* Design's reset and classes stay below Starlight's; the site only takes its colour variables. */
+@layer justus-design, starlight;
+@import "../../../../apps/web/src/design/justus/design.css" layer(justus-design);

@@ -40,6 +40,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
       previouslyFocused?.focus();
       resolve(result);
     };
+    const confirmVariant = options.tone === "danger" ? "danger" : "primary";
     // without-header: the built-in close X loads a data: icon,
     // which the CSP blocks. Keep, Escape and a tap outside all close it.
     render(
@@ -57,13 +58,13 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
             ${button({
               label: options.cancelLabel ?? copy("confirm.keep"),
               variant: "default",
-              size: "large",
+              size: "lg",
               onClick: () => finish(false),
             })}
             ${button({
               label: options.confirmLabel,
-              variant: options.tone === "danger" ? "danger" : "primary",
-              size: "large",
+              variant: confirmVariant,
+              size: "lg",
               onClick: () => finish(true),
             })}
           </div>

@@ -1,7 +1,7 @@
 import { render } from "lit-html";
 import type { JoinView } from "./join-request";
 import { renderJoinSheet } from "../../views/join-sheet";
-import "../../design/justus/tokens/theme.css";
+import "../../design/justus/design.css";
 import "../../tokens.css";
 import "../../reset.css";
 import "uno.css";

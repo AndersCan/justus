@@ -5,34 +5,34 @@ import type { Example } from "../example.ts"
 import { html, type TemplateResult } from "lit-html"
 
 export type BadgeVariant = "solid" | "soft" | "surface" | "outline"
-export type BadgeSize = "1" | "2" | "3"
-export type BadgeColor = "accent" | "gray"
-export type BadgeRadius = "none" | "small" | "medium" | "large" | "full"
-export type BadgeLook = { variant?: BadgeVariant; size?: BadgeSize; color?: BadgeColor; radius?: BadgeRadius }
+export type BadgeSize = "sm" | "md" | "lg"
+export type BadgeTone = "accent" | "neutral"
+export type BadgeRadius = "none" | "sm" | "md" | "lg" | "full"
+export type BadgeLook = { variant?: BadgeVariant; size?: BadgeSize; tone?: BadgeTone; radius?: BadgeRadius }
 export type BadgeProps = BadgeLook & { label: string; class?: string }
 
-// Semibold, justus's chip (Radix: medium). No hover, focus or motion: Radix's badge is a span.
-const base = "inline-flex shrink-0 items-center whitespace-nowrap font-semibold"
+// The weight is the app's (font.weight.badge; Radix: medium). No hover, focus or motion: Radix's badge is a span.
+const base = "inline-flex shrink-0 items-center whitespace-nowrap font-badge"
 
-// Radix: 2×6px / 4×8px / 4×10px padding, 12/12/14px text. Size 2's sides are 10px, justus's chip.
+// Radix sizes 1, 2, 3: 2×6px / 4×8px / 4×10px padding, 12/12/14px text. md's sides are 10px.
 const sizes: Record<BadgeSize, string> = {
-  "1": "gap-1.5 px-1.5 py-0.5 text-xs",
-  "2": "gap-1.5 px-2.5 py-1 text-xs",
-  "3": "gap-2 px-2.5 py-1 text-sm",
+  sm: "gap-1.5 px-1.5 py-0.5 text-xs",
+  md: "gap-1.5 px-2.5 py-1 text-xs",
+  lg: "gap-2 px-2.5 py-1 text-sm",
 }
 
-// Radix scales corners with size; ours is one token per radius.
-const radii: Record<BadgeRadius, string> = { none: "rounded-none", small: "rounded-sm", medium: "rounded-md", large: "rounded-lg", full: "rounded-full" }
+// Radix radius small, medium, large; Radix scales corners with size, ours is one token per radius.
+const radii: Record<BadgeRadius, string> = { none: "rounded-none", sm: "rounded-sm", md: "rounded-md", lg: "rounded-lg", full: "rounded-full" }
 
-// Colours by role: Radix's accent scale is accent, its gray scale is fg/subtle/line.
-const fills: Record<BadgeColor, Record<BadgeVariant, string>> = {
+// Radix color accent and gray; its gray scale is fg/subtle/line.
+const fills: Record<BadgeTone, Record<BadgeVariant, string>> = {
   accent: {
     solid: "bg-accent text-on-fill",
     soft: "bg-accent-soft text-accent",
     surface: "bg-accent-soft text-accent ring-1 ring-inset ring-accent/50",
     outline: "text-accent ring-1 ring-inset ring-accent",
   },
-  gray: {
+  neutral: {
     solid: "bg-fg text-canvas",
     soft: "bg-subtle text-fg",
     surface: "bg-subtle text-fg ring-1 ring-inset ring-line",
@@ -40,9 +40,9 @@ const fills: Record<BadgeColor, Record<BadgeVariant, string>> = {
   },
 }
 
-/** The classes badge() puts on its <span>; apps put them on their own chip or label. Defaults as Radix: soft, size "1", accent, medium radius. */
+/** The classes badge() puts on its <span>; apps put them on their own chip or label. Defaults as Radix: soft, sm, accent, md radius. */
 export function badgeClass(look: BadgeLook): string {
-  return `${base} ${sizes[look.size ?? "1"]} ${radii[look.radius ?? "medium"]} ${fills[look.color ?? "accent"][look.variant ?? "soft"]}`
+  return `${base} ${sizes[look.size ?? "sm"]} ${radii[look.radius ?? "md"]} ${fills[look.tone ?? "accent"][look.variant ?? "soft"]}`
 }
 
 export function badge(props: BadgeProps): TemplateResult {
@@ -59,6 +59,6 @@ export const variants = {
 export const sample = { label: "backend" } satisfies Omit<BadgeProps, keyof typeof variants>
 
 export const examples: Example[] = [
-  { label: "chip off: color=gray variant=soft size=2 radius=full", render: () => badge({ ...sample, variant: "soft", color: "gray", size: "2", radius: "full" }) },
-  { label: "chip on: variant=soft size=2 radius=full", render: () => badge({ ...sample, variant: "soft", size: "2", radius: "full" }) },
+  { label: "chip off: tone=neutral variant=soft size=md radius=full", render: () => badge({ ...sample, variant: "soft", tone: "neutral", size: "md", radius: "full" }) },
+  { label: "chip on: variant=soft size=md radius=full", render: () => badge({ ...sample, variant: "soft", size: "md", radius: "full" }) },
 ]

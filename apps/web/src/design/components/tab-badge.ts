@@ -2,30 +2,33 @@
 // Reference: Primer CounterLabel (https://github.com/primer/react/tree/main/packages/react/src/CounterLabel), MIT. Notice: docs/references.md.
 import { html, nothing, type TemplateResult } from "lit-html"
 
-export type TabBadgeVariant = "secondary" | "primary"
+const tones = ["neutral", "accent"] as const
 
-export type TabBadgeProps = { count: string; variant?: TabBadgeVariant; class?: string }
+export type TabBadgeTone = (typeof tones)[number]
+
+export type TabBadgeProps = { count: string; tone?: TabBadgeTone; class?: string }
 
 const base = "rounded-full px-1.5 text-2xs font-semibold leading-4"
 
-const fills: Record<TabBadgeVariant, string> = {
-  secondary: "bg-subtle text-fg",
-  primary: "bg-accent text-on-fill",
+// Primer scheme secondary, primary.
+const fills: Record<TabBadgeTone, string> = {
+  neutral: "bg-subtle text-fg",
+  accent: "bg-accent text-on-fill",
 }
 
 /** Apps put these classes on their own count badge. */
-export function tabBadgeClass(variant: TabBadgeVariant = "secondary"): string {
-  return `${base} ${fills[variant]}`
+export function tabBadgeClass(tone: TabBadgeTone = "neutral"): string {
+  return `${base} ${fills[tone]}`
 }
 
 // Primer hides an empty counter; the visually hidden text keeps the count for screen readers.
 export function tabBadge(props: TabBadgeProps): TemplateResult | typeof nothing {
   if (props.count === "") return nothing
-  const classes = [tabBadgeClass(props.variant)]
+  const classes = [tabBadgeClass(props.tone)]
   if (props.class !== undefined) classes.push(props.class)
   return html`<span class=${classes.join(" ")} aria-hidden="true">${props.count}</span><span class="sr-only"> (${props.count})</span>`
 }
 
-export const variants = { variant: Object.keys(fills) as TabBadgeVariant[] }
+export const variants = { tone: [...tones] }
 
 export const sample = { count: "3" } satisfies Omit<TabBadgeProps, keyof typeof variants>

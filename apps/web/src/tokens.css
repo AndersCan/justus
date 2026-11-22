@@ -1,4 +1,4 @@
-/* Colour tokens are generated: ./design/justus/tokens/theme.css (from the design repo, npm run sync). */
+/* Colour tokens are generated: ./design/justus/design.css (from the design repo, npm run sync). */
 
 /* Dev builds only (copy.ts sets the attribute): text the owner has not approved. */
 [data-copy-draft] {

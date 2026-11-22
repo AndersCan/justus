@@ -573,7 +573,7 @@ function memberRow(
   const photosLine = memberPhotosLine(holding);
   const identity = p.identity;
   const dot = presenceDot({
-    tone: p.connected ? "green" : "neutral",
+    tone: p.connected ? "success" : "neutral",
     label: p.presence,
     size: "md",
     class: "shrink-0",

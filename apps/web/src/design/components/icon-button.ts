@@ -5,10 +5,10 @@ import type { Example } from "../example.ts"
 import { html, type TemplateResult } from "lit-html"
 
 export type IconButtonVariant = "classic" | "solid" | "soft" | "surface" | "outline" | "ghost"
-export type IconButtonSize = "1" | "2" | "3" | "4"
-export type IconButtonColor = "accent" | "gray"
-export type IconButtonRadius = "none" | "small" | "medium" | "large" | "full"
-export type IconButtonLook = { variant: IconButtonVariant; size?: IconButtonSize; color?: IconButtonColor; radius?: IconButtonRadius }
+export type IconButtonSize = "xs" | "sm" | "md" | "lg"
+export type IconButtonTone = "accent" | "neutral"
+export type IconButtonRadius = "none" | "sm" | "md" | "lg" | "full"
+export type IconButtonLook = { variant: IconButtonVariant; size?: IconButtonSize; tone?: IconButtonTone; radius?: IconButtonRadius }
 export type IconButtonProps = IconButtonLook & {
   label: string
   icon: TemplateResult
@@ -17,23 +17,24 @@ export type IconButtonProps = IconButtonLook & {
   class?: string
 }
 
-// No transition: Radix's icon buttons change colour at once, as justus's do.
+// No transition: Radix's icon buttons change colour at once.
 const base =
   "inline-flex shrink-0 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50"
 
-// Radix size 3 is 40px; ours is the 44px touch size. Ghost is square too: Radix's negative margin is placing, app code.
-const sizes: Record<IconButtonSize, string> = { "1": "h-6 w-6", "2": "h-8 w-8", "3": "h-touch w-touch", "4": "h-12 w-12" }
+// Radix sizes 1–4. Radix size 3 is 40px; md is the 44px touch size, as button's md. Ghost is square too: Radix's negative margin is placing, app code.
+const sizes: Record<IconButtonSize, string> = { xs: "h-6 w-6", sm: "h-8 w-8", md: "h-touch w-touch", lg: "h-12 w-12" }
 
+// Radix radius small, medium, large.
 const radii: Record<IconButtonRadius, string> = {
   none: "rounded-none",
-  small: "rounded-md",
-  medium: "rounded-control",
-  large: "rounded-surface",
+  sm: "rounded-md",
+  md: "rounded-control",
+  lg: "rounded-surface",
   full: "rounded-full",
 }
 
-// Colours by role: Radix's accent scale is accent, its gray scale is fg/subtle/line.
-const fills: Record<IconButtonColor, Record<IconButtonVariant, string>> = {
+// Radix color accent and gray; its gray scale is fg/subtle/line.
+const fills: Record<IconButtonTone, Record<IconButtonVariant, string>> = {
   accent: {
     classic: "bg-accent text-on-fill shadow-md hover:bg-accent-strong",
     solid: "bg-accent text-on-fill hover:bg-accent-strong",
@@ -42,7 +43,7 @@ const fills: Record<IconButtonColor, Record<IconButtonVariant, string>> = {
     outline: "bg-transparent text-accent ring-1 ring-inset ring-accent hover:bg-accent/10",
     ghost: "bg-transparent text-accent hover:bg-accent/10",
   },
-  gray: {
+  neutral: {
     classic: "bg-fg text-canvas shadow-md hover:bg-fg/90",
     solid: "bg-fg text-canvas hover:bg-fg/90",
     soft: "bg-subtle text-fg hover:bg-line",
@@ -52,9 +53,9 @@ const fills: Record<IconButtonColor, Record<IconButtonVariant, string>> = {
   },
 }
 
-/** The classes iconButton() puts on its <button>; apps put them on their own icon-only button. Defaults as Radix: size "2", accent, medium radius. */
+/** The classes iconButton() puts on its <button>; apps put them on their own icon-only button. Defaults as Radix: sm (Radix size 2), accent, md radius. */
 export function iconButtonClass(look: IconButtonLook): string {
-  return `${base} ${sizes[look.size ?? "2"]} ${radii[look.radius ?? "medium"]} ${fills[look.color ?? "accent"][look.variant]}`
+  return `${base} ${sizes[look.size ?? "sm"]} ${radii[look.radius ?? "md"]} ${fills[look.tone ?? "accent"][look.variant]}`
 }
 
 export function iconButton(props: IconButtonProps): TemplateResult {
@@ -79,5 +80,5 @@ export const variants = {
 export const sample = { label: "More options", icon: dots } satisfies Omit<IconButtonProps, keyof typeof variants>
 
 export const examples: Example[] = [
-  { label: "color=gray variant=ghost size=3 radius=full", render: () => iconButton({ ...sample, variant: "ghost", color: "gray", size: "3", radius: "full" }) },
+  { label: "tone=neutral variant=ghost size=md radius=full", render: () => iconButton({ ...sample, variant: "ghost", tone: "neutral", size: "md", radius: "full" }) },
 ]
