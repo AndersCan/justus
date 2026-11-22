@@ -46,7 +46,7 @@ async function invoke<R>(envelope: InvokeEnvelope<string, Record<string, unknown
  * framework's `Either` tuple `[error, result]`. */
 export const gateway = {
   /** Every album's photos, newest first. */
-  list: () => listAllPhotos((from) => invoke(photoEvents.photos.list(true, { from }))),
+  list: () => listAllPhotos((position) => invoke(photoEvents.photos.list(true, position))),
   add: (path: string, name?: string, folderId?: string, extras?: AddExtras) =>
     invoke(photoEvents.photos.add(path, name, folderId, extras)),
   /** Encodes a browser-picked file into the copies an album shares and posts
