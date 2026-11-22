@@ -2,31 +2,25 @@
  * Joins the pages of `photos.list`. The worklet answers in pages so each fits
  * the 64 KB invoke header; the gallery wants one list.
  */
-import type { CoreError, Either } from "@ekrooh/bare/core";
-import type { ListResult, Photo } from "@justus/core";
+import { CoreError, type Either } from "@ekrooh/bare/core";
+import type { ListOptions, ListResult, Photo } from "@justus/core";
 
-/** Reads the page of photos that starts at `from`. */
-export type ReadPage = (from: number) => Promise<Either<CoreError, ListResult>>;
+/** Reads one page of photos. */
+export type ReadPage = (position: ListOptions) => Promise<Either<CoreError, ListResult>>;
 
-function keyOf(photo: Photo): string {
-  const folder = photo.folderId ?? "";
-  return `${folder}/${photo.id}`;
-}
-
-/** Every page, in order. A photo that shifts onto the next page while they are read is kept once. */
+/** Every page of one list, in order. */
 export async function listAllPhotos(readPage: ReadPage): Promise<Either<CoreError, ListResult>> {
   const photos: Photo[] = [];
-  const seen = new Set<string>();
-  let from: number | undefined = 0;
-  while (from !== undefined) {
-    const [error, page] = await readPage(from);
+  let position: ListOptions | undefined = {};
+  while (position !== undefined) {
+    const [error, page] = await readPage(position);
     if (error) return [error, null];
-    for (const photo of page.photos) {
-      if (seen.has(keyOf(photo))) continue;
-      seen.add(keyOf(photo));
-      photos.push(photo);
+    photos.push(...page.photos);
+    const from = position.from ?? 0;
+    if (page.next !== undefined && page.next <= from) {
+      return [new CoreError("INVALID_RESPONSE", "photos.list: next page does not move on"), null];
     }
-    from = page.next !== undefined && page.next > from ? page.next : undefined;
+    position = page.next === undefined ? undefined : { from: page.next, listId: page.listId };
   }
   return [null, { photos }];
 }

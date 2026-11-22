@@ -1,7 +1,7 @@
+import { answerList, createListPages } from "./photos/list-page";
 import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
 import { checkPhotoResult, photoSpecs } from "@justus/core";
 import type { PhotoStore } from "./photo-store";
-import { listPage } from "./photos/list-page";
 
 // Mirror the upload route's cap (upload-route.ts MAX_UPLOAD_BYTES): the in-band
 // add path writes the payload to a temp file and then reads it fully into
@@ -36,6 +36,7 @@ function checked<A extends unknown[]>(
 
 /** The `justus.photos` plugin — the worklet surface the web layer calls. */
 export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: boolean }) {
+  const listPages = createListPages();
   const wrap = <T extends Record<string, (...a: never[]) => unknown>>(handlers: T): T =>
     Object.fromEntries(
       Object.entries(handlers).map(([key, fn]) => [
@@ -46,14 +47,10 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
   return definePlugin("justus.photos", photoSpecs, {
     capabilities: ["photos"],
     invoke: wrap({
-      list: async (args) => {
-        try {
-          const photos = await deps.store.list({ all: args?.all === true });
-          return [null, listPage(photos, { from: args?.from ?? 0 })];
-        } catch (e) {
-          return errResult(e);
-        }
-      },
+      list: (args) =>
+        answerList(args, { pages: listPages, read: (all) => deps.store.list({ all }) }).catch(
+          errResult,
+        ),
       add: async (args, context: PluginContext) => {
         // Two add flows share one invoke: a host-picked file already on disk
         // (`path`), or bytes uploaded in-band as the invoke payload from the
