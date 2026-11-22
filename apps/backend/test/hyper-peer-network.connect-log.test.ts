@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from "vite-plus/test";
 import createTestnet from "hyperdht/testnet";
 import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
-import type { P2pEvent, P2pLog } from "../src/p2p-log.ts";
+import type { P2pEvent, P2pFields, P2pLog } from "../src/p2p-log.ts";
 import type { PeerEvent } from "../src/ports/peer-network.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -106,6 +106,33 @@ it("a dial that opened and later dropped is not logged as a failed dial", async 
   await new Promise((r) => setTimeout(r, 1000));
   const dialer = logs[1].map((e) => e.event);
   expect(dialer).toContain("conn.open");
-  // p2p-log.ts: "connect.error peer ms err   a dial failed". This dial did not fail.
-  expect(dialer).not.toContain("connect.error");
+  // p2p-log.ts: "connect.error peer ms err   a dial failed". This dial opened, so it neither failed nor closed.
+  expect(dialer.filter((event) => event.startsWith("connect."))).toEqual([
+    "connect.attempt",
+    "connect.open",
+  ]);
+}, 20_000);
+
+it("a lookup after an announce is still logged as a lookup", async () => {
+  const net = await createTestnet(5);
+  cleanups.push(() => net.destroy());
+  const events: P2pEvent[] = [];
+  function log(event: string, fields: P2pFields = {}) {
+    events.push({ event, fields });
+  }
+  const network = createHyperPeerNetwork({ bootstrap: net.bootstrap, replicate: () => {}, log });
+  network.start("a".repeat(64), () => {}, 1);
+  cleanups.push(() => network.close());
+  const served = "b".repeat(64);
+  const looked = "c".repeat(64);
+  network.join(served, { server: true });
+  network.findPeers(served, () => false);
+  network.join(looked, { server: false });
+  network.findPeers(looked, () => false);
+  await new Promise((r) => setTimeout(r, 2500));
+  const kinds = new Set<string>();
+  for (const entry of events) {
+    if (entry.event === "lookup.done") kinds.add(`${entry.fields.kind} ${entry.fields.topic}`);
+  }
+  expect([...kinds].sort()).toEqual(["announce bbbbbbbb", "lookup cccccccc"]);
 }, 20_000);
