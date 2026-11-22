@@ -38,7 +38,7 @@ function counter(props: TabProps): TemplateResult | typeof nothing {
     return html`<span class="ml-2 inline-block w-6 h-4 bg-subtle rounded-full animate-pulse motion-reduce:animate-none" aria-hidden="true"></span><span class="sr-only"> (loading count)</span>`
   }
   if (props.count === undefined) return nothing
-  return html`<span>${tabBadge({ count: props.count, variant: "primary" })}</span>`
+  return html`<span>${tabBadge({ count: props.count, tone: "accent" })}</span>`
 }
 
 export function tab(props: TabProps): TemplateResult {

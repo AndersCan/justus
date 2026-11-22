@@ -4,17 +4,17 @@
 import type { Example } from "../example.ts"
 import { html, type TemplateResult } from "lit-html"
 
-export type LinkSize = "1" | "2" | "3"
+export type LinkSize = "sm" | "md" | "lg"
 export type LinkWeight = "medium" | "bold"
 export type LinkUnderline = "auto" | "hover" | "always"
 export type LinkLook = { size?: LinkSize; weight?: LinkWeight; underline?: LinkUnderline }
 export type LinkProps = LinkLook & { label: string; href: string; class?: string }
 
-// justus's look where Radix's differs: underline 2px below in the text colour, darker text on hover, design's focus ring.
-const base = "rounded-md text-accent underline-offset-2 hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0"
+// Where Radix's differs: underline 2px below in the text colour, the app's hover colour (color.link-hover), design's focus ring.
+const base = "rounded-md text-accent underline-offset-2 hover:text-link-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0"
 
 // Radix sizes 1-3 (12/14/16px); 4-9 have no design token. No size: inherit, as Radix.
-const sizes: Record<LinkSize, string> = { "1": "text-xs", "2": "text-sm", "3": "text-base" }
+const sizes: Record<LinkSize, string> = { sm: "text-xs", md: "text-sm", lg: "text-base" }
 
 // Bold is our heaviest weight, 600. No weight: inherit, as Radix.
 const weights: Record<LinkWeight, string> = { medium: "font-medium", bold: "font-semibold" }
@@ -44,5 +44,5 @@ export const variants = {
 export const sample = { label: "Review", href: "#" } satisfies Omit<LinkProps, keyof typeof variants>
 
 export const examples: Example[] = [
-  { label: "justus: weight=bold underline=always size=2", render: () => link({ ...sample, weight: "bold", underline: "always", size: "2" }) },
+  { label: "weight=bold underline=always size=md", render: () => link({ ...sample, weight: "bold", underline: "always", size: "md" }) },
 ]

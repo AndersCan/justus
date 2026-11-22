@@ -5,7 +5,7 @@ import { button } from "./button.ts"
 import { html, type TemplateResult } from "lit-html"
 
 export type RequestCardVariant = "surface" | "classic" | "ghost"
-export type RequestCardSize = "1" | "2" | "3" | "4" | "5"
+export type RequestCardSize = "xs" | "sm" | "md" | "lg" | "xl"
 
 export type RequestCardProps = {
   id: string
@@ -21,15 +21,16 @@ export type RequestCardProps = {
 }
 
 const looks: Record<RequestCardVariant, string> = {
-  surface: "bg-subtle", // justus's grey tile
+  surface: "bg-card",
   classic: "bg-surface border border-solid border-line shadow-md",
   ghost: "bg-transparent",
 }
 
-const sizes: Record<RequestCardSize, string> = { "1": "p-2", "2": "p-3", "3": "p-4", "4": "p-5", "5": "p-6" }
+// Radix sizes 1-5.
+const sizes: Record<RequestCardSize, string> = { xs: "p-2", sm: "p-3", md: "p-4", lg: "p-5", xl: "p-6" }
 
 /** Apps put these classes on their own request card; what the card says is app code. */
-export function requestCardClass(variant: RequestCardVariant = "surface", size: RequestCardSize = "2"): string {
+export function requestCardClass(variant: RequestCardVariant = "surface", size: RequestCardSize = "sm"): string {
   return `rounded-xl ${looks[variant]} ${sizes[size]}`
 }
 

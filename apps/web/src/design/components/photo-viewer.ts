@@ -33,7 +33,7 @@ const chevronLeft = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="n
 const chevronRight = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7" /></svg>`
 
 function chip(step: PhotoViewerStep & { icon: TemplateResult }): TemplateResult {
-  return iconButton({ ...step, variant: "soft", color: "gray", size: "3", radius: "full" })
+  return iconButton({ ...step, variant: "soft", tone: "neutral", size: "md", radius: "full" })
 }
 
 export function photoViewer(props: PhotoViewerProps): TemplateResult {

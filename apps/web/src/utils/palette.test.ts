@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { memberColor } from "./palette";
 
 const SEATS = [0, 1, 2, 3, 4].map((seat) => memberColor(seat) ?? "");
-// Light and dark --trust-*, --ok(-fg), --warn(-fg) and --danger(-fg) in design/justus/tokens/theme.css.
+// Light and dark --trust-*, --ok(-fg), --warn(-fg) and --danger(-fg) in design/justus/design.css.
 const STATUS = [
   "#10B981",
   "#059669",

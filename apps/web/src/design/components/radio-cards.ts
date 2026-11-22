@@ -5,7 +5,7 @@ import type { Example } from "../example.ts"
 import { html, type TemplateResult } from "lit-html"
 
 export type RadioCardsVariant = "surface" | "classic"
-export type RadioCardsSize = "1" | "2" | "3"
+export type RadioCardsSize = "sm" | "md" | "lg"
 export type RadioCardsLook = { checked: boolean; variant?: RadioCardsVariant; size?: RadioCardsSize }
 export type RadioCardsOption = { value: string; label: string; disabled?: boolean }
 export type RadioCardsProps = {
@@ -20,14 +20,14 @@ export type RadioCardsProps = {
 
 const base = "font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0 disabled:opacity-50"
 
-// Radix: 12×10px / 16×14px / 20×17px padding, 14/14/16px text. Size 1 is justus's 40px card.
+// Radix sizes 1, 2, 3: 12×10px / 16×14px / 20×17px padding, 14/14/16px text. sm is a 40px card.
 const sizes: Record<RadioCardsSize, string> = {
-  "1": "rounded-control px-3 py-2.5 text-sm",
-  "2": "rounded-control px-4 py-3.5 text-sm",
-  "3": "rounded-surface px-5 py-4 text-base",
+  sm: "rounded-control px-3 py-2.5 text-sm",
+  md: "rounded-control px-4 py-3.5 text-sm",
+  lg: "rounded-surface px-5 py-4 text-base",
 }
 
-// Checked is justus's tint and 1px accent ring (Radix: a 2px accent outline). Hover is mouse-only and skips disabled cards, as Radix.
+// Checked is a tint and a 1px accent ring (Radix: a 2px accent outline). Hover is mouse-only and skips disabled cards, as Radix.
 const fills: Record<RadioCardsVariant, Record<"checked" | "unchecked", string>> = {
   surface: {
     checked: "bg-accent/10 text-accent ring-1 ring-accent",
@@ -39,9 +39,9 @@ const fills: Record<RadioCardsVariant, Record<"checked" | "unchecked", string>> 
   },
 }
 
-/** Apps put these classes on each card (a role="radio" or role="switch" button); how cards sit (grid, flex, width) is app code. Defaults as Radix: surface, size "2". */
+/** Apps put these classes on each card (a role="radio" or role="switch" button); how cards sit (grid, flex, width) is app code. Defaults as Radix: surface, md (Radix size 2). */
 export function radioCardsItemClass(look: RadioCardsLook): string {
-  return `${base} ${sizes[look.size ?? "2"]} ${fills[look.variant ?? "surface"][look.checked ? "checked" : "unchecked"]}`
+  return `${base} ${sizes[look.size ?? "md"]} ${fills[look.variant ?? "surface"][look.checked ? "checked" : "unchecked"]}`
 }
 
 export function radioCards(props: RadioCardsProps): TemplateResult {
@@ -79,6 +79,6 @@ export const sample = {
 export const examples: Example[] = [
   {
     label: "disabled",
-    render: () => radioCards({ ...sample, size: "1", options: sample.options.map((o) => (o.value === "dark" ? { ...o, disabled: true } : o)) }),
+    render: () => radioCards({ ...sample, size: "sm", options: sample.options.map((o) => (o.value === "dark" ? { ...o, disabled: true } : o)) }),
   },
 ]

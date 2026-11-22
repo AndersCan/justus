@@ -5,40 +5,44 @@ import type { Example } from "../example.ts"
 import { presenceDot, presenceDotClass, type PresenceDotProps, type PresenceTone } from "./presence-dot.ts"
 import { html, type TemplateResult } from "lit-html"
 
-export type PresenceDotsVariant = "cascade" | "stack"
+const layouts = ["cascade", "stack"] as const
+
+export type PresenceDotsLayout = (typeof layouts)[number]
 
 export type PresenceDotsProps = {
   label: string
   dots: PresenceDotProps[]
-  variant?: PresenceDotsVariant
+  layout?: PresenceDotsLayout
   alignRight?: boolean
   class?: string
 }
 
-// cascade (the default) is justus's row: side by side, 6px apart. stack overlaps as Primer's AvatarStack (55%). Margins are on the side the next dot sits.
-const rows: Record<PresenceDotsVariant, string> = { cascade: "flex items-center gap-1.5", stack: "flex items-center" }
+// cascade (the default) is a row: side by side, 6px apart. stack overlaps as Primer's AvatarStack (55%). Margins are on the side the next dot sits.
+const rows: Record<PresenceDotsLayout, string> = { cascade: "flex items-center gap-1.5", stack: "flex items-center" }
 
-// White in both themes, as justus draws it.
+// White in both themes.
 const ring = "ring-2 ring-white"
 
-const overlapLeft: Record<PresenceDotsVariant, [string, string]> = {
+const overlapLeft: Record<PresenceDotsLayout, [string, string]> = {
   cascade: ["", ""],
-  stack: ["-ml-1-5", "-ml-1-5"],
+  stack: ["-ml-1.5", "-ml-1.5"],
 }
-const overlapRight: Record<PresenceDotsVariant, [string, string]> = {
+const overlapRight: Record<PresenceDotsLayout, [string, string]> = {
   cascade: ["", ""],
-  stack: ["-mr-1-5", "-mr-1-5"],
+  stack: ["-mr-1.5", "-mr-1.5"],
 }
 
-function overlap(index: number, options: { variant: PresenceDotsVariant; alignRight: boolean }): string {
+type OverlapOptions = { layout: PresenceDotsLayout; alignRight: boolean }
+
+function overlap(index: number, options: OverlapOptions): string {
   if (index === 0) return ""
-  const [second, later] = (options.alignRight ? overlapRight : overlapLeft)[options.variant]
+  const [second, later] = (options.alignRight ? overlapRight : overlapLeft)[options.layout]
   return index === 1 ? second : later
 }
 
 /** Apps put these classes on their own row of dots. */
-export function presenceDotsClass(variant: PresenceDotsVariant = "cascade"): string {
-  return rows[variant]
+export function presenceDotsClass(layout: PresenceDotsLayout = "cascade"): string {
+  return rows[layout]
 }
 
 /** Apps put these classes on each dot in their row: the dot plus the ring that parts it from its neighbours. */
@@ -47,27 +51,36 @@ export function presenceDotsItemClass(tone?: PresenceTone): string {
 }
 
 export function presenceDots(props: PresenceDotsProps): TemplateResult {
-  const variant = props.variant ?? "cascade"
+  const layout = props.layout ?? "cascade"
   const alignRight = props.alignRight === true
   const direction = alignRight ? "flex-row-reverse" : "justify-start"
-  return html`<ul aria-label=${props.label} class="${presenceDotsClass(variant)} m-0 p-0 list-none ${direction} ${props.class ?? ""}">${props.dots.map(
-    (dot, index) => html`<li class="flex ${overlap(index, { variant, alignRight })}">${presenceDot({ ...dot, class: ring })}</li>`,
-  )}</ul>`
+  const classes = [presenceDotsClass(layout), "m-0 p-0 list-none", direction]
+  if (props.class !== undefined) classes.push(props.class)
+  const dotItems = props.dots.map((dot, index) => presenceDotsItem(dot, { index, overlap: { layout, alignRight } }))
+  return html`<ul class=${classes.join(" ")} aria-label=${props.label}>${dotItems}</ul>`
+}
+
+type PresenceDotsItemOptions = { index: number; overlap: OverlapOptions }
+
+function presenceDotsItem(dot: PresenceDotProps, options: PresenceDotsItemOptions): TemplateResult {
+  const ringed: PresenceDotProps = { ...dot, class: ring }
+  const itemClass = `flex ${overlap(options.index, options.overlap)}`
+  return html`<li class=${itemClass}>${presenceDot(ringed)}</li>`
 }
 
 const four: PresenceDotProps[] = [
-  { tone: "green", label: "Nils, online" },
-  { tone: "green", label: "Ada, online" },
-  { tone: "amber", label: "Sam, away" },
-  { tone: "red", label: "Lee, offline" },
+  { tone: "success", label: "Nils, online" },
+  { tone: "success", label: "Ada, online" },
+  { tone: "warning", label: "Sam, away" },
+  { tone: "danger", label: "Lee, offline" },
 ]
 
-export const variants = { variant: Object.keys(rows) as PresenceDotsVariant[] }
+export const variants = { layout: [...layouts] }
 
 export const sample = { label: "4 people", dots: four } satisfies Omit<PresenceDotsProps, keyof typeof variants>
 
 export const examples: Example[] = [
   { label: "cascade · align right", render: () => presenceDots({ ...sample, alignRight: true }) },
-  { label: "stack · align right", render: () => presenceDots({ ...sample, variant: "stack", alignRight: true }) },
+  { label: "stack · align right", render: () => presenceDots({ ...sample, layout: "stack", alignRight: true }) },
   { label: "single", render: () => presenceDots({ label: "1 person", dots: four.slice(0, 1) }) },
 ]

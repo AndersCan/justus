@@ -4,6 +4,7 @@ import mdx from "@astrojs/mdx";
 import starlight from "@astrojs/starlight";
 import { mantaqViz } from "@mantaq/inspect/astro";
 import { defineConfig } from "astro/config";
+import { siteDesignVariables } from "../../scripts/site-design/design-variables.ts";
 
 process.env.VITE_TRANSPORT_MODE = "mock";
 process.env.MANTAQ_SEED = "1";
@@ -30,7 +31,10 @@ export default defineConfig({
     "/sharing": `${base}/join-an-album/`,
     "/app": `${base}/internals/`,
   },
-  vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
+  vite: {
+    define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") },
+    plugins: [siteDesignVariables()],
+  },
   integrations: [
     mantaqViz({ machines: Object.values(manifest).flat(), failOnFindings: true }),
     starlight({
@@ -41,7 +45,7 @@ export default defineConfig({
         replacesTitle: true,
       },
       customCss: [
-        "./apps/web/src/design/justus/tokens/theme.css",
+        "./apps/web/src/design/justus/design.css?variables",
         "./apps/web/src/tokens.css",
         "./docs/site/src/styles/brand.css",
       ],

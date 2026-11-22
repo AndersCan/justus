@@ -1,4 +1,4 @@
-/* Minimal reset (the Uno preset ships no preflight). */
+/* Runs after design.css and its reset; keeps justus's own look where the two differ. */
 *,
 ::before,
 ::after {
@@ -40,9 +40,14 @@ img,
 svg {
   display: block;
 }
+/* A definition keeps the browser's indent under its term. */
+dd {
+  margin: revert;
+}
 html,
 body {
   margin: 0;
+  line-height: normal;
   background: rgb(var(--canvas));
   color: rgb(var(--fg));
   font-family:
