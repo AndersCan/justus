@@ -68,7 +68,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             "platforms;android-36" "build-tools;35.0.0" "ndk;27.2.12479018"
       - run: pnpm install --frozen-lockfile
-      # store-listing/flow-photo.test.ts renders with Chromium.
+      # scripts/join-page.test.ts renders with Chromium.
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Gate on check + unit tests

@@ -1,0 +1,48 @@
+{
+  "app": "justus",
+  "locale": "en-US",
+  "out": "store-listing/out",
+  "play": {
+    "metadata": "apps/android/fastlane/metadata/android",
+    "icon": "apps/android/fastlane/metadata/android/en-US/images/icon.png",
+    "captures": "store-listing/captures/android"
+  },
+  "appStore": {
+    "metadata": "apps/ios/fastlane/metadata",
+    "icon": "apps/ios/app/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+    "captures": "store-listing/captures/ios"
+  },
+  "connector": { "photo": "assets/sample-photos/happy-dog.jpg" },
+  "images": [
+    {
+      "id": "01_private",
+      "layout": "device-angled",
+      "capture": "album",
+      "headline": "Private photo sharing"
+    },
+    {
+      "id": "02_you_choose",
+      "layout": "device-below",
+      "capture": "invite",
+      "headline": "You choose who joins"
+    },
+    {
+      "id": "03_phone_to_phone",
+      "layout": "device-above",
+      "capture": "photo",
+      "headline": "Photos, phone to phone"
+    },
+    {
+      "id": "04_app_lock",
+      "layout": "device-below",
+      "capture": "settings",
+      "headline": "Lock Justus on your phone"
+    },
+    {
+      "id": "05_help",
+      "layout": "headline-below",
+      "capture": "help",
+      "headline": "How it works, right in the app"
+    }
+  ]
+}
