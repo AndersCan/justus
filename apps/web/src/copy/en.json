@@ -2890,6 +2890,27 @@
     "who": "People who open Help from Settings",
     "screen": ""
   },
+  "help.are_the_photos_in": {
+    "text": "Are the photos in the album full size?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.no_when_you_add_a": {
+    "text": "No. When you add a photo, Justus makes a smaller copy for the album: a JPEG up to 2560 pixels on its longest side, plus a small preview. That is plenty for any phone screen, but it is not the original file.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.your_original_stays_on": {
+    "text": "Your original stays on the phone it came from, untouched.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
   "help.why_don_t_i_see": {
     "text": "Why don't I see my friend's new photos?",
     "status": "draft",
