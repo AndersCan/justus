@@ -93,4 +93,21 @@ test("taken month: Ben taps 4 taken in a past month on Photos and lands on it by
     await expect(b.getByRole("button", { name: `View ${name}` })).toBeVisible();
   }
   expect(await b.evaluate(() => localStorage.getItem("justus:photo-sort"))).not.toBe("taken");
+
+  /** LIMITATION(#1002): photos.list fails past 64 KB and later specs share Ada's phone, so the album goes. */
+  await a.goto("/sharing");
+  await a.getByRole("link", { name: `Invite & members of ${album}` }).click();
+  await a.getByRole("button", { name: "More options" }).click();
+  await a.getByRole("menuitem", { name: "Delete album" }).click();
+  await a.getByRole("button", { name: "Delete album", exact: true }).click();
+  await expect(a).toHaveURL(/\/sharing$/);
+  await expect(b.getByRole("button", { name: new RegExp(`^View taken-month-${id}-`) })).toHaveCount(
+    0,
+    { timeout: 30_000 },
+  );
+  await b.goto("/sharing");
+  const dismiss = b.getByRole("button", { name: `Dismiss notice about ${album}` });
+  await expect(dismiss).toBeVisible({ timeout: 30_000 });
+  await dismiss.click();
+  await expect(dismiss).toHaveCount(0);
 });
