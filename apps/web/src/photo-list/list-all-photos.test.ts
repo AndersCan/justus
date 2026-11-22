@@ -1,6 +1,6 @@
 import { CoreError, type Either } from "@ekrooh/bare/core";
 import { describe, expect, test } from "vite-plus/test";
-import type { ListResult, Photo } from "@justus/core";
+import type { ListOptions, ListResult, Photo } from "@justus/core";
 import { listAllPhotos } from "./list-all-photos";
 
 function photoCalled(id: string): Photo {
@@ -17,11 +17,11 @@ function photoCalled(id: string): Photo {
 }
 
 function pagesOf(pages: ListResult[]) {
-  const asked: number[] = [];
-  const starts = [0, ...pages.map((page) => page.next)];
-  function readPage(from: number): Promise<Either<CoreError, ListResult>> {
-    asked.push(from);
-    const page = pages[starts.indexOf(from)];
+  const asked: ListOptions[] = [];
+  const starts = [undefined, ...pages.map((page) => page.next)];
+  function readPage(position: ListOptions): Promise<Either<CoreError, ListResult>> {
+    asked.push(position);
+    const page = pages[starts.indexOf(position.from)];
     if (page === undefined) {
       return Promise.resolve([new CoreError("PLUGIN_ERROR", "no page"), null]);
     }
@@ -31,30 +31,27 @@ function pagesOf(pages: ListResult[]) {
 }
 
 describe("listAllPhotos", () => {
-  test("reads every page in order and joins the photos", async () => {
+  test("reads every page of one list in order and joins the photos", async () => {
     const [a, b, c] = ["a", "b", "c"].map(photoCalled);
-    const { asked, readPage } = pagesOf([{ photos: [a, b], next: 2 }, { photos: [c] }]);
+    const { asked, readPage } = pagesOf([
+      { photos: [a, b], next: 2, listId: "7" },
+      { photos: [c] },
+    ]);
     expect(await listAllPhotos(readPage)).toEqual([null, { photos: [a, b, c] }]);
-    expect(asked).toEqual([0, 2]);
-  });
-
-  test("a photo that shifts onto the next page while it is read is listed once", async () => {
-    const [a, b, c] = ["a", "b", "c"].map(photoCalled);
-    const { readPage } = pagesOf([{ photos: [a, b], next: 2 }, { photos: [b, c] }]);
-    expect(await listAllPhotos(readPage)).toEqual([null, { photos: [a, b, c] }]);
+    expect(asked).toEqual([{}, { from: 2, listId: "7" }]);
   });
 
   test("a page that fails fails the whole list", async () => {
-    const { readPage } = pagesOf([{ photos: [photoCalled("a")], next: 1 }]);
+    const { readPage } = pagesOf([{ photos: [photoCalled("a")], next: 1, listId: "7" }]);
     const [error, result] = await listAllPhotos(readPage);
     expect(error?.message).toBe("no page");
     expect(result).toBeNull();
   });
 
-  test("a next that does not move forward ends the list", async () => {
-    const a = photoCalled("a");
-    const { asked, readPage } = pagesOf([{ photos: [a], next: 0 }]);
-    expect(await listAllPhotos(readPage)).toEqual([null, { photos: [a] }]);
-    expect(asked).toEqual([0]);
+  test("a next that does not move on fails instead of showing only the first page", async () => {
+    const { asked, readPage } = pagesOf([{ photos: [photoCalled("a")], next: 0, listId: "7" }]);
+    const [error] = await listAllPhotos(readPage);
+    expect(error?.message).toBe("photos.list: next page does not move on");
+    expect(asked).toEqual([{}]);
   });
 });

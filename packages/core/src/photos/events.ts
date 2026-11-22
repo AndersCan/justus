@@ -34,14 +34,14 @@ const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
 /** offerAlbum waits up to 30 s for the friend's phone to answer. */
 export const PHOTOS_OFFER_TIMEOUT_MS = 45_000;
 
-/** Where a `photos.list` page starts. */
-export type ListOptions = { from?: number };
+/** Where a `photos.list` page starts, and which saved list a later page comes from. */
+export type ListOptions = { from?: number; listId?: string };
 
-/** `all`: every album's photos instead of the active album's. `from`: where the page starts. */
+/** `all`: every album's photos instead of the active album's. */
 export type ListArgs = ListOptions & { all?: boolean };
 
-/** One page of photos; `next` is where the next page starts, unset on the last page. */
-export type ListResult = { photos: Photo[]; next?: number };
+/** One page of photos. `next` is where the next page starts and `listId` the list it comes from; both unset on the last page. */
+export type ListResult = { photos: Photo[]; next?: number; listId?: string };
 
 export const photoSpecs = {
   list: {
@@ -297,6 +297,7 @@ export const photoEvents = {
       const args: ListArgs = {};
       if (all) args.all = all;
       if (options.from) args.from = options.from;
+      if (options.listId !== undefined) args.listId = options.listId;
       return invokeEvent(photoSpecs.list, args, null, PHOTOS_LIST_TIMEOUT_MS);
     },
     add(
