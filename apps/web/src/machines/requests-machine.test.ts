@@ -691,7 +691,7 @@ describe("asks that arrive", () => {
     actor.send(confirm());
     await actor.settled();
     expect(types).toContain("REQUESTS_ARRIVED");
-    expect(types).toContain("ALL_ACCEPTED");
+    expect(types.filter((type) => type === "ALL_ACCEPTED")).toEqual(["ALL_ACCEPTED"]);
   });
 });
 
