@@ -47,7 +47,7 @@ jobs:
       - name: Peer protocol matches what releases shipped
         run: node scripts/check-peer-protocol.mjs
 
-      # store-listing/flow-photo.test.ts renders with Chromium.
+      # scripts/join-page.test.ts renders with Chromium.
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
