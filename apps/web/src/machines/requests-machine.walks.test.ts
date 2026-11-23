@@ -1,13 +1,13 @@
-import type { JoinRequest } from "@justus/core";
-import { recordRuns } from "@mantaq/inspect/record";
-import { onOutput } from "@mantaq/sugar";
-import { expect, test } from "vite-plus/test";
 import {
+  acceptAllKeys,
   isAcceptedBatch,
   requestsMachine,
   requestsViewModel,
-  viewerAcceptKeys,
 } from "./requests-machine";
+import { expect, test } from "vite-plus/test";
+import type { JoinRequest } from "@justus/core";
+import { onOutput } from "@mantaq/sugar";
+import { recordRuns } from "@mantaq/inspect/record";
 
 const make = recordRuns(requestsMachine);
 
@@ -93,7 +93,7 @@ test("Three wedding guests ask, and Nils accepts all of them as Collaborators at
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: guests } });
   actor.send({
     type: "ACCEPT_ALL",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(guests, "f1"), role: "member" },
+    payload: { folderId: "f1", requesterKeys: acceptAllKeys(guests, "f1"), role: "member" },
   });
   actor.send({ type: "CONFIRM_ACCEPT_ALL" });
   for (const guest of guests) {
@@ -118,7 +118,7 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
   actor.send({
     type: "ACCEPT_ALL",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1"), role: "reader" },
+    payload: { folderId: "f1", requesterKeys: acceptAllKeys(family, "f1"), role: "reader" },
   });
   actor.send({ type: "CONFIRM_ACCEPT_ALL" });
   for (const person of family) {
@@ -141,7 +141,7 @@ test("Nils taps Accept all for the family, spots someone he doesn't know and can
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
   actor.send({
     type: "ACCEPT_ALL",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1"), role: "reader" },
+    payload: { folderId: "f1", requesterKeys: acceptAllKeys(family, "f1"), role: "reader" },
   });
   actor.send({ type: "CANCEL_ACCEPT_ALL" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });

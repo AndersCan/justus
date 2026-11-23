@@ -1109,8 +1109,10 @@ describe("album join requests", () => {
     expect(
       host.querySelector("ul")!.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(all.className).toBe("ui-link disabled:pointer-events-none disabled:opacity-50");
-    expect(button(host, "Accept all 2, can add photos")?.className).toBe(all.className);
+    expect([all, button(host, "Accept all 2, can add photos")].map((b) => b?.className)).toEqual([
+      "ui-link disabled:pointer-events-none disabled:opacity-50",
+      "ui-link disabled:pointer-events-none disabled:opacity-50",
+    ]);
     expect(all.className).not.toContain("ui-btn");
     expect(host.textContent).not.toContain("They can see the photos");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
@@ -1160,13 +1162,14 @@ describe("album join requests", () => {
     button(host, "Accept all 2, can add photos")?.click();
     await vi.waitFor(() => expect(button(host, "Accept 2, can add photos")).toBeDefined());
     const dialog = host.querySelector('dialog[aria-label^="Accept these"]');
-    expect(dialog?.getAttribute("aria-label")).toBe("Accept these 2 people? They can add photos.");
-    expect(
-      dialog?.querySelector('[data-copy-id="album.accept_all_sheet_body_collaborators"]')
+    expect({
+      title: dialog?.getAttribute("aria-label"),
+      body: dialog?.querySelector('[data-copy-id="album.accept_all_sheet_body_collaborators"]')
         ?.textContent,
-    ).toBe(
-      "They'll see every photo in “Trip”, including the ones already there, and they can add photos. Anyone you don't know: cancel, then decline them.",
-    );
+    }).toEqual({
+      title: "Accept these 2 people? They can add photos.",
+      body: "They'll see every photo in “Trip”, including the ones already there. They can add photos too. Anyone you don't know: cancel, then decline them.",
+    });
     button(host, "Accept 2, can add photos")?.click();
     await vi.waitFor(() =>
       expect(toast).toHaveBeenCalledWith("2 people are in and can add photos"),
@@ -1269,6 +1272,19 @@ describe("album join requests", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(flat(document.activeElement!).trim()).toBe("Accept 2, can only look");
     await requestsActor.settled();
+  });
+
+  test("closing the Collaborators sheet puts focus back on its own Accept all button", async () => {
+    document.body.replaceChildren();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    document.body.append(host);
+    button(host, "Accept all 2, can add photos")?.click();
+    await vi.waitFor(() => expect(sheetOf(host)).not.toBeNull());
+    sheetOf(host)?.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await requestsActor.settled();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(button(host, "Accept all 2, can add photos")),
+    );
   });
 
   test("Accept all is not stuck when the sheet is open in another album", async () => {

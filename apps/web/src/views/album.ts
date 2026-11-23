@@ -13,17 +13,17 @@ import { folders, foldersActor, foldersViewModel } from "../machines/folders-mac
 import { presenceClockActor } from "../machines/presence-clock-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
+  acceptAllKeys,
   type AcceptedBatch,
   allAccepted,
+  answerSent,
   declineHeld,
   declineNotSent,
   isAcceptedBatch,
   requestCancelledBeforeAnswer,
-  answerSent,
   requests,
   requestsActor,
   requestsViewModel,
-  viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { onPageChange, open } from "../machines/router-machine";
@@ -893,7 +893,7 @@ function acceptAllButtons(options: AcceptAllButtons): TemplateResult {
 
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
-  const keys = viewerAcceptKeys(vm.requests, id);
+  const keys = acceptAllKeys(vm.requests, id);
   const hint = requestsHint(vm.requests);
   const acceptAllRow =
     keys.length >= 2

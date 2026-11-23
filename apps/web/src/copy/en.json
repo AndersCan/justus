@@ -728,28 +728,28 @@
     "screen": ""
   },
   "link_kind.10_minute": {
-    "text": "10‑minute",
+    "text": "10\u2011minute",
     "status": "draft",
     "where": "Album › Invite & members › request card, the kind of link",
     "who": "The Admin, on a request that came through one of the album's links",
     "screen": ""
   },
   "link_kind.1_hour": {
-    "text": "1‑hour",
+    "text": "1\u2011hour",
     "status": "draft",
     "where": "Album › Invite & members › request card, the kind of link",
     "who": "The Admin, on a request that came through one of the album's links",
     "screen": ""
   },
   "link_kind.1_day": {
-    "text": "1‑day",
+    "text": "1\u2011day",
     "status": "draft",
     "where": "Album › Invite & members › request card, the kind of link",
     "who": "The Admin, on a request that came through one of the album's links",
     "screen": ""
   },
   "link_kind.7_day": {
-    "text": "7‑day",
+    "text": "7\u2011day",
     "status": "draft",
     "where": "Album › Invite & members › request card, the kind of link",
     "who": "The Admin, on a request that came through one of the album's links",
@@ -4781,7 +4781,7 @@
     "screen": ""
   },
   "album.accept_all_sheet_body_collaborators": {
-    "text": "They'll see every photo in “{folderName}”, including the ones already there, and they can add photos. Anyone you don't know: cancel, then decline them.",
+    "text": "They'll see every photo in “{folderName}”, including the ones already there. They can add photos too. Anyone you don't know: cancel, then decline them.",
     "status": "draft",
     "where": "Album › Join requests › Accept all sheet",
     "who": "Admins answering requests",

@@ -1,7 +1,7 @@
+import { acceptAllKeys, requestsMachine, requestsViewModel } from "./requests-machine";
 import { describe, expect, test, vi } from "vite-plus/test";
-import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
-import { requestsMachine, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import { onOutput } from "@mantaq/sugar";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -12,8 +12,14 @@ const request = (folderId: string, requesterKey: string, viaInvite = false) =>
 
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
-const acceptAll = (folderId: string, keys: string[]) =>
-  ({ type: "ACCEPT_ALL", payload: { folderId, requesterKeys: keys, role: "reader" } }) as never;
+interface AcceptAllAsViewers {
+  folderId: string;
+  requesterKeys: string[];
+}
+
+function acceptAll(options: AcceptAllAsViewers) {
+  return { type: "ACCEPT_ALL" as const, payload: { ...options, role: "reader" as const } };
+}
 const confirm = () => ({ type: "CONFIRM_ACCEPT_ALL" }) as never;
 const cancel = () => ({ type: "CANCEL_ACCEPT_ALL" }) as never;
 const respond = (
@@ -286,7 +292,7 @@ describe("accept all as Viewers", () => {
     ]);
     const gates: ((v: [unknown, unknown]) => void)[] = [];
     port.respond.mockImplementation(() => new Promise((res) => gates.push(res as never)));
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(confirm());
     await Promise.resolve();
     expect(actor.state.name).toBe("sendingAnswersToAll");
@@ -306,7 +312,7 @@ describe("accept all as Viewers", () => {
 
   test("Accept all opens a sheet naming the people and answers nobody", async () => {
     const { actor, port, outputs } = await load(three);
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     await actor.settled();
     expect(actor.state.name).toBe("confirmingAcceptAll");
     const vm = requestsViewModel(actor.snapshot());
@@ -322,7 +328,7 @@ describe("accept all as Viewers", () => {
 
   test("Cancel on the sheet answers nobody and reloads", async () => {
     const { actor, port, outputs } = await load(three);
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(cancel());
     await actor.settled();
     expect(actor.state.name).toBe("showingRequests");
@@ -334,11 +340,11 @@ describe("accept all as Viewers", () => {
 
   test("while the sheet is open refresh, answers, retry and a second Accept all change nothing", async () => {
     const { actor, port } = await load(three);
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(refresh());
     actor.send(respond("f1", "k3", false));
     actor.send(retry());
-    actor.send(acceptAll("f1", ["k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k3"] }));
     await actor.settled();
     expect(actor.state.name).toBe("confirmingAcceptAll");
     expect(requestsViewModel(actor.snapshot()).acceptAllSheet?.requesterKeys).toEqual(["k1", "k2"]);
@@ -361,7 +367,7 @@ describe("accept all as Viewers", () => {
       request("f1", "k1", true),
       request("f2", "k9", true),
     ]);
-    actor.send(acceptAll("f1", ["k1", "kGone", "k9", "k1"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "kGone", "k9", "k1"] }));
     actor.send(confirm());
     await actor.settled();
     expect(port.respond).toHaveBeenCalledTimes(1);
@@ -371,7 +377,7 @@ describe("accept all as Viewers", () => {
 
   test("with nobody still waiting nothing happens", async () => {
     const { actor, port } = await load(three);
-    actor.send(acceptAll("f1", ["kGone"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["kGone"] }));
     actor.send(confirm());
     await actor.settled();
     expect(actor.state.name).toBe("showingRequests");
@@ -383,7 +389,7 @@ describe("accept all as Viewers", () => {
     port.respond
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSendAnswer");
@@ -400,11 +406,11 @@ describe("accept all as Viewers", () => {
     port.respond
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     expect(actor.snapshot().context.stoppedBatch).not.toBeNull();
-    actor.send(acceptAll("f1", ["k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k2", "k3"] }));
     expect(actor.state.name).toBe("confirmingAcceptAll");
     const ctx = actor.snapshot().context;
     expect(ctx.error).toBeNull();
@@ -417,7 +423,7 @@ describe("accept all as Viewers", () => {
     port.respond
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     actor.send(retry());
@@ -468,7 +474,7 @@ describe("accept all as Viewers", () => {
   test("a failure on the first answer stops with none sent, and Retry sends everyone", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSendAnswer");
@@ -480,7 +486,7 @@ describe("accept all as Viewers", () => {
   test("a refresh after a stop forgets the batch", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     actor.send(refresh());
@@ -494,7 +500,7 @@ describe("accept all as Viewers", () => {
   test("answering one card after a stop forgets the batch", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
     actor.send(respond("f1", "k2", false));
@@ -508,10 +514,10 @@ describe("accept all as Viewers", () => {
   test("accept all again after a stop starts a new batch", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
-    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2", "k3"] }));
     actor.send(confirm());
     await actor.settled();
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(confirm());
     await actor.settled();
     expect(outputs.map((o) => o.payload)).toEqual([{ count: 2, role: "reader" }]);
@@ -520,7 +526,7 @@ describe("accept all as Viewers", () => {
   test("a refresh during the batch is ignored and a newcomer is not answered", async () => {
     const { actor, port } = await load([request("f1", "k1", true), request("f1", "k2", true)]);
     port.requests.mockResolvedValue([null, { requests: [request("f1", "k3", true)] }] as never);
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(confirm());
     actor.send(refresh());
     expect(actor.state.name).toBe("sendingAnswersToAll");
@@ -535,14 +541,14 @@ describe("accept all as Viewers", () => {
   test("if the reload after the batch fails the total is still announced", async () => {
     const { actor, port, outputs } = await load([request("f1", "k1", true)]);
     port.requests.mockResolvedValue([new Error("offline"), null] as never);
-    actor.send(acceptAll("f1", ["k1"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1"] }));
     actor.send(confirm());
     await actor.settled();
     expect(outputs.map((o) => o.payload)).toEqual([{ count: 1, role: "reader" }]);
     expect(actor.state.name).toBe("couldNotLoadRequests");
   });
 
-  test("viewerAcceptKeys picks invite asks in one album, in order", () => {
+  test("acceptAllKeys picks invite asks in one album, in order", () => {
     const list = [
       request("f1", "a", true),
       request("f1", "b", false),
@@ -550,34 +556,34 @@ describe("accept all as Viewers", () => {
       request("f1", "d", true),
       { folderId: "f1", requesterKey: "e", requesterName: "e" } as unknown as JoinRequest,
     ];
-    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "d"]);
+    expect(acceptAllKeys(list, "f1")).toEqual(["a", "d"]);
   });
 
-  test("viewerAcceptKeys skips asks whose name equals a saved friend's", () => {
+  test("acceptAllKeys skips asks whose name equals a saved friend's", () => {
     const list = [
       request("f1", "a", true),
       { ...request("f1", "b", true), clash: "Dad" },
       request("f1", "c", true),
     ];
-    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
+    expect(acceptAllKeys(list, "f1")).toEqual(["a", "c"]);
   });
 
-  test("viewerAcceptKeys skips phones declined earlier", () => {
+  test("acceptAllKeys skips phones declined earlier", () => {
     const list = [
       request("f1", "a", true),
       { ...request("f1", "b", true), declinedEarlier: true },
       request("f1", "c", true),
     ];
-    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
+    expect(acceptAllKeys(list, "f1")).toEqual(["a", "c"]);
   });
 
-  test("viewerAcceptKeys skips phones removed earlier", () => {
+  test("acceptAllKeys skips phones removed earlier", () => {
     const list = [
       request("f1", "a", true),
       { ...request("f1", "b", true), removedEarlier: { name: "B", at: 1 } },
       request("f1", "c", true),
     ];
-    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
+    expect(acceptAllKeys(list, "f1")).toEqual(["a", "c"]);
   });
 });
 
@@ -687,7 +693,7 @@ describe("asks that arrive", () => {
     onOutput(actor, (e) => void types.push(e.type));
     actor.send(refresh());
     await actor.settled();
-    actor.send(acceptAll("f1", ["maya"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["maya"] }));
     actor.send(confirm());
     await actor.settled();
     expect(types).toContain("REQUESTS_ARRIVED");
@@ -746,15 +752,18 @@ describe("a request the joiner cancelled", () => {
     expect(outputs[0]!.payload).toEqual({ requesterName: "They" });
   });
 
-  test("Accept all skips a cancelled person and counts the rest", async () => {
+  test("Accept all skips a cancelled person and counts the rest, with the role picked", async () => {
     const { actor, port, outputs } = await loaded(
       [named("f1", "k1", "Sam"), named("f1", "k2", "Ola")],
       (key) => (key === "k1" ? (cancelled as never) : [null, { ok: true }]),
     );
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send({
+      type: "ACCEPT_ALL",
+      payload: { folderId: "f1", requesterKeys: ["k1", "k2"], role: "member" },
+    });
     actor.send(confirm());
     await actor.settled();
-    expect(outputs).toEqual([{ type: "ALL_ACCEPTED", payload: { count: 1, role: "reader" } }]);
+    expect(outputs).toEqual([{ type: "ALL_ACCEPTED", payload: { count: 1, role: "member" } }]);
     expect(port.respond).toHaveBeenCalledTimes(2);
   });
 
@@ -763,7 +772,7 @@ describe("a request the joiner cancelled", () => {
       [named("f1", "k1", "Sam"), named("f1", "k2", "Ola")],
       () => cancelled as never,
     );
-    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(acceptAll({ folderId: "f1", requesterKeys: ["k1", "k2"] }));
     actor.send(confirm());
     await actor.settled();
     expect(outputs).toEqual([]);

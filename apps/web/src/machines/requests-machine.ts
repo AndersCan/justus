@@ -782,8 +782,8 @@ export const requests = {
   cancelAcceptAll: () => requestsActor.send(cancelAcceptAll.create()),
 };
 
-/** The requests Accept all answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, not phones declined or removed earlier, in list order. */
-export function viewerAcceptKeys(
+/** The requests Accept all answers in one album, as Viewers or as Collaborators (the same safety filter for both roles): invite-link asks only, not those whose name equals a saved friend's, not phones declined or removed earlier, in list order. */
+export function acceptAllKeys(
   requests: (JoinRequest & { clash?: string })[],
   folderId: string,
 ): string[] {
