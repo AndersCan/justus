@@ -47,7 +47,7 @@ describe("held decline while another answer is being sent", () => {
     actor.send(ev("REFRESH"));
     await actor.settled();
     actor.send(ev("HOLD_DECLINE", { folderId: "f1", requesterKey: "k1" }));
-    actor.send(ev("ACCEPT_ALL_AS_VIEWERS", { folderId: "f1", requesterKeys: ["k2", "k3"] }));
+    actor.send(ev("ACCEPT_ALL", { folderId: "f1", requesterKeys: ["k2", "k3"], role: "reader" }));
     actor.send(ev("CONFIRM_ACCEPT_ALL"));
     expect(actor.state.name).toBe("sendingAnswersToAll");
     await Promise.resolve();
@@ -98,7 +98,7 @@ describe("held decline in every state", () => {
     const { actor } = setup(["k1", "k2", "k3"]);
     actor.send(ev("REFRESH"));
     await actor.settled();
-    actor.send(ev("ACCEPT_ALL_AS_VIEWERS", { folderId: "f1", requesterKeys: ["k2", "k3"] }));
+    actor.send(ev("ACCEPT_ALL", { folderId: "f1", requesterKeys: ["k2", "k3"], role: "reader" }));
     expect(actor.state.name).toBe("confirmingAcceptAll");
     actor.send(hold("k1"));
     expect(keys(actor)).toEqual(["k2", "k3"]);

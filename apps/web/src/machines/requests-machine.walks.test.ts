@@ -2,7 +2,12 @@ import type { JoinRequest } from "@justus/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { onOutput } from "@mantaq/sugar";
 import { expect, test } from "vite-plus/test";
-import { requestsMachine, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import {
+  isAcceptedBatch,
+  requestsMachine,
+  requestsViewModel,
+  viewerAcceptKeys,
+} from "./requests-machine";
 
 const make = recordRuns(requestsMachine);
 
@@ -78,17 +83,42 @@ test("Three wedding guests ask, and Nils accepts each as a Collaborator", async 
   expect(view.requests).toEqual([]);
 });
 
+test("Three wedding guests ask, and Nils accepts all of them as Collaborators at once", async () => {
+  const actor = make.create();
+  const accepted: unknown[] = [];
+  onOutput(actor, (e) => {
+    if (e.type === "ALL_ACCEPTED") accepted.push(e.payload);
+  });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: guests } });
+  actor.send({
+    type: "ACCEPT_ALL",
+    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(guests, "f1"), role: "member" },
+  });
+  actor.send({ type: "CONFIRM_ACCEPT_ALL" });
+  for (const guest of guests) {
+    actor.inject({
+      type: "RESPONDED",
+      payload: { folderId: "f1", requesterKey: guest.requesterKey },
+    });
+  }
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [] } });
+  await actor.settled();
+  expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
+  expect(accepted).toEqual([{ count: 3, role: "member" }]);
+});
+
 test("Nils's family asks to look, and he accepts all three as Viewers", async () => {
   const actor = make.create();
   const counts: number[] = [];
   onOutput(actor, (e) => {
-    if (e.type === "ALL_ACCEPTED_AS_VIEWERS") counts.push((e.payload as { count: number }).count);
+    if (e.type === "ALL_ACCEPTED" && isAcceptedBatch(e.payload)) counts.push(e.payload.count);
   });
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
   actor.send({
-    type: "ACCEPT_ALL_AS_VIEWERS",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1") },
+    type: "ACCEPT_ALL",
+    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1"), role: "reader" },
   });
   actor.send({ type: "CONFIRM_ACCEPT_ALL" });
   for (const person of family) {
@@ -110,8 +140,8 @@ test("Nils taps Accept all for the family, spots someone he doesn't know and can
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
   actor.send({
-    type: "ACCEPT_ALL_AS_VIEWERS",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1") },
+    type: "ACCEPT_ALL",
+    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1"), role: "reader" },
   });
   actor.send({ type: "CANCEL_ACCEPT_ALL" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
@@ -119,7 +149,7 @@ test("Nils taps Accept all for the family, spots someone he doesn't know and can
   const view = requestsViewModel(actor.snapshot());
   expect(view.state).toBe("showingRequests");
   expect(view.requests).toHaveLength(family.length);
-  expect(outputs).not.toContain("ALL_ACCEPTED_AS_VIEWERS");
+  expect(outputs.filter((type) => type === "ALL_ACCEPTED")).toEqual([]);
 });
 
 test("Ana asks while Nils looks at his photos, and Nils hears she wants to join", async () => {

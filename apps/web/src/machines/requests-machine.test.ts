@@ -13,7 +13,7 @@ const request = (folderId: string, requesterKey: string, viaInvite = false) =>
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
 const acceptAll = (folderId: string, keys: string[]) =>
-  ({ type: "ACCEPT_ALL_AS_VIEWERS", payload: { folderId, requesterKeys: keys } }) as never;
+  ({ type: "ACCEPT_ALL", payload: { folderId, requesterKeys: keys, role: "reader" } }) as never;
 const confirm = () => ({ type: "CONFIRM_ACCEPT_ALL" }) as never;
 const cancel = () => ({ type: "CANCEL_ACCEPT_ALL" }) as never;
 const respond = (
@@ -23,12 +23,12 @@ const respond = (
   role: "reader" | "member" = "member",
 ) => ({ type: "RESPOND", payload: { folderId, requesterKey, approve, role } }) as never;
 
-function setup(
-  options: {
-    requests?: () => Promise<[unknown, unknown]>;
-    respond?: () => Promise<[unknown, unknown]>;
-  } = {},
-) {
+interface SetupOptions {
+  requests?: () => Promise<[unknown, unknown]>;
+  respond?: (...answer: [string, string, boolean, string?]) => Promise<[unknown, unknown]>;
+}
+
+function setup(options: SetupOptions = {}) {
   const port = {
     requests: vi.fn(
       options.requests ??
@@ -299,8 +299,7 @@ describe("accept all as Viewers", () => {
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2", "k9"]);
     gates[1]!([null, { ok: true }]);
     await actor.settled();
-    expect(outputs.map((o) => o.type)).toEqual(["ALL_ACCEPTED_AS_VIEWERS"]);
-    expect(outputs[0]!.payload).toEqual({ count: 2 });
+    expect(outputs).toEqual([{ type: "ALL_ACCEPTED", payload: { count: 2, role: "reader" } }]);
     expect(port.requests).toHaveBeenCalledTimes(2);
     expect(actor.state.name).toBe("showingRequests");
   });
@@ -311,7 +310,11 @@ describe("accept all as Viewers", () => {
     await actor.settled();
     expect(actor.state.name).toBe("confirmingAcceptAll");
     const vm = requestsViewModel(actor.snapshot());
-    expect(vm.acceptAllSheet).toEqual({ folderId: "f1", requesterKeys: ["k1", "k2"] });
+    expect(vm.acceptAllSheet).toEqual({
+      folderId: "f1",
+      requesterKeys: ["k1", "k2"],
+      role: "reader",
+    });
     expect(vm.responding).toBe(true);
     expect(port.respond).not.toHaveBeenCalled();
     expect(outputs).toEqual([]);
@@ -363,7 +366,7 @@ describe("accept all as Viewers", () => {
     await actor.settled();
     expect(port.respond).toHaveBeenCalledTimes(1);
     expect(port.respond).toHaveBeenCalledWith("f1", "k1", true, "reader");
-    expect(outputs[0]!.payload).toEqual({ count: 1 });
+    expect(outputs).toEqual([{ type: "ALL_ACCEPTED", payload: { count: 1, role: "reader" } }]);
   });
 
   test("with nobody still waiting nothing happens", async () => {
@@ -427,8 +430,39 @@ describe("accept all as Viewers", () => {
       "k2",
       "k3",
     ]);
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3, role: "reader" }]);
     expect(actor.state.name).toBe("showingRequests");
+  });
+
+  test("Accept all as Collaborators sends Collaborator for everyone, Retry included, and says so", async () => {
+    const sent: string[] = [];
+    function answer(...[, requesterKey, , role]: [string, string, boolean, string?]) {
+      sent.push(`${requesterKey}:${role}`);
+      const failsOnce = requesterKey === "k2" && sent.length === 2;
+      return Promise.resolve<[unknown, unknown]>(
+        failsOnce ? [new Error("invoke timeout"), undefined] : [undefined, { ok: true }],
+      );
+    }
+    function listThree() {
+      return Promise.resolve<[unknown, unknown]>([undefined, { requests: three }]);
+    }
+    const { actor } = setup({ requests: listThree, respond: answer });
+    const outputs: unknown[] = [];
+    onOutput(actor, (e) => {
+      if (e.type === "ALL_ACCEPTED") outputs.push(e.payload);
+    });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send({
+      type: "ACCEPT_ALL",
+      payload: { folderId: "f1", requesterKeys: ["k1", "k2", "k3"], role: "member" },
+    });
+    actor.send(confirm());
+    await actor.settled();
+    actor.send(retry());
+    await actor.settled();
+    expect(sent).toEqual(["k1:member", "k2:member", "k2:member", "k3:member"]);
+    expect(outputs).toEqual([{ count: 3, role: "member" }]);
   });
 
   test("a failure on the first answer stops with none sent, and Retry sends everyone", async () => {
@@ -440,7 +474,7 @@ describe("accept all as Viewers", () => {
     expect(actor.state.name).toBe("couldNotSendAnswer");
     actor.send(retry());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3, role: "reader" }]);
   });
 
   test("a refresh after a stop forgets the batch", async () => {
@@ -480,7 +514,7 @@ describe("accept all as Viewers", () => {
     actor.send(acceptAll("f1", ["k1", "k2"]));
     actor.send(confirm());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 2 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 2, role: "reader" }]);
   });
 
   test("a refresh during the batch is ignored and a newcomer is not answered", async () => {
@@ -504,7 +538,7 @@ describe("accept all as Viewers", () => {
     actor.send(acceptAll("f1", ["k1"]));
     actor.send(confirm());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 1 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 1, role: "reader" }]);
     expect(actor.state.name).toBe("couldNotLoadRequests");
   });
 
@@ -657,7 +691,7 @@ describe("asks that arrive", () => {
     actor.send(confirm());
     await actor.settled();
     expect(types).toContain("REQUESTS_ARRIVED");
-    expect(types).toContain("ALL_ACCEPTED_AS_VIEWERS");
+    expect(types).toContain("ALL_ACCEPTED");
   });
 });
 
@@ -720,7 +754,7 @@ describe("a request the joiner cancelled", () => {
     actor.send(acceptAll("f1", ["k1", "k2"]));
     actor.send(confirm());
     await actor.settled();
-    expect(outputs).toEqual([{ type: "ALL_ACCEPTED_AS_VIEWERS", payload: { count: 1 } }]);
+    expect(outputs).toEqual([{ type: "ALL_ACCEPTED", payload: { count: 1, role: "reader" } }]);
     expect(port.respond).toHaveBeenCalledTimes(2);
   });
 
