@@ -11,11 +11,14 @@ import { copy } from "../copy/copy";
  * the other machines.
  */
 
-/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
-type Batch = { folderId: string; next: string; after: string[]; sent: number };
+/** The role Accept all lets everyone in as: Viewer ("reader") or Collaborator ("member"). */
+export type AcceptAllRole = "reader" | "member";
 
-/** The people the Accept all sheet names. */
-export type AcceptAllSheet = { folderId: string; requesterKeys: string[] };
+/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
+type Batch = { folderId: string; role: AcceptAllRole; next: string; after: string[]; sent: number };
+
+/** The people the Accept all sheet names, and the role they get. */
+export type AcceptAllSheet = { folderId: string; requesterKeys: string[]; role: AcceptAllRole };
 
 const REQUESTS_STATES = [
   "requestsNotLoaded",
@@ -38,7 +41,7 @@ const showingRequests = state("showingRequests")();
 const confirmingAcceptAll = state("confirmingAcceptAll")<AcceptAllSheet>();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const sendingAnswer = state("sendingAnswer")();
-/** Accept all as Viewers is sending the answers one by one; every button is off and each card leaves as its answer is sent. */
+/** Accept all is sending the answers one by one, with the role picked; every button is off and each card leaves as its answer is sent. */
 const sendingAnswersToAll = state("sendingAnswersToAll")<Batch>();
 /** The Yes or No did not go through; the request stays and its card shows why, with Retry. */
 const couldNotSendAnswer = state("couldNotSendAnswer")();
@@ -51,17 +54,26 @@ export const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The Admin taps Accept all as Viewers; only the people on screen at the tap are answered. */
-const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
-  folderId: string;
-  requesterKeys: string[];
-}>();
+/** The Admin taps Accept all as Viewers ("reader") or as Collaborators ("member"); only the people on screen at the tap are answered. */
+const acceptAll = event("ACCEPT_ALL")<AcceptAllSheet>();
 /** The Admin taps Accept on the Accept all sheet. */
 const confirmAcceptAll = event("CONFIRM_ACCEPT_ALL")();
 /** The Admin cancels the Accept all sheet, taps outside it, or leaves the page; nobody is answered. */
 const cancelAcceptAll = event("CANCEL_ACCEPT_ALL")();
-/** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
-export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
+/** How many Accept all let in, and as what. */
+export type AcceptedBatch = { count: number; role: AcceptAllRole };
+
+/** Whether an output payload is the count and role of a finished Accept all. */
+export function isAcceptedBatch(payload: unknown): payload is AcceptedBatch {
+  if (typeof payload !== "object" || !payload) return false;
+  if (!("count" in payload) || !("role" in payload)) return false;
+  return (
+    typeof payload.count === "number" && (payload.role === "reader" || payload.role === "member")
+  );
+}
+
+/** Everyone in the batch is in with the role picked; the view says how many, and as what, in one toast. */
+export const allAccepted = event("ALL_ACCEPTED")<AcceptedBatch>();
 /** Asks this phone had not listed before came in with a reload; never sent for asks already waiting at the first load. */
 export const requestsArrived = event("REQUESTS_ARRIVED")<{ requests: JoinRequest[] }>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
@@ -227,7 +239,7 @@ export const requestsMachine = machine("requests", {
         refresh,
         respond,
         retry,
-        acceptAllAsViewers,
+        acceptAll,
         confirmAcceptAll,
         cancelAcceptAll,
         holdDecline,
@@ -239,7 +251,7 @@ export const requestsMachine = machine("requests", {
       internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
       outputs: [
         answerSent,
-        allAcceptedAsViewers,
+        allAccepted,
         requestsArrived,
         requestCancelledBeforeAnswer,
         declineHeld,
@@ -390,9 +402,9 @@ export const requestsMachine = machine("requests", {
               return { state: sendingAnswer };
             },
           });
-          /** Accept all as Viewers opens the sheet with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+          /** Accept all opens the sheet with the people on screen at the tap who are still waiting in that album, and the role picked; with none, nothing happens. */
           m.on(at, {
-            event: acceptAllAsViewers,
+            event: acceptAll,
             to: [confirmingAcceptAll],
             handler: (e, opts) => {
               const ctx = opts.context.get();
@@ -405,6 +417,7 @@ export const requestsMachine = machine("requests", {
                 state: confirmingAcceptAll.create({
                   folderId: e.payload.folderId,
                   requesterKeys: keys,
+                  role: e.payload.role,
                 }),
               };
             },
@@ -415,11 +428,13 @@ export const requestsMachine = machine("requests", {
           event: confirmAcceptAll,
           to: [sendingAnswersToAll],
           handler: (_e, opts) => {
-            const [next, ...after] = opts.state.payload.requesterKeys;
+            const { folderId, requesterKeys, role } = opts.state.payload;
+            const [next, ...after] = requesterKeys;
             if (next === undefined) return {};
             return {
               state: sendingAnswersToAll.create({
-                folderId: opts.state.payload.folderId,
+                folderId,
+                role,
                 next,
                 after,
                 sent: 0,
@@ -549,25 +564,25 @@ export const requestsMachine = machine("requests", {
             })();
           },
         });
-        /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
+        /** One answer of Accept all is sent with the role picked; if it cannot be sent, the batch hears why. */
         m.effect(sendingAnswersToAll, {
           name: "sendingAnswersToAll",
           sends: [responded, respondFailed, requestWasCancelled],
           fn: ({ signal, emit, state }) => {
-            const { folderId, next } = state.payload;
-            return (async () => {
-              try {
-                const [error] = await port.respond(folderId, next, true, "reader");
+            const { folderId, next, role } = state.payload;
+            return port.respond(folderId, next, true, role).then(
+              ([error]) => {
                 if (signal.aborted) return;
                 if (!error) emit(responded.create({ folderId, requesterKey: next }));
                 else if (codeOf(error) === REQUEST_CANCELLED_CODE)
                   emit(requestWasCancelled.create({ folderId, requesterKey: next }));
                 else emit(respondFailed.create({ message: messageOf(error) }));
-              } catch (e) {
+              },
+              (rejection: unknown) => {
                 if (signal.aborted) return;
-                emit(respondFailed.create({ message: messageOf(e) }));
-              }
-            })();
+                emit(respondFailed.create({ message: messageOf(rejection) }));
+              },
+            );
           },
         });
         /** One answer of Accept all went through: that person leaves the list and the next is sent; after the last, the list reloads and the Admin hears how many are in. */
@@ -590,7 +605,10 @@ export const requestsMachine = machine("requests", {
             if (next !== undefined) {
               return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
             }
-            return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+            return {
+              state: loadingRequests,
+              emit: [allAccepted.create({ count: sent, role: p.role })],
+            };
           },
         });
         /** A person in Accept all cancelled: they are skipped, the rest go on, and only who got in is counted. */
@@ -614,7 +632,7 @@ export const requestsMachine = machine("requests", {
             }
             return {
               state: loadingRequests,
-              emit: p.sent > 0 ? [allAcceptedAsViewers.create({ count: p.sent })] : [],
+              emit: p.sent > 0 ? [allAccepted.create({ count: p.sent, role: p.role })] : [],
             };
           },
         });
@@ -632,7 +650,7 @@ export const requestsMachine = machine("requests", {
                 folderId: p.folderId,
                 requesterKey: p.next,
                 approve: true,
-                role: "reader",
+                role: p.role,
               },
             });
             return { state: couldNotSendAnswer };
@@ -759,14 +777,13 @@ export const requests = {
     const done = error && codeOf(error) !== REQUEST_CANCELLED_CODE ? declineFailed : declineSent;
     requestsActor.send(done.create({ folderId, requesterKey }));
   },
-  acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
-    requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
+  acceptAll: (sheet: AcceptAllSheet) => requestsActor.send(acceptAll.create(sheet)),
   confirmAcceptAll: () => requestsActor.send(confirmAcceptAll.create()),
   cancelAcceptAll: () => requestsActor.send(cancelAcceptAll.create()),
 };
 
-/** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, not phones declined or removed earlier, in list order. */
-export function viewerAcceptKeys(
+/** The requests Accept all answers in one album, as Viewers or as Collaborators (the same safety filter for both roles): invite-link asks only, not those whose name equals a saved friend's, not phones declined or removed earlier, in list order. */
+export function acceptAllKeys(
   requests: (JoinRequest & { clash?: string })[],
   folderId: string,
 ): string[] {

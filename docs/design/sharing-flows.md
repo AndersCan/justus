@@ -164,6 +164,7 @@ Each link opens the machine at the end of the walk; click on from there or press
 A guest's side is the Story 1 Maya walks.
 
 - [Three wedding guests ask, and Nils accepts each as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20each%20as%20a%20Collaborator)
+- [Three wedding guests ask, and Nils accepts all of them as Collaborators at once](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20all%20of%20them%20as%20Collaborators%20at%20once)
 
 ### Story 3: a big group joining your personal album
 

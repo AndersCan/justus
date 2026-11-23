@@ -2,7 +2,7 @@ import type { FolderSummary, Photo } from "@justus/core";
 import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "./album-full.ts";
 import { presenceDot } from "#design/components/presence-dot.ts";
-import { html, type TemplateResult } from "lit-html";
+import { html, nothing, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { ref } from "lit-html/directives/ref.js";
 import { keyed } from "lit-html/directives/keyed.js";
@@ -13,15 +13,17 @@ import { folders, foldersActor, foldersViewModel } from "../machines/folders-mac
 import { presenceClockActor } from "../machines/presence-clock-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
-  allAcceptedAsViewers,
+  acceptAllKeys,
+  type AcceptedBatch,
+  allAccepted,
+  answerSent,
   declineHeld,
   declineNotSent,
+  isAcceptedBatch,
   requestCancelledBeforeAnswer,
-  answerSent,
   requests,
   requestsActor,
   requestsViewModel,
-  viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { onPageChange, open } from "../machines/router-machine";
@@ -415,16 +417,22 @@ export function revealMember(key: string, tries = 60): void {
   if (tries > 0) setTimeout(() => revealMember(key, tries - 1), 100);
 }
 
-/** The one toast after Accept all: how many are in. */
-export function acceptAllToast(count: number): string {
+/** The one toast after Accept all: how many are in, and what they can do. */
+export function acceptAllToast(batch: AcceptedBatch): string {
+  const { count, role } = batch;
+  if (role === "member") {
+    return count === 1
+      ? copy("album.1_person_is_in_and_can_add_photos")
+      : copy("album.people_are_in_and_can_add_photos", { count });
+  }
   return count === 1
     ? copy("album.1_person_is_in_as")
     : copy("album.people_are_in_as_viewers", { count });
 }
 
 onOutput(requestsActor, (e) => {
-  if (e.type === allAcceptedAsViewers.type) {
-    toast(acceptAllToast((e.payload as { count: number }).count));
+  if (e.type === allAccepted.type && isAcceptedBatch(e.payload)) {
+    toast(acceptAllToast(e.payload));
     return;
   }
   if (e.type === declineHeld.type) {
@@ -846,10 +854,55 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
   </li>`;
 }
 
+interface AcceptAllButtons {
+  folderId: string;
+  requesterKeys: string[];
+  /** An answer or a reload is under way, so a tap now would be dropped. */
+  busy: boolean;
+}
+
+/** Accept all as Viewers and as Collaborators: each opens the sheet that names everyone first. */
+function acceptAllButtons(options: AcceptAllButtons): TemplateResult {
+  const { folderId, requesterKeys, busy } = options;
+  const count = requesterKeys.length;
+  function acceptAllAsViewers() {
+    requests.acceptAll({ folderId, requesterKeys, role: "reader" });
+  }
+  function acceptAllAsCollaborators() {
+    requests.acceptAll({ folderId, requesterKeys, role: "member" });
+  }
+  return html`<div class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+    <button
+      class="ui-link disabled:pointer-events-none disabled:opacity-50"
+      data-accept-all="reader"
+      ?disabled=${busy}
+      @click=${acceptAllAsViewers}
+    >
+      ${t("album.accept_all_as_viewers", { count })}
+    </button>
+    <button
+      class="ui-link disabled:pointer-events-none disabled:opacity-50"
+      data-accept-all="member"
+      ?disabled=${busy}
+      @click=${acceptAllAsCollaborators}
+    >
+      ${t("album.accept_all_as_collaborators", { count })}
+    </button>
+  </div>`;
+}
+
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
-  const keys = viewerAcceptKeys(vm.requests, id);
+  const keys = acceptAllKeys(vm.requests, id);
   const hint = requestsHint(vm.requests);
+  const acceptAllRow =
+    keys.length >= 2
+      ? acceptAllButtons({
+          folderId: id,
+          requesterKeys: keys,
+          busy: reqVm.responding || reqVm.loading,
+        })
+      : nothing;
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
     data-motion-key="section:requests"
@@ -868,18 +921,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
         ),
       )}
     </ul>
-    ${
-      keys.length >= 2
-        ? html`<button
-            class="ui-link mt-2 disabled:pointer-events-none disabled:opacity-50"
-            data-accept-all
-            ?disabled=${reqVm.responding || reqVm.loading}
-            @click=${() => requests.acceptAllAsViewers(id, keys)}
-          >
-            ${t("album.accept_all_as_viewers", { count: keys.length })}
-          </button>`
-        : null
-    }
+    ${acceptAllRow}
   </section>`;
 }
 

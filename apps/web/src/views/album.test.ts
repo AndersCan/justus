@@ -1109,7 +1109,10 @@ describe("album join requests", () => {
     expect(
       host.querySelector("ul")!.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(all.className).toBe("ui-link mt-2 disabled:pointer-events-none disabled:opacity-50");
+    expect([all, button(host, "Accept all 2, can add photos")].map((b) => b?.className)).toEqual([
+      "ui-link disabled:pointer-events-none disabled:opacity-50",
+      "ui-link disabled:pointer-events-none disabled:opacity-50",
+    ]);
     expect(all.className).not.toContain("ui-btn");
     expect(host.textContent).not.toContain("They can see the photos");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
@@ -1150,6 +1153,32 @@ describe("album join requests", () => {
     ]);
     await requestsActor.settled();
     vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
+  });
+
+  test("Accept all as Collaborators says so on the sheet and lets everyone in as Collaborators", async () => {
+    vi.mocked(toast).mockClear();
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2, can add photos")?.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2, can add photos")).toBeDefined());
+    const dialog = host.querySelector('dialog[aria-label^="Accept these"]');
+    expect({
+      title: dialog?.getAttribute("aria-label"),
+      body: dialog?.querySelector('[data-copy-id="album.accept_all_sheet_body_collaborators"]')
+        ?.textContent,
+    }).toEqual({
+      title: "Accept these 2 people? They can add photos.",
+      body: "They'll see every photo in “Trip”, including the ones already there. They can add photos too. Anyone you don't know: cancel, then decline them.",
+    });
+    button(host, "Accept 2, can add photos")?.click();
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("2 people are in and can add photos"),
+    );
+    expect(vi.mocked(gateway.respond).mock.calls).toEqual([
+      ["f1", "nils", true, "member"],
+      ["f1", "ola", true, "member"],
+    ]);
+    await requestsActor.settled();
   });
 
   test("a dropped connection stops Accept all: reason and Retry, no toast; Retry finishes with one toast", async () => {
@@ -1245,6 +1274,19 @@ describe("album join requests", () => {
     await requestsActor.settled();
   });
 
+  test("closing the Collaborators sheet puts focus back on its own Accept all button", async () => {
+    document.body.replaceChildren();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    document.body.append(host);
+    button(host, "Accept all 2, can add photos")?.click();
+    await vi.waitFor(() => expect(sheetOf(host)).not.toBeNull());
+    sheetOf(host)?.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await requestsActor.settled();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(button(host, "Accept all 2, can add photos")),
+    );
+  });
+
   test("Accept all is not stuck when the sheet is open in another album", async () => {
     const host = await show([ask("nils", true), ask("ola", true)]);
     await openSheet(host, 2);
@@ -1322,9 +1364,15 @@ describe("album join requests", () => {
     vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
   });
 
-  test("acceptAllToast: singular and plural", () => {
-    expect(acceptAllToast(1)).toBe("1 person is in and can only look");
-    expect(acceptAllToast(13)).toBe("13 people are in and can only look");
+  test("acceptAllToast: singular and plural, for each role", () => {
+    expect(acceptAllToast({ count: 1, role: "reader" })).toBe("1 person is in and can only look");
+    expect(acceptAllToast({ count: 13, role: "reader" })).toBe(
+      "13 people are in and can only look",
+    );
+    expect(acceptAllToast({ count: 1, role: "member" })).toBe("1 person is in and can add photos");
+    expect(acceptAllToast({ count: 13, role: "member" })).toBe(
+      "13 people are in and can add photos",
+    );
   });
 
   test("declinedToast names who was declined", () => {

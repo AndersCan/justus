@@ -1182,6 +1182,20 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.1_person_is_in_and_can_add_photos": {
+    "text": "1 person is in and can add photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.people_are_in_and_can_add_photos": {
+    "text": "{count} people are in and can add photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
   "album.you": {
     "text": " (you)",
     "status": "draft",
@@ -1436,6 +1450,13 @@
   },
   "album.accept_all_as_viewers": {
     "text": "Accept all {count}, can only look",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all_as_collaborators": {
+    "text": "Accept all {count}, can add photos",
     "status": "draft",
     "where": "Album › Invite & members › button",
     "who": "Album members, whenever they open an album's people",
@@ -4747,6 +4768,27 @@
   },
   "album.accept_all_sheet_cancel": {
     "text": "Cancel",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_title_collaborators": {
+    "text": "Accept these {count} people? They can add photos.",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_body_collaborators": {
+    "text": "They'll see every photo in “{folderName}”, including the ones already there. They can add photos too. Anyone you don't know: cancel, then decline them.",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_confirm_collaborators": {
+    "text": "Accept {count}, can add photos",
     "status": "draft",
     "where": "Album › Join requests › Accept all sheet",
     "who": "Admins answering requests",
