@@ -85,6 +85,8 @@ layer, Host, Actor). Use those terms exactly.
 | `cd apps/android && ./gradlew :app:bundleRelease` | Signed Play bundle; release runbook in `docs/release-android.md`                                  |
 | `node apps/desktop/scripts/build.mjs`             | Desktop app (needs zig 0.17; Linux: GTK3 + WebKitGTK 4.1 dev libs)                                |
 
+Both `store:*` commands run design's `npm run store`. They need design cloned at `../design` (or `DESIGN=<path>`), with `npm ci` and `npm run setup:browser` run there once.
+
 ## Repo map
 
 | Path              | Contents                                                                         |
