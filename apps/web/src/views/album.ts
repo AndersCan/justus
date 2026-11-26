@@ -726,12 +726,13 @@ function memberRow(
   </li>`;
 }
 
-const requestKey = (r: { folderId: string; requesterKey: string }) =>
-  `request:${r.folderId}/${r.requesterKey}`;
-
 interface InviteRequest {
   folderId: string;
   requesterKey: string;
+}
+
+function requestKey(request: InviteRequest) {
+  return `request:${request.folderId}/${request.requesterKey}`;
 }
 
 interface InviteAcceptOptions {
