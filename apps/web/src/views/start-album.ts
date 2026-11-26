@@ -12,19 +12,27 @@ import { copy, t } from "../copy/copy";
 import { modalDialog } from "./modal-dialog";
 
 const albumModal = modalDialog();
+
+interface AskAlbumNameOptions {
+  confirmLabel: string;
+}
+
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
  * Resolves the new album's name, or
- * null on Cancel / Escape / backdrop tap. Same overlay pattern as
+ * undefined on Cancel / Escape / backdrop tap. Same overlay pattern as
  * `confirmAction`. */
-function askAlbumName(detail: string, confirmLabel: string): Promise<string | null> {
+function askAlbumName(detail: string, options: AskAlbumNameOptions): Promise<string | undefined> {
   return new Promise((resolve) => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const close = (result: string | null) => {
+    function close(result: string | undefined) {
       render(null, host);
       host.remove();
       resolve(result);
-    };
+    }
+    function cancel() {
+      close(undefined);
+    }
     render(
       html`
         <dialog
@@ -56,11 +64,11 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
                 class="ui-btn-ghost"
                 type="button"
                 data-dismiss
-                @click=${() => close(null)}
+                @click=${cancel}
               >
                 ${t("start_album.cancel")}
               </button>
-              <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>
+              <wa-button variant="brand" type="submit">${options.confirmLabel}</wa-button>
             </div>
           </form>
         </dialog>
@@ -101,7 +109,7 @@ export async function startAlbum(
   detail: string,
   confirmLabel = copy("start_album.create_album"),
 ): Promise<string | null> {
-  const name = await askAlbumName(detail, confirmLabel);
+  const name = await askAlbumName(detail, { confirmLabel });
   if (!name) return null;
   return createAlbum(name);
 }

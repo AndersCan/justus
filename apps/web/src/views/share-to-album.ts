@@ -85,7 +85,7 @@ export function shareSheetPanel(v: ShareSheetView, on: ShareSheetActions): Templ
           class="ui-btn-ghost"
           type="button"
           data-dismiss
-          @click=${() => on.notNow()}
+          @click=${on.notNow}
         >
           ${copy("share_to_album.not_now")}
         </button>
