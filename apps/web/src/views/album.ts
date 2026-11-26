@@ -311,7 +311,13 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean, arc
       aria-label=${copy("album.more_options")}
       ${refocusMenu}
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <circle cx="12" cy="5" r="2" />
         <circle cx="12" cy="12" r="2" />
         <circle cx="12" cy="19" r="2" />
@@ -720,22 +726,34 @@ function memberRow(
   </li>`;
 }
 
-const requestKey = (r: { folderId: string; requesterKey: string }) =>
-  `request:${r.folderId}/${r.requesterKey}`;
+interface InviteRequest {
+  folderId: string;
+  requesterKey: string;
+}
 
-function inviteAccept(
-  r: { folderId: string; requesterKey: string },
-  busy: boolean,
-  label: string,
-  meaning: string,
-  onClick: () => void,
-  cls: string,
-) {
-  const descId = `${requestKey(r)}:${label}`;
-  return html`<button class=${cls} aria-describedby=${descId} ?disabled=${busy} @click=${onClick}>
+function requestKey(request: InviteRequest) {
+  return `request:${request.folderId}/${request.requesterKey}`;
+}
+
+interface InviteAcceptOptions {
+  busy: boolean;
+  label: string;
+  meaning: string;
+  onClick: () => void;
+  buttonClass: string;
+}
+
+function inviteAccept(request: InviteRequest, options: InviteAcceptOptions) {
+  const descriptionId = `${requestKey(request)}:${options.label}`;
+  return html`<button
+    class=${options.buttonClass}
+    aria-describedby=${descriptionId}
+    ?disabled=${options.busy}
+    @click=${options.onClick}
+  >
     <span class="flex w-full flex-col items-start text-left">
-      <span>${label}</span>
-      <span class="text-xs font-normal" id=${descId} aria-hidden="true">${meaning}</span>
+      <span>${options.label}</span>
+      <span id=${descriptionId} class="text-xs font-normal" aria-hidden="true">${options.meaning}</span>
     </span>
   </button>`;
 }
@@ -813,22 +831,20 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
     ${
       r.viaInvite
         ? html`<div class="mt-2 flex flex-col gap-2">
-            ${inviteAccept(
-              r,
+            ${inviteAccept(r, {
               busy,
-              copy("album.accept_as_viewer"),
-              copy("album.sees_every_photo_can_t"),
-              accept("reader"),
-              "ui-btn-primary w-full",
-            )}
-            ${inviteAccept(
-              r,
+              label: copy("album.accept_as_viewer"),
+              meaning: copy("album.sees_every_photo_can_t"),
+              onClick: accept("reader"),
+              buttonClass: "ui-btn-primary w-full",
+            })}
+            ${inviteAccept(r, {
               busy,
-              copy("album.accept_as_collaborator"),
-              copy("album.sees_every_photo_and_can"),
-              accept("member"),
-              "ui-btn-ghost w-full",
-            )}
+              label: copy("album.accept_as_collaborator"),
+              meaning: copy("album.sees_every_photo_and_can"),
+              onClick: accept("member"),
+              buttonClass: "ui-btn-ghost w-full",
+            })}
             <button
               class="ui-btn-ghost w-full"
               ?disabled=${busy}

@@ -16,10 +16,30 @@ function phoneToPhone(): TemplateResult {
       <path d="M96 38h38a10 10 0 0 0 0-20a15 15 0 0 0-28-4a11 11 0 0 0-10 24z" />
       <path d="M97 8l46 34" />
     </g>
-    <rect x="20" y="40" width="48" height="76" rx="9" />
-    <rect x="172" y="40" width="48" height="76" rx="9" />
+    <rect
+      x="20"
+      y="40"
+      width="48"
+      height="76"
+      rx="9"
+    />
+    <rect
+      x="172"
+      y="40"
+      width="48"
+      height="76"
+      rx="9"
+    />
     <path class="text-muted" d="M76 78h88" stroke-dasharray="2 7" />
-    <rect x="181" y="69" width="30" height="20" rx="3" fill="currentColor" stroke="none" />
+    <rect
+      x="181"
+      y="69"
+      width="30"
+      height="20"
+      rx="3"
+      fill="currentColor"
+      stroke="none"
+    />
   </svg>`;
 }
 

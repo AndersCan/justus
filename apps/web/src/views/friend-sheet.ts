@@ -130,7 +130,12 @@ export function friendSheetView() {
         </p>
         ${sheet.error ? html`<p class="mt-1 text-xs text-danger-fg" role="alert">${sheet.error}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" data-dismiss ?disabled=${busy} @click=${closeSheet}>
+          <button
+            class="ui-btn-ghost"
+            data-dismiss
+            ?disabled=${busy}
+            @click=${closeSheet}
+          >
             ${t("friend_sheet.cancel")}
           </button>
           <button
