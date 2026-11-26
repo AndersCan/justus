@@ -81,7 +81,12 @@ export function shareSheetPanel(v: ShareSheetView, on: ShareSheetActions): Templ
       <h3 class="text-base font-semibold text-fg">${title}</h3>
       ${body}
       <div class="mt-4 flex justify-end gap-2">
-        <button class="ui-btn-ghost" type="button" data-dismiss @click=${() => on.notNow()}>
+        <button
+          class="ui-btn-ghost"
+          type="button"
+          data-dismiss
+          @click=${() => on.notNow()}
+        >
           ${copy("share_to_album.not_now")}
         </button>
         ${

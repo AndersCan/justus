@@ -40,7 +40,12 @@ function pictureRow(name: string) {
       <div class="flex flex-wrap gap-2">
         <label class="ui-btn-ghost cursor-pointer">
           ${picture ? copy("settings.change_picture") : copy("settings.add_picture")}
-          <input class="sr-only" type="file" accept="image/*" @change=${pickPicture} />
+          <input
+            class="sr-only"
+            type="file"
+            accept="image/*"
+            @change=${pickPicture}
+          />
         </label>
         ${
           picture

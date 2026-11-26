@@ -179,7 +179,12 @@ export function holdersSheet(
         ${t("photo_holders.copies_outside_justus_not_listed")}
       </p>
       <div class="mt-4 flex justify-end">
-        <button class="ui-btn-ghost" data-dismiss autofocus @click=${closeHolders}>
+        <button
+          class="ui-btn-ghost"
+          data-dismiss
+          autofocus
+          @click=${closeHolders}
+        >
           ${t("photo_holders.close")}
         </button>
       </div>

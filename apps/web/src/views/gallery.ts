@@ -318,11 +318,37 @@ function emptyIllustration() {
     aria-hidden="true"
     class="mx-auto mb-4"
   >
-    <rect x="26" y="18" width="68" height="84" rx="10" class="fill-surface stroke-line" />
-    <rect x="34" y="26" width="52" height="44" rx="6" class="fill-subtle" />
-    <circle cx="52" cy="40" r="7" class="fill-warn" />
+    <rect
+      class="fill-surface stroke-line"
+      x="26"
+      y="18"
+      width="68"
+      height="84"
+      rx="10"
+    />
+    <rect
+      class="fill-subtle"
+      x="34"
+      y="26"
+      width="52"
+      height="44"
+      rx="6"
+    />
+    <circle
+      class="fill-warn"
+      cx="52"
+      cy="40"
+      r="7"
+    />
     <path d="M34 64 L48 50 L60 62 L68 54 L86 70 L86 70 L34 70 Z" class="fill-accent" />
-    <rect x="42" y="78" width="36" height="5" rx="2.5" class="fill-line" />
+    <rect
+      class="fill-line"
+      x="42"
+      y="78"
+      width="36"
+      height="5"
+      rx="2.5"
+    />
   </svg>`;
 }
 

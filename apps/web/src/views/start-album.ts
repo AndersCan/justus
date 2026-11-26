@@ -52,7 +52,12 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
               autofocus
             />
             <div class="mt-4 flex justify-end gap-2">
-              <button class="ui-btn-ghost" type="button" data-dismiss @click=${() => close(null)}>
+              <button
+                class="ui-btn-ghost"
+                type="button"
+                data-dismiss
+                @click=${() => close(null)}
+              >
                 ${t("start_album.cancel")}
               </button>
               <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>

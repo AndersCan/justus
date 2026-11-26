@@ -311,7 +311,13 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean, arc
       aria-label=${copy("album.more_options")}
       ${refocusMenu}
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <circle cx="12" cy="5" r="2" />
         <circle cx="12" cy="12" r="2" />
         <circle cx="12" cy="19" r="2" />
@@ -732,7 +738,12 @@ function inviteAccept(
   cls: string,
 ) {
   const descId = `${requestKey(r)}:${label}`;
-  return html`<button class=${cls} aria-describedby=${descId} ?disabled=${busy} @click=${onClick}>
+  return html`<button
+    class=${cls}
+    aria-describedby=${descId}
+    ?disabled=${busy}
+    @click=${onClick}
+  >
     <span class="flex w-full flex-col items-start text-left">
       <span>${label}</span>
       <span class="text-xs font-normal" id=${descId} aria-hidden="true">${meaning}</span>
