@@ -103,6 +103,8 @@ Both `store:*` commands run design's `npm run store`. They need design cloned at
 
 ## Gotchas that cost time before
 
+- **Run tools with `pnpm exec`, not `npx`, at the repo root.** The root
+  `package.json` names pnpm in `devEngines`, so npm stops with `EBADDEVENGINES`.
 - **Never leave a worklet or `scripts/e2e-server.mjs` running in the background**
   of an agent session; it makes tools return empty results. Boot, probe, kill
   inside one script.
