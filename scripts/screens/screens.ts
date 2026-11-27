@@ -60,14 +60,15 @@ async function main(): Promise<void> {
   }
   const folder = resolve(parsed.value.out ?? join(root, "test-results/screens"));
   mkdirSync(folder, { recursive: true });
-  removeOldShots(folder);
   const logPath = join(root, "test-results/screens-server.log");
+  console.log("screens: building the app and starting its server");
   const server = await startServer(logPath);
   if (!server.ok) {
     console.error(`screens: ${server.error}, see ${logPath}`);
     process.exitCode = 1;
     return;
   }
+  removeOldShots(folder);
   const browser = await chromium.launch();
   const result = await walkScreens(browser, { folder, themeChoice: parsed.value.themeChoice });
   await browser.close();
@@ -101,8 +102,12 @@ async function walkScreens(browser: Browser, options: WalkOptions): Promise<Walk
       const fileName = screenFileName(screen.name, shotOptions);
       const shot = await wrap(shootScreen(browser, { screen, shot: shotOptions, fileName }));
       const failure = shot.ok ? shot.value : String(shot.error);
-      if (failure === undefined) result.saved.push(fileName);
-      else result.failed.push(`${fileName}: ${failure}`);
+      if (failure !== undefined) {
+        result.failed.push(`${fileName}: ${failure}`);
+        continue;
+      }
+      console.log(`screens: ${fileName}`);
+      result.saved.push(fileName);
     }
   }
   return result;
@@ -224,7 +229,7 @@ function storageFor(screen: Screen) {
 async function startServer(logPath: string): Promise<Either<string, ChildProcess>> {
   mkdirSync(dirname(logPath), { recursive: true });
   const log = openSync(logPath, "w");
-  const server = spawn("node", [join(root, "scripts/e2e-server.mjs")], {
+  const server = spawn(process.execPath, [join(root, "scripts/e2e-server.mjs")], {
     cwd: root,
     stdio: ["ignore", log, log],
     detached: true,
