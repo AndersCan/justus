@@ -4490,7 +4490,9 @@
                 "name": "Ånna"
               }
             ],
-            "memberIdentities": ["oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]
+            "memberIdentities": [
+              "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+            ]
           }
         }
       ]

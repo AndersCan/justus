@@ -227,7 +227,11 @@
           "event": "ACCEPT_ALL",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": ["k1", "k2", "k3"],
+            "requesterKeys": [
+              "k1",
+              "k2",
+              "k3"
+            ],
             "role": "reader"
           }
         },
@@ -322,7 +326,11 @@
           "event": "ACCEPT_ALL",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": ["k1", "k2", "k3"],
+            "requesterKeys": [
+              "k1",
+              "k2",
+              "k3"
+            ],
             "role": "reader"
           }
         },
@@ -413,7 +421,11 @@
           "event": "ACCEPT_ALL",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": ["k1", "k2", "k3"],
+            "requesterKeys": [
+              "k1",
+              "k2",
+              "k3"
+            ],
             "role": "member"
           }
         },
