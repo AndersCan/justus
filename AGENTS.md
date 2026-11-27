@@ -78,6 +78,7 @@ layer, Host, Actor). Use those terms exactly.
 | `pnpm flows:dev [feature\|file]`                  | Live viz page for those machines (:5180); redraws on save                                         |
 | `pnpm store:listing`                              | Play + App Store listing mock from `store-listing.json` and the fastlane text; redraws on save    |
 | `pnpm store:render`                               | Store images as PNGs into `store-listing/out/` (design cloned at `../design`, or `DESIGN=<path>`) |
+| `pnpm screens`                                    | One PNG per screen, in walk order, into `test-results/screens/`; flags `--theme`, `--out`         |
 | `pnpm test:e2e`                                   | Playwright against the real worklet (needs `libatomic1` on Linux)                                 |
 | `pnpm test:e2e-hub` / `test:e2e-p2p`              | Multi-peer hub / p2p suites                                                                       |
 | `pnpm test:native`                                | Maestro on an Android emulator (needs SDK + AVD; gates release)                                   |
