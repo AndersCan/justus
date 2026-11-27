@@ -5,10 +5,10 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    /** The walk recorder rewrites `__runs__` on every test run in its own layout, so formatting them dirties the tree each time. */
     ignorePatterns: [
       "apps/web/src/design/**",
       "packages/core/fixtures/shared-in-batch.v1.json",
+      // The walk recorder rewrites __runs__ in its own layout on every test run; formatting them dirties the tree each time.
       "**/__runs__/**",
     ],
     /** html templates keep their hand layout, so a tag with many attributes can stay one attribute per line instead of being folded back whenever it fits. */
