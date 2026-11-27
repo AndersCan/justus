@@ -129,7 +129,7 @@ async function openJoin(page: Page): Promise<void> {
 async function openSettings(page: Page): Promise<void> {
   await page.goto("/settings");
   await page.getByRole("radio", { name: "Auto" }).waitFor();
-  await expect(page.getByLabel("Your name")).not.toHaveValue("");
+  await expect(page.getByLabel("Your name")).not.toHaveValue("", { timeout: 15_000 });
 }
 
 async function openHelp(page: Page): Promise<void> {

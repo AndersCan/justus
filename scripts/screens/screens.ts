@@ -3,6 +3,7 @@ import { isScreenFileName, screenFileName, themesFor } from "./screen-file-name.
 import { left, right, wrap } from "./either.ts";
 import { mkdirSync, openSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { parseScreensArguments, screensUsage } from "./parse-screens-arguments.ts";
+import { spawn, spawnSync } from "node:child_process";
 import type { Theme, ThemeChoice } from "./screen-file-name.ts";
 import type { Browser } from "@playwright/test";
 import type { ChildProcess } from "node:child_process";
@@ -13,7 +14,6 @@ import type { Page } from "@playwright/test";
 import type { Screen } from "./screen-walk.ts";
 import { screenWalk } from "./screen-walk.ts";
 import { setTimeout as sleep } from "node:timers/promises";
-import { spawn } from "node:child_process";
 
 /**
  * `pnpm screens [--out <folder>] [--theme light|dark|both]` boots the real stack
@@ -100,7 +100,7 @@ async function walkScreens(browser: Browser, options: WalkOptions): Promise<Walk
       const shotOptions = { folder: options.folder, position: index + 1, theme };
       const fileName = screenFileName(screen.name, shotOptions);
       const shot = await wrap(shootScreen(browser, { screen, shot: shotOptions, fileName }));
-      const failure = failureOf(shot);
+      const failure = shot.ok ? shot.value : String(shot.error);
       if (failure === undefined) result.saved.push(fileName);
       else result.failed.push(`${fileName}: ${failure}`);
     }
@@ -108,7 +108,7 @@ async function walkScreens(browser: Browser, options: WalkOptions): Promise<Walk
   return result;
 }
 
-/** Why a screen has no shot, whether its steps failed or something threw; undefined when it saved. */
+/** Why a screen has no shot, whether a step failed or something threw; undefined when it saved. */
 function failureOf(shot: Either<unknown, Either<string, void>>): string | undefined {
   if (!shot.ok) return String(shot.error);
   if (!shot.value.ok) return shot.value.error;
@@ -122,7 +122,7 @@ interface ShootRequest {
 }
 
 /** One screen at a time: the worklet serves one page socket, so a second open page would steal it. */
-async function shootScreen(browser: Browser, request: ShootRequest): Promise<Either<string, void>> {
+async function shootScreen(browser: Browser, request: ShootRequest): Promise<string | undefined> {
   const { screen, shot, fileName } = request;
   const context = await browser.newContext({
     baseURL: originFor(screen),
@@ -134,26 +134,25 @@ async function shootScreen(browser: Browser, request: ShootRequest): Promise<Eit
   context.setDefaultTimeout(stepMilliseconds);
   const page = await context.newPage();
   const opened = await wrap(screen.open(page));
-  const path = new URL(page.url()).pathname;
-  const saved = await saveShot(page, { opened, path, screen, file: join(shot.folder, fileName) });
+  const saved = await wrap(saveShot(page, { opened, screen, file: join(shot.folder, fileName) }));
   await context.close();
-  return saved;
+  return failureOf(saved);
 }
 
 interface SaveShotOptions {
   opened: Either<unknown, void>;
-  path: string;
   screen: Screen;
   file: string;
 }
 
 async function saveShot(page: Page, options: SaveShotOptions): Promise<Either<string, void>> {
   if (!options.opened.ok) return left(String(options.opened.error));
-  if (!options.screen.endsOn.test(options.path)) {
-    return left(`ended on ${options.path}, expected ${String(options.screen.endsOn)}`);
-  }
   await waitForStillPage(page);
   await growToContent(page);
+  const path = new URL(page.url()).pathname;
+  if (!options.screen.endsOn.test(path)) {
+    return left(`ended on ${path}, expected ${String(options.screen.endsOn)}`);
+  }
   const taken = await wrap(page.screenshot({ path: options.file, animations: "disabled" }));
   if (!taken.ok) return left(String(taken.error));
   return right(undefined);
@@ -235,7 +234,7 @@ async function startServer(logPath: string): Promise<Either<string, ChildProcess
   while (Date.now() < deadline) {
     const bootLog = readFileSync(logPath, "utf8");
     if (bootLog.includes(serverReadyLine)) return right(server);
-    if (server.exitCode !== null) return left(bootFailure(bootLog));
+    if (hasExited(server)) return left(bootFailure(bootLog));
     await sleep(500);
   }
   stopServer(server);
@@ -248,9 +247,18 @@ function bootFailure(bootLog: string): string {
   return errorLine ?? "the e2e server stopped while it booted";
 }
 
+/**
+ * Signals the whole process group, even when the e2e server itself has exited: on some failures it
+ * exits and leaves a worklet behind. `kill` reports a group that is already gone instead of throwing.
+ */
 function stopServer(server: ChildProcess): void {
-  const running = server.exitCode === null && server.signalCode === null;
-  if (running && server.pid !== undefined) process.kill(-server.pid, "SIGTERM");
+  if (server.pid === undefined) return;
+  const group = `-${server.pid}`;
+  spawnSync("kill", ["-TERM", "--", group], { stdio: "ignore" });
+}
+
+function hasExited(server: ChildProcess): boolean {
+  return server.exitCode !== null || server.signalCode !== null;
 }
 
 function report(result: WalkResult): void {
