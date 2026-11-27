@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { isScreenFileName, screenFileName, themesFor } from "./screen-file-name.ts";
 import { left, right, wrap } from "./either.ts";
-import { mkdirSync, openSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, openSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { parseScreensArguments, screensUsage } from "./parse-screens-arguments.ts";
 import type { Theme, ThemeChoice } from "./screen-file-name.ts";
 import type { Browser } from "@playwright/test";
@@ -27,12 +27,13 @@ const newPhoneOrigin = "http://127.0.0.1:8091";
 const serverBootMilliseconds = 300_000;
 const stepMilliseconds = 15_000;
 const phoneViewport = { width: 390, height: 844 };
+const serverReadyLine = "[justus:e2e] worklet up on";
+const stillPage = { quietMilliseconds: 1000, limitMilliseconds: 10_000 };
 
 interface ShotOptions {
   folder: string;
   position: number;
   theme: Theme;
-  themeChoice: ThemeChoice;
 }
 
 interface WalkOptions {
@@ -53,6 +54,10 @@ async function main(): Promise<void> {
     process.exitCode = 2;
     return;
   }
+  if (parsed.value.command === "help") {
+    console.log(screensUsage);
+    return;
+  }
   const folder = resolve(parsed.value.out ?? join(root, "test-results/screens"));
   mkdirSync(folder, { recursive: true });
   removeOldShots(folder);
@@ -63,7 +68,6 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  stopServerOnExit(server.value);
   const browser = await chromium.launch();
   const result = await walkScreens(browser, { folder, themeChoice: parsed.value.themeChoice });
   await browser.close();
@@ -79,12 +83,13 @@ function removeOldShots(folder: string): void {
 
 /**
  * The server runs in its own process group, so it outlives this script unless stopped. A crash, an
- * error exit and Ctrl-C all pass through `exit`.
+ * error exit, Ctrl-C and a closed terminal all pass through `exit`, during boot too.
  */
 function stopServerOnExit(server: ChildProcess): void {
   process.once("exit", () => stopServer(server));
   process.once("SIGINT", () => process.exit(130));
   process.once("SIGTERM", () => process.exit(143));
+  process.once("SIGHUP", () => process.exit(129));
 }
 
 async function walkScreens(browser: Browser, options: WalkOptions): Promise<WalkResult> {
@@ -92,26 +97,33 @@ async function walkScreens(browser: Browser, options: WalkOptions): Promise<Walk
   const themes = themesFor(options.themeChoice);
   for (const [index, screen] of screenWalk.entries()) {
     for (const theme of themes) {
-      const shotOptions = { ...options, position: index + 1, theme };
-      const shot = await shootScreen(browser, { screen, shot: shotOptions });
-      if (shot.ok) result.saved.push(shot.value);
-      else result.failed.push(shot.error);
+      const shotOptions = { folder: options.folder, position: index + 1, theme };
+      const fileName = screenFileName(screen.name, shotOptions);
+      const shot = await wrap(shootScreen(browser, { screen, shot: shotOptions, fileName }));
+      const failure = failureOf(shot);
+      if (failure === undefined) result.saved.push(fileName);
+      else result.failed.push(`${fileName}: ${failure}`);
     }
   }
   return result;
 }
 
+/** Why a screen has no shot, whether its steps failed or something threw; undefined when it saved. */
+function failureOf(shot: Either<unknown, Either<string, void>>): string | undefined {
+  if (!shot.ok) return String(shot.error);
+  if (!shot.value.ok) return shot.value.error;
+  return undefined;
+}
+
 interface ShootRequest {
   screen: Screen;
   shot: ShotOptions;
+  fileName: string;
 }
 
 /** One screen at a time: the worklet serves one page socket, so a second open page would steal it. */
-async function shootScreen(
-  browser: Browser,
-  request: ShootRequest,
-): Promise<Either<string, string>> {
-  const { screen, shot } = request;
+async function shootScreen(browser: Browser, request: ShootRequest): Promise<Either<string, void>> {
+  const { screen, shot, fileName } = request;
   const context = await browser.newContext({
     baseURL: originFor(screen),
     viewport: phoneViewport,
@@ -121,13 +133,11 @@ async function shootScreen(
   });
   context.setDefaultTimeout(stepMilliseconds);
   const page = await context.newPage();
-  const fileName = screenFileName(screen.name, shot);
   const opened = await wrap(screen.open(page));
   const path = new URL(page.url()).pathname;
   const saved = await saveShot(page, { opened, path, screen, file: join(shot.folder, fileName) });
   await context.close();
-  if (!saved.ok) return left(`${fileName}: ${saved.error}`);
-  return right(fileName);
+  return saved;
 }
 
 interface SaveShotOptions {
@@ -142,10 +152,43 @@ async function saveShot(page: Page, options: SaveShotOptions): Promise<Either<st
   if (!options.screen.endsOn.test(options.path)) {
     return left(`ended on ${options.path}, expected ${String(options.screen.endsOn)}`);
   }
+  await waitForStillPage(page);
   await growToContent(page);
   const taken = await wrap(page.screenshot({ path: options.file, animations: "disabled" }));
   if (!taken.ok) return left(String(taken.error));
   return right(undefined);
+}
+
+/**
+ * Waits until nothing on the page has changed for a second, at most ten. Data from the worklet keeps
+ * arriving after a screen's own step is done, such as the profile name on Settings.
+ */
+async function waitForStillPage(page: Page): Promise<void> {
+  await page.evaluate(untilStill, stillPage);
+}
+
+function untilStill(options: typeof stillPage): Promise<void> {
+  return new Promise((settle) => {
+    const observer = new MutationObserver(() => restartQuietTimer());
+    let quietTimer = setTimeout(finish, options.quietMilliseconds);
+    const limitTimer = setTimeout(finish, options.limitMilliseconds);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    function restartQuietTimer(): void {
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(finish, options.quietMilliseconds);
+    }
+    function finish(): void {
+      observer.disconnect();
+      clearTimeout(quietTimer);
+      clearTimeout(limitTimer);
+      settle();
+    }
+  });
 }
 
 /**
@@ -169,12 +212,11 @@ function originFor(screen: Screen): string {
 }
 
 function storageFor(screen: Screen) {
-  const welcomeSeen = { name: "justus:welcome-seen", value: "1" };
   switch (screen.phone) {
     case "new":
       return { cookies: [], origins: [] };
     case "seeded":
-      return { cookies: [], origins: [{ origin: seededOrigin, localStorage: [welcomeSeen] }] };
+      return join(root, "e2e/welcome-seen.json");
     default:
       return isNever(screen.phone);
   }
@@ -188,19 +230,22 @@ async function startServer(logPath: string): Promise<Either<string, ChildProcess
     stdio: ["ignore", log, log],
     detached: true,
   });
+  stopServerOnExit(server);
   const deadline = Date.now() + serverBootMilliseconds;
   while (Date.now() < deadline) {
-    if (await isUp(`${seededOrigin}/index.html`)) return right(server);
-    if (server.exitCode !== null) return left("the e2e server stopped while it booted");
+    const bootLog = readFileSync(logPath, "utf8");
+    if (bootLog.includes(serverReadyLine)) return right(server);
+    if (server.exitCode !== null) return left(bootFailure(bootLog));
     await sleep(500);
   }
   stopServer(server);
   return left("the e2e server did not come up");
 }
 
-async function isUp(url: string): Promise<boolean> {
-  const response = await wrap(fetch(url));
-  return response.ok && response.value.ok;
+/** The server's own last error line, which names the cause, such as a port in use. */
+function bootFailure(bootLog: string): string {
+  const errorLine = bootLog.split("\n").findLast((line) => line.includes("ERROR"));
+  return errorLine ?? "the e2e server stopped while it booted";
 }
 
 function stopServer(server: ChildProcess): void {

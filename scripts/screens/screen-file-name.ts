@@ -5,22 +5,20 @@ export type ThemeChoice = Theme | "both";
 interface ScreenFileNameOptions {
   position: number;
   theme: Theme;
-  themeChoice: ThemeChoice;
 }
 
 /**
- * The PNG name for a screen: a three-digit walk position, then the screen, so a folder listing
- * reads in walk order. With both themes, each file names its theme.
+ * The PNG name for a screen: a three-digit walk position, the screen, then its theme, so a folder
+ * listing reads in walk order and each file says how it was drawn.
  */
 export function screenFileName(screen: string, options: ScreenFileNameOptions): string {
   const position = String(options.position).padStart(3, "0");
-  if (options.themeChoice === "both") return `${position}-${screen}-${options.theme}.png`;
-  return `${position}-${screen}.png`;
+  return `${position}-${screen}-${options.theme}.png`;
 }
 
 /** Whether a file is one `screenFileName` writes, so a new run can clear only those. */
 export function isScreenFileName(fileName: string): boolean {
-  return /^\d{3}-[a-z0-9-]+\.png$/.test(fileName);
+  return /^\d{3}-[a-z0-9-]+-(light|dark)\.png$/.test(fileName);
 }
 
 /** The themes one run shoots, in the order each screen gets them. */
